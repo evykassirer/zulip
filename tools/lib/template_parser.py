@@ -72,8 +72,11 @@ def tokenize(text: str) -> List[Token]:
     def looking_at_djangocomment() -> bool:
         return looking_at("{#")
 
-    def looking_at_handlebars_partial() -> bool:
+    def looking_at_handlebars_singleton() -> bool:
         return looking_at("{{>")
+
+    def looking_at_handlebars_partial() -> bool:
+        return looking_at("{{#>")
 
     def looking_at_html_start() -> bool:
         return looking_at("<") and not looking_at("</")
@@ -136,10 +139,14 @@ def tokenize(text: str) -> List[Token]:
                 s = get_django_comment(text, state.i)
                 tag = s[2:-2]
                 kind = "django_comment"
-            elif looking_at_handlebars_partial():
+            elif looking_at_handlebars_singleton():
                 s = get_handlebars_partial(text, state.i)
                 tag = s[9:-2]
                 kind = "handlebars_singleton"
+            elif looking_at_handlebars_partial():
+                s = get_handlebars_partial(text, state.i)
+                tag = s[5:-2]
+                kind = "handlebars_partial"
             elif looking_at_html_start():
                 s = get_html_tag(text, state.i)
                 if s.endswith("/>"):
@@ -311,7 +318,7 @@ def tag_flavor(token: Token) -> Optional[str]:
     ):
         return None
 
-    if kind in ("handlebars_start", "html_start"):
+    if kind in ("handlebars_start", "handlebars_partial", "html_start"):
         return "start"
     elif kind in (
         "django_else",
