@@ -2,7 +2,7 @@ import $ from "jquery";
 
 import * as channel from "./channel";
 import * as compose from "./compose";
-import * as compose_error from "./compose_error";
+import * as compose_banner from "./compose_banner";
 import * as hash_util from "./hash_util";
 import {$t, $t_html} from "./i18n";
 import * as message_lists from "./message_lists";
@@ -71,7 +71,7 @@ export function schedule_message(request = compose.create_message_object()) {
     }
 
     if (error_message) {
-        compose_error.show_error_message(
+        compose_banner.show_error_message(
             error_message,
             "generic_compose_error",
             $("#compose-textarea"),
@@ -99,7 +99,7 @@ export function schedule_message(request = compose.create_message_object()) {
     };
     const error = function (response) {
         $("#compose-textarea").prop("disabled", false);
-        compose_error.show_error_message(response, $("#compose-textarea"));
+        compose_banner.show_error_message(response, $("#compose-textarea"));
     };
     /* We are adding a disable on compose under this block because we
     want slash commands to be blocking in nature. */
