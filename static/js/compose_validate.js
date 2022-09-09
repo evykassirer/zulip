@@ -224,7 +224,7 @@ export function warn_if_topic_resolved(topic_changed) {
     }
 }
 
-function show_wildcard_warnings(stream_id) {
+export function show_wildcard_warnings(stream_id) {
     const subscriber_count = peer_data.get_subscriber_count(stream_id) || 0;
 
     const $compose_banner_area = $("#compose_banners");

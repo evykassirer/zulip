@@ -59,6 +59,7 @@ const people = zrequire("people");
 
 const compose = zrequire("compose");
 const compose_state = zrequire("compose_state");
+const compose_banner = zrequire("compose_banner");
 const compose_actions = zrequire("compose_actions");
 const message_lists = zrequire("message_lists");
 const stream_data = zrequire("stream_data");
@@ -69,6 +70,17 @@ const get_focus_area = compose_actions._get_focus_area;
 const respond_to_message = compose_actions.respond_to_message;
 const reply_with_mention = compose_actions.reply_with_mention;
 const quote_and_reply = compose_actions.quote_and_reply;
+
+// TODO: dedupe this function --- ASK where a good place for shared tooling like this is,
+// since I don't see many shared functions in unit tests. Or is it better to just have
+// duplicated code like this?
+function mock_banners() {
+    // zjquery doesn't support `remove`, which is used when clearing the compose box.
+    // TODO: improve how we test this so that we don't have to mock things like this.
+    for (const classname of Object.values(compose_banner.CLASSNAMES)) {
+        $(`#compose_banners .${classname}`).remove = () => {};
+    }
+}
 
 function assert_visible(sel) {
     assert.ok($(sel).visible());
@@ -105,6 +117,7 @@ test("initial_state", () => {
 });
 
 test("start", ({override, override_rewire}) => {
+    mock_banners();
     override_private_message_recipient({override});
     override_rewire(compose_actions, "autosize_message_content", () => {});
     override_rewire(compose_actions, "expand_compose_box", () => {});
@@ -228,6 +241,7 @@ test("start", ({override, override_rewire}) => {
 });
 
 test("respond_to_message", ({override, override_rewire}) => {
+    mock_banners();
     override_rewire(compose_actions, "set_focus", () => {});
     override_rewire(compose_actions, "complete_starting_tasks", () => {});
     override_rewire(compose_actions, "clear_textarea", () => {});
@@ -268,6 +282,7 @@ test("respond_to_message", ({override, override_rewire}) => {
 });
 
 test("reply_with_mention", ({override, override_rewire}) => {
+    mock_banners();
     compose_state.set_message_type("stream");
     override_rewire(compose_actions, "set_focus", () => {});
     override_rewire(compose_actions, "complete_starting_tasks", () => {});
@@ -314,6 +329,7 @@ test("reply_with_mention", ({override, override_rewire}) => {
 });
 
 test("quote_and_reply", ({disallow, override, override_rewire}) => {
+    mock_banners();
     compose_state.set_message_type("stream");
     const steve = {
         user_id: 90,
