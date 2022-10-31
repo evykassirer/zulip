@@ -615,7 +615,7 @@ export function notify_local_mixes(messages, need_user_to_scroll) {
         if (!reason) {
             if (need_user_to_scroll) {
                 reason = $t({defaultMessage: "Sent! Scroll down to view your message."});
-                notify_above_composebox(reason, "", above_composebox_narrow_url, null, "");
+                notify_above_composebox(reason);
                 setTimeout(() => {
                     $("#out-of-view-notification").hide();
                 }, 3000);
@@ -704,13 +704,6 @@ export function register_click_handlers() {
     $("#out-of-view-notification").on("click", ".compose_notification_narrow_by_topic", (e) => {
         const message_id = $(e.currentTarget).data("message-id");
         narrow.by_topic(message_id, {trigger: "compose_notification"});
-        e.stopPropagation();
-        e.preventDefault();
-    });
-    $("#out-of-view-notification").on("click", ".compose_notification_scroll_to_message", (e) => {
-        const message_id = $(e.currentTarget).data("message-id");
-        message_lists.current.select_id(message_id);
-        navigate.scroll_to_selected();
         e.stopPropagation();
         e.preventDefault();
     });
