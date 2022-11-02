@@ -1269,8 +1269,22 @@ body.dark-theme {
         color: hsla(126, 66%, 72%, 0.75);
     }
 
-    #out-of-view-notification {
-        border: 1px solid hsl(144, 45%, 62%);
+    .above_composebox_banner {
+        background-color: hsl(147, 100%, 8%);
+        border-color: hsla(149, 48%, 52%, 0.4);
+        color: hsl(147, 51%, 55%);
+
+        .above_composebox_banner_close_button {
+            color: hsl(147, 51%, 55%, 0.5);
+
+            &:hover {
+                color: hsl(147, 51%, 55%);
+            }
+
+            &:active {
+                color: hsl(147, 51%, 55%, 0.75);
+            }
+        }
     }
 
     #bots_lists_navbar .active a {
