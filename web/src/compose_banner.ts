@@ -34,6 +34,7 @@ export const CLASSNAMES = {
     wildcard_warning: "wildcard_warning",
     private_stream_warning: "private_stream_warning",
     unscheduled_message: "unscheduled_message",
+    compose_in_search_view: "compose_in_search_view",
     // errors
     wildcards_not_allowed: "wildcards_not_allowed",
     subscription_error: "subscription_error",
@@ -104,6 +105,10 @@ export function clear_errors(): void {
 
 export function clear_warnings(): void {
     $(`#compose_banners .${CSS.escape(WARNING)}`).remove();
+}
+
+export function clear_in_search_view(): void {
+    $(`#compose_banners .${CSS.escape("compose_in_search_view")}`).remove();
 }
 
 export function clear_uploads(): void {

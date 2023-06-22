@@ -510,6 +510,7 @@ export function initialize() {
     const user_not_subscribed_selector = `.${CSS.escape(
         compose_banner.CLASSNAMES.user_not_subscribed,
     )}`;
+
     $("body").on(
         "click",
         `${user_not_subscribed_selector} .main-view-banner-action-button`,
@@ -540,6 +541,25 @@ export function initialize() {
                 message_edit.toggle_resolve_topic(message_id, topic_name, true);
                 compose_validate.clear_topic_resolved_warning(true);
             });
+        },
+    );
+
+    $("body").on(
+        "click",
+        `.${CSS.escape(
+            compose_banner.CLASSNAMES.compose_in_search_view,
+        )} .main-view-banner-action-button`,
+        (event) => {
+            event.preventDefault();
+            const $target = $(event.target).parents(".main-view-banner");
+            const stream_id = Number.parseInt($target.attr("data-stream-id"), 10);
+            const topic_name = $target.attr("data-topic-name");
+            const sub = sub_store.get(stream_id);
+            narrow.activate([
+                {operator: "stream", operand: sub.name},
+                {operator: "topic", operand: topic_name},
+            ]);
+            $(`.${CSS.escape(compose_banner.CLASSNAMES.compose_in_search_view)}`).remove();
         },
     );
 

@@ -32,4 +32,10 @@ exports.mock_banners = () => {
     $cb.set_find_results(".missing_private_message_recipient", $stub);
     $cb.set_find_results(".subscription_error", $stub);
     $cb.set_find_results(".generic_compose_error", $stub);
+
+    // Mock `not.remove` which excludes a classname from `remove`.
+    const className = CSS.escape(compose_banner.WARNING);
+    $(`#compose_banners .${className}`).not = () => ({
+        remove() {},
+    });
 };
