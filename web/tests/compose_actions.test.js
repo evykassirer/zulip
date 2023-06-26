@@ -130,7 +130,7 @@ test("start", ({override, override_rewire, mock_template}) => {
 
     // Start stream message
     compose_defaults = {
-        stream: "",
+        stream_id: "",
         topic: "topic1",
     };
 
@@ -180,7 +180,7 @@ test("start", ({override, override_rewire, mock_template}) => {
     };
     stream_data.add_sub(social);
 
-    compose_state.set_stream_name("");
+    compose_state.set_stream_id("");
     // More than 1 subscription, do not autofill
     opts = {};
     start("stream", opts);
@@ -273,12 +273,6 @@ test("respond_to_message", ({override, override_rewire, mock_template}) => {
     assert.equal(compose_state.private_message_recipient(), "alice@example.com");
 
     // Test stream
-    msg = {
-        type: "stream",
-        stream: "Denmark",
-        topic: "python",
-    };
-
     const denmark = {
         subscribed: true,
         color: "blue",
@@ -286,6 +280,14 @@ test("respond_to_message", ({override, override_rewire, mock_template}) => {
         stream_id: 1,
     };
     stream_data.add_sub(denmark);
+
+    msg = {
+        type: "stream",
+        stream: denmark.name,
+        stream_id: denmark.stream_id,
+        topic: "python",
+    };
+
     opts = {};
 
     respond_to_message(opts);
@@ -313,7 +315,8 @@ test("reply_with_mention", ({override, override_rewire, mock_template}) => {
 
     const msg = {
         type: "stream",
-        stream: "Denmark",
+        stream: denmark.name,
+        stream_id: denmark.stream_id,
         topic: "python",
         sender_full_name: "Bob Roberts",
         sender_id: 40,

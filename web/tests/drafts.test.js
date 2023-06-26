@@ -82,6 +82,7 @@ const draft_2 = {
 };
 const short_msg = {
     stream: "stream",
+    stream_id: 30,
     topic: "topic",
     type: "stream",
     content: "a",
@@ -161,11 +162,6 @@ test("snapshot_message", ({override_rewire}) => {
     compose_recipient.set_compose_recipient_id = () => {};
     mock_banners();
 
-    stream_data.get_sub = (stream_name) => {
-        assert.equal(stream_name, "stream");
-        return {stream_id: 30};
-    };
-
     $(".narrow_to_compose_recipients").toggleClass = noop;
 
     mock_stream_header_colorblock();
@@ -179,7 +175,7 @@ test("snapshot_message", ({override_rewire}) => {
         if (curr_draft.type === "private") {
             compose_recipient.set_compose_recipient_id(compose_recipient.DIRECT_MESSAGE_ID);
         } else {
-            compose_state.set_stream_name(curr_draft.stream);
+            compose_state.set_stream_id(curr_draft.stream_id);
         }
         compose_state.topic(curr_draft.topic);
         compose_state.private_message_recipient(curr_draft.private_message_recipient);
@@ -190,7 +186,7 @@ test("snapshot_message", ({override_rewire}) => {
         name: draft_1.stream,
     };
     stream_data.add_sub(stream);
-    compose_state.set_stream_name("stream");
+    compose_state.set_stream_id(stream.stream_id);
 
     curr_draft = draft_1;
     set_compose_state();
