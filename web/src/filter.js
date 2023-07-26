@@ -27,7 +27,8 @@ function zephyr_stream_name_match(message, operand) {
         /^(un)*/.source + _.escapeRegExp(base_stream_name) + /(\.d)*$/.source,
         "i",
     );
-    return related_regexp.test(message.stream);
+    const stream_name = stream_data.get_stream_name_from_id(message.stream_id);
+    return related_regexp.test(stream_name);
 }
 
 function zephyr_topic_name_match(message, operand) {
@@ -60,11 +61,12 @@ function message_in_home(message) {
     // The home view contains messages not sent to muted streams, with
     // additional logic for unmuted topics, mentions, and
     // single-stream windows.
+    const stream_name = stream_data.get_stream_name_from_id(message.stream_id);
     if (
         message.type === "private" ||
         message.mentioned ||
         (page_params.narrow_stream !== undefined &&
-            message.stream.toLowerCase() === page_params.narrow_stream.toLowerCase())
+            stream_name.toLowerCase() === page_params.narrow_stream.toLowerCase())
     ) {
         return true;
     }
@@ -140,11 +142,7 @@ function message_matches_search_term(message, operator, operand) {
             if (stream_id) {
                 return message.stream_id === stream_id;
             }
-
-            // We need this fallback logic in case we have a message
-            // loaded for a stream that we are no longer
-            // subscribed to (or that was deleted).
-            return message.stream.toLowerCase() === operand;
+            return false; // unknown ids return false
         }
 
         case "topic":

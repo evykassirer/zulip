@@ -232,6 +232,10 @@ export function get_stream_id(name) {
     return stream_id;
 }
 
+export function get_stream_name_from_id(stream_id) {
+    return get_sub_by_id(stream_id)?.name || "";
+}
+
 export function get_sub_by_name(name) {
     // Note: Only use this function for situations where
     // you are comfortable with a user dealing with an

@@ -35,7 +35,6 @@ run_test("settings", ({override}) => {
             {
                 date_updated: 1577836800000,
                 date_updated_str: "Jan 1, 2020",
-                stream: frontend.name,
                 stream_id: frontend.stream_id,
                 topic: "js",
                 visibility_policy: user_topics.all_visibility_policies.MUTED,

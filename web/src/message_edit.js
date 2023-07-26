@@ -32,6 +32,7 @@ import {page_params} from "./page_params";
 import * as resize from "./resize";
 import * as rows from "./rows";
 import * as settings_data from "./settings_data";
+import * as stream_data from "./stream_data";
 import * as timerender from "./timerender";
 import * as ui_report from "./ui_report";
 import * as upload from "./upload";
@@ -724,9 +725,10 @@ export function start_inline_topic_edit($recipient_row) {
     }
     const $inline_topic_edit_input = $form.find(".inline_topic_edit");
     $inline_topic_edit_input.val(topic).trigger("select").trigger("focus");
+    const stream_name = stream_data.get_stream_name_from_id(message.stream_id);
     composebox_typeahead.initialize_topic_edit_typeahead(
         $inline_topic_edit_input,
-        message.stream,
+        stream_name,
         false,
     );
 }
