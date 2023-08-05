@@ -283,7 +283,6 @@ test("respond_to_message", ({override, override_rewire, mock_template}) => {
 
     msg = {
         type: "stream",
-        stream: denmark.name,
         stream_id: denmark.stream_id,
         topic: "python",
     };
@@ -315,7 +314,6 @@ test("reply_with_mention", ({override, override_rewire, mock_template}) => {
 
     const msg = {
         type: "stream",
-        stream: denmark.name,
         stream_id: denmark.stream_id,
         topic: "python",
         sender_full_name: "Bob Roberts",
@@ -379,9 +377,15 @@ test("quote_and_reply", ({disallow, override, override_rewire}) => {
         replaced = true;
     });
 
+    const denmark_stream = {
+        subscribed: false,
+        name: "Denmark",
+        stream_id: 20,
+    };
+
     selected_message = {
         type: "stream",
-        stream: "Denmark",
+        stream_id: denmark_stream.stream_id,
         topic: "python",
         sender_full_name: "Steve Stephenson",
         sender_id: 90,
@@ -420,7 +424,7 @@ test("quote_and_reply", ({disallow, override, override_rewire}) => {
 
     selected_message = {
         type: "stream",
-        stream: "Denmark",
+        stream_id: denmark_stream.stream_id,
         topic: "test",
         sender_full_name: "Steve Stephenson",
         sender_id: 90,
@@ -434,7 +438,7 @@ test("quote_and_reply", ({disallow, override, override_rewire}) => {
 
     selected_message = {
         type: "stream",
-        stream: "Denmark",
+        stream_id: denmark_stream.stream_id,
         topic: "test",
         sender_full_name: "Steve Stephenson",
         sender_id: 90,

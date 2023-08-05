@@ -232,6 +232,10 @@ export function get_stream_id(name) {
     return stream_id;
 }
 
+export function get_stream_name_from_id(stream_id) {
+    return get_sub_by_id(stream_id)?.name || "";
+}
+
 export function get_sub_by_name(name) {
     // Note: Only use this function for situations where
     // you are comfortable with a user dealing with an
@@ -634,8 +638,8 @@ export function is_web_public(stream_id) {
     return sub !== undefined && sub.is_web_public;
 }
 
-export function is_invite_only_by_stream_name(stream_name) {
-    const sub = get_sub(stream_name);
+export function is_invite_only_by_stream_id(stream_id) {
+    const sub = get_sub_by_id(stream_id);
     if (sub === undefined) {
         return false;
     }

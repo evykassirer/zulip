@@ -190,7 +190,9 @@ function populate_group_from_message_container(group, message_container) {
         const color = stream_data.get_color(message_container.msg.stream_id);
         group.recipient_bar_color = stream_color.get_recipient_bar_color(color);
         group.stream_privacy_icon_color = stream_color.get_stream_privacy_icon_color(color);
-        group.invite_only = stream_data.is_invite_only_by_stream_name(message_container.msg.stream);
+        group.invite_only = stream_data.is_invite_only_by_stream_id(
+            message_container.msg.stream_id,
+        );
         group.is_web_public = stream_data.is_web_public(message_container.msg.stream_id);
         group.topic = message_container.msg.topic;
         group.match_topic = util.get_match_topic(message_container.msg);
@@ -407,7 +409,7 @@ export class MessageListView {
         message_container.sender_is_guest = people.sender_is_guest(message_container.msg);
 
         message_container.small_avatar_url = people.small_avatar_url(message_container.msg);
-        if (message_container.msg.stream) {
+        if (message_container.msg.stream_id) {
             message_container.background_color = stream_data.get_color(
                 message_container.msg.stream_id,
             );
@@ -436,19 +438,20 @@ export class MessageListView {
 
         const last_subscribed = !last_msg_container.msg.historical;
         const first_subscribed = !first_msg_container.msg.historical;
-        const stream = first_msg_container.msg.stream;
+        const stream_id = first_msg_container.msg.stream_id;
+        const stream_name = stream_data.get_stream_name_from_id(stream_id);
 
         if (!last_subscribed && first_subscribed) {
             group.bookend_top = true;
             group.subscribed = true;
-            group.stream_name = stream;
+            group.stream_name = stream_name;
             return;
         }
 
         if (last_subscribed && !first_subscribed) {
             group.bookend_top = true;
             group.just_unsubscribed = true;
-            group.stream_name = stream;
+            group.stream_name = stream_name;
             return;
         }
     }
@@ -506,7 +509,7 @@ export class MessageListView {
 
                 this.maybe_add_subscription_marker(current_group, prev, message_container);
 
-                if (message_container.msg.stream) {
+                if (message_container.msg.stream_id) {
                     message_container.stream_url = hash_util.by_stream_url(
                         message_container.msg.stream_id,
                     );
