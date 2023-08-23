@@ -82,6 +82,16 @@ export class BuddyList extends BuddyListConf {
         // in already-sorted order.
         this.all_user_ids = opts.keys;
 
+        // This happens sometimes with search. In this situation, we want to
+        // hide both headers and one of the lists, so that the user sees a
+        // single "no matching users" message.
+        if (this.all_user_ids.length === 0) {
+            $("#narrow-users-presence-container").toggleClass("no-display", false);
+            $("#other-users-presence-container").toggleClass("no-display", true);
+            $(".buddy-list-subsection-header").toggleClass("no-display", true);
+            return;
+        }
+
         this.fill_screen_with_content();
     }
 
