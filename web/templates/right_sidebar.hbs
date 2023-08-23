@@ -18,7 +18,20 @@
                 </button>
             </div>
             <div id="buddy_list_wrapper" class="scrolling_list" data-simplebar>
-                <ul id="narrow-user-presences" class="filters required-text" data-empty="{{t 'No matching users.' }}"></ul>
+                <div id="narrow-users-presence-container">
+                    <div class="buddy-list-subsection-header">
+                        <i class="toggle-narrow-users fa fa-sm fa-caret-down" aria-hidden="true"></i>
+                        <h5 class="buddy-list-heading">In selected conversation</h5>
+                    </div>
+                    <ul id="narrow-user-presences" class="filters required-text" data-empty="{{t 'No matching users.' }}"></ul>
+                </div>
+                <div id="other-users-presence-container">
+                    <div class="buddy-list-subsection-header">
+                        <i class="toggle-other-users fa fa-sm fa-caret-down" aria-hidden="true"></i>
+                        <h5 class="buddy-list-heading">Others</h5>
+                    </div>
+                    <ul id="other-user-presences" class="filters required-text" data-empty="{{t 'No matching users.' }}"></ul>
+                </div>
                 <div id="buddy_list_wrapper_padding"></div>
             </div>
         </div>

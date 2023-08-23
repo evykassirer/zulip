@@ -3,9 +3,11 @@ import * as compose_fade_users from "./compose_fade_users";
 import * as hash_util from "./hash_util";
 import {$t} from "./i18n";
 import * as muted_users from "./muted_users";
+import * as narrow_state from "./narrow_state";
 import {page_params} from "./page_params";
 import * as people from "./people";
 import * as presence from "./presence";
+import * as stream_data from "./stream_data";
 import * as timerender from "./timerender";
 import * as unread from "./unread";
 import {user_settings} from "./user_settings";
@@ -66,7 +68,27 @@ export function level(user_id) {
     }
 }
 
-export function compare_function(a, b) {
+export function would_receive_message(user_id, current_sub, pm_ids_string) {
+    if (current_sub) {
+        return stream_data.is_user_subscribed(current_sub.stream_id, user_id);
+    }
+    if (pm_ids_string) {
+        const ids = pm_ids_string.split(",");
+        return ids.includes(user_id.toString());
+    }
+    return false;
+}
+
+export function compare_function(a, b, current_sub, pm_ids_string) {
+    const a_would_recieve_message = would_receive_message(a, current_sub, pm_ids_string);
+    const b_would_recieve_message = would_receive_message(b, current_sub, pm_ids_string);
+    if (a_would_recieve_message && !b_would_recieve_message) {
+        return -1;
+    }
+    if (!a_would_recieve_message && b_would_recieve_message) {
+        return 1;
+    }
+
     const level_a = level(a);
     const level_b = level(b);
     const diff = level_a - level_b;
@@ -86,7 +108,9 @@ export function compare_function(a, b) {
 
 export function sort_users(user_ids) {
     // TODO sort by unread count first, once we support that
-    user_ids.sort(compare_function);
+    const current_sub = narrow_state.stream_sub();
+    const pm_ids_string = narrow_state.pm_ids_string();
+    user_ids.sort((a, b) => compare_function(a, b, current_sub, pm_ids_string));
     return user_ids;
 }
 

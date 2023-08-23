@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/browser";
 import $ from "jquery";
 
+import * as activity from "./activity";
 import {all_messages_data} from "./all_messages_data";
 import * as blueslip from "./blueslip";
 import * as browser_history from "./browser_history";
@@ -578,6 +579,9 @@ export function activate(raw_operators, opts) {
         }
         Sentry.getCurrentHub().popScope();
     }
+    if (activity.user_filter) {
+        activity.build_user_sidebar();
+    }
 }
 
 function min_defined(a, b) {
@@ -1130,5 +1134,8 @@ export function deactivate(coming_from_all_messages = true, is_actively_scrollin
             span.finish();
         }
         Sentry.getCurrentHub().popScope();
+    }
+    if (activity.user_filter) {
+        activity.build_user_sidebar();
     }
 }

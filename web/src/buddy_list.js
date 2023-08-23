@@ -6,11 +6,13 @@ import render_presence_rows from "../templates/presence_rows.hbs";
 import * as blueslip from "./blueslip";
 import * as buddy_data from "./buddy_data";
 import * as message_viewport from "./message_viewport";
+import * as narrow_state from "./narrow_state";
 import * as padded_widget from "./padded_widget";
 import * as scroll_util from "./scroll_util";
 
 class BuddyListConf {
-    container_sel = "#narrow-user-presences";
+    narrow_container_sel = "#narrow-user-presences";
+    other_container_sel = "#other-user-presences";
     scroll_container_sel = "#buddy_list_wrapper";
     item_sel = "li.user_sidebar_entry";
     padding_sel = "#buddy_list_wrapper_padding";
@@ -27,8 +29,10 @@ class BuddyListConf {
 
     get_li_from_key(opts) {
         const user_id = opts.key;
-        const $container = $(this.container_sel);
-        return $container.find(`${this.item_sel}[data-user-id='${CSS.escape(user_id)}']`);
+        const $narrow_users_container = $(this.narrow_container_sel);
+        return $narrow_users_container.find(
+            `${this.item_sel}[data-user-id='${CSS.escape(user_id)}']`,
+        );
     }
 
     get_key_from_li(opts) {
@@ -59,7 +63,8 @@ export class BuddyList extends BuddyListConf {
 
     populate(opts) {
         this.render_count = 0;
-        this.$container.empty();
+        this.$narrow_users_container.empty();
+        this.$other_users_container.empty();
 
         // We rely on our caller to give us items
         // in already-sorted order.
@@ -83,12 +88,45 @@ export class BuddyList extends BuddyListConf {
         const items = this.get_data_from_keys({
             keys: more_keys,
         });
+        const subscribed_users = [];
+        const other_users = [];
+        const current_sub = narrow_state.stream_sub();
+        const pm_ids_string = narrow_state.pm_ids_string();
 
-        const html = this.items_to_html({
-            items,
+        for (const item of items) {
+            if (buddy_data.would_receive_message(item.user_id, current_sub, pm_ids_string)) {
+                subscribed_users.push(item);
+                this.narrow_user_ids.push(item.user_id);
+            } else {
+                other_users.push(i);
+            }
+        }
+
+        const subscribed_users_html = this.items_to_html({
+            items: subscribed_users,
         });
-        this.$container = $(this.container_sel);
-        this.$container.append(html);
+        this.$narrow_users_container = $(this.narrow_container_sel);
+        this.$narrow_users_container.append(subscribed_users_html);
+
+        const other_users_html = this.items_to_html({
+            items: other_users,
+        });
+        this.$other_users_container = $(this.other_container_sel);
+        this.$other_users_container.append(other_users_html);
+
+        const subscribed_users_is_empty = this.$narrow_users_container.children().length === 0;
+        $("#narrow-users-presence-container").toggleClass("no-display", subscribed_users_is_empty);
+        $("#other-users-presence-container .buddy-list-subsection-header").toggleClass(
+            "no-display",
+            subscribed_users.length === 0,
+        );
+
+        const other_users_is_empty = this.$other_users_container.children().length === 0;
+        $("#other-users-presence-container").toggleClass("no-display", other_users_is_empty);
+        $("#narrow-users-presence-container .buddy-list-subsection-header").toggleClass(
+            "no-display",
+            other_users.length === 0,
+        );
 
         // Invariant: more_keys.length >= items.length.
         // (Usually they're the same, but occasionally keys
@@ -101,7 +139,7 @@ export class BuddyList extends BuddyListConf {
     }
 
     get_items() {
-        const $obj = this.$container.find(`${this.item_sel}`);
+        const $obj = this.$narrow_users_container.find(`${this.item_sel}`);
         return $obj.map((_i, elem) => $(elem));
     }
 
@@ -226,7 +264,7 @@ export class BuddyList extends BuddyListConf {
         if (new_key === undefined) {
             if (pos === this.render_count) {
                 this.render_count += 1;
-                this.$container.append(html);
+                this.$narrow_users_container.append(html);
                 this.update_padding();
             }
             return;
@@ -246,7 +284,10 @@ export class BuddyList extends BuddyListConf {
 
         this.maybe_remove_key({key});
 
-        const pos = this.find_position({
+        const is_subscribed_user = buddy_data.would_receive_message(key);
+        const user_id_list = is_subscribed_user ? this.narrow_user_ids : this.other_user_ids;
+
+        const new_pos = this.find_position({
             key,
         });
 
@@ -291,7 +332,8 @@ export class BuddyList extends BuddyListConf {
 
     // This is a bit of a hack to make sure we at least have
     // an empty list to start, before we get the initial payload.
-    $container = $(this.container_sel);
+    $narrow_users_container = $(this.narrow_container_sel);
+    $other_users_container = $(this.other_container_sel);
 
     start_scroll_handler() {
         // We have our caller explicitly call this to make
@@ -307,7 +349,7 @@ export class BuddyList extends BuddyListConf {
         padded_widget.update_padding({
             shown_rows: this.render_count,
             total_rows: this.keys.length,
-            content_sel: this.container_sel,
+            content_sel: this.narrow_container_sel,
             padding_sel: this.padding_sel,
         });
     }

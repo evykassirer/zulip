@@ -6,6 +6,7 @@ import render_recent_view_row from "../templates/recent_view_row.hbs";
 import render_recent_view_body from "../templates/recent_view_table.hbs";
 import render_user_with_status_icon from "../templates/user_with_status_icon.hbs";
 
+import * as activity from "./activity";
 import * as blueslip from "./blueslip";
 import * as buddy_data from "./buddy_data";
 import * as compose_closed_ui from "./compose_closed_ui";
@@ -931,6 +932,9 @@ export function show() {
     search.clear_search_form();
     complete_rerender();
     resize.update_recent_view_filters_height();
+    if (activity.user_filter) {
+        activity.build_user_sidebar();
+    }
 }
 
 function filter_buttons() {

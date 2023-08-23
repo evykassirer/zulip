@@ -235,6 +235,32 @@ function initialize_right_sidebar() {
             }
         }
     });
+
+    $("#narrow-users-presence-container").on("click", ".buddy-list-subsection-header", () => {
+        $("#narrow-user-presences").toggleClass("collapsed");
+        const is_collapsed = $("#narrow-user-presences").hasClass("collapsed");
+        $("#narrow-users-presence-container .toggle-narrow-users").toggleClass(
+            "fa-caret-down",
+            !is_collapsed,
+        );
+        $("#narrow-users-presence-container .toggle-narrow-users").toggleClass(
+            "fa-caret-right",
+            is_collapsed,
+        );
+    });
+
+    $("#other-users-presence-container").on("click", ".buddy-list-subsection-header", () => {
+        $("#other-user-presences").toggleClass("collapsed");
+        const is_collapsed = $("#other-user-presences").hasClass("collapsed");
+        $("#other-users-presence-container .toggle-other-users").toggleClass(
+            "fa-caret-down",
+            !is_collapsed,
+        );
+        $("#other-users-presence-container .toggle-other-users").toggleClass(
+            "fa-caret-right",
+            is_collapsed,
+        );
+    });
 }
 
 function initialize_navbar() {

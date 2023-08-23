@@ -13,10 +13,29 @@ $user_status_emoji_width: 24px;
     overflow: auto;
 }
 
-#narrow-user-presences {
-    max-width: 95%;
+.toggle-narrow-users,
+.toggle-other-users {
+    width: 7px;
+    margin-top: 4px;
+}
+
+#narrow-users-presence-container,
+#other-users-presence-container {
+    &.no-display {
+        display: none;
+    }
+}
+
+#narrow-user-presences,
+#other-user-presences {
+    max-width: 90%;
+    margin-left: 10px;
     overflow-x: hidden;
     list-style-position: inside; /* Draw the bullets inside our box */
+
+    &.collapsed {
+        display: none;
+    }
 
     & li {
         overflow: hidden;
@@ -87,6 +106,28 @@ $user_status_emoji_width: 24px;
         color: inherit;
         margin-left: 0;
     }
+}
+
+.buddy-list-subsection-header {
+    display: flex;
+    cursor: pointer;
+    background-color: var(--color-background);
+    line-height: 1;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    color: var(--color-text-default);
+}
+
+.buddy-list-heading {
+    user-select: none;
+    font-weight: 600;
+    margin: 0;
+    padding: 5px;
+}
+
+.buddy-list-subsection-header.no-display {
+    display: none;
 }
 
 .user-presence-link,
