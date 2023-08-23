@@ -44,7 +44,6 @@ const people = zrequire("people");
 const stream_data = zrequire("stream_data");
 const stream_events = zrequire("stream_events");
 const compose_recipient = zrequire("compose_recipient");
-const compose_fade = zrequire("compose_fade");
 const user_profile = mock_esm("../src/user_profile");
 
 const george = {
@@ -457,7 +456,6 @@ test("process_subscriber_update", ({override}) => {
     stream_settings_ui.update_subscribers_ui = subsStub.f;
 
     const fadedUsersStub = make_stub();
-    compose_fade.update_faded_users = fadedUsersStub.f;
 
     override(user_profile, "update_user_profile_streams_list_for_users", noop);
     // Sample user IDs
@@ -470,7 +468,4 @@ test("process_subscriber_update", ({override}) => {
 
     // Assert that update_subscribers_ui is called for each stream ID
     assert.equal(subsStub.num_calls, streamIds.length);
-
-    // Assert that update_faded_users is called once
-    assert.equal(fadedUsersStub.num_calls, 1);
 });

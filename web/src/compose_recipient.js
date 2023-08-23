@@ -6,7 +6,6 @@ import _ from "lodash";
 import render_inline_decorated_stream_name from "../templates/inline_decorated_stream_name.hbs";
 
 import * as compose_banner from "./compose_banner";
-import * as compose_fade from "./compose_fade";
 import * as compose_pm_pill from "./compose_pm_pill";
 import * as compose_state from "./compose_state";
 import * as compose_ui from "./compose_ui";
@@ -87,24 +86,11 @@ export function update_narrow_to_recipient_visibility() {
     $(".narrow_to_compose_recipients").toggleClass("invisible", true);
 }
 
-function update_fade() {
-    if (!compose_state.composing()) {
-        return;
-    }
-
-    const msg_type = compose_state.get_message_type();
-
+export function update_on_recipient_change() {
     // It's possible that the new topic is not a resolved topic
     // so we clear the older warning.
     compose_validate.clear_topic_resolved_warning();
-
     compose_validate.warn_if_topic_resolved();
-    compose_fade.set_focused_recipient(msg_type);
-    compose_fade.update_all();
-}
-
-export function update_on_recipient_change() {
-    update_fade();
     update_narrow_to_recipient_visibility();
 }
 

@@ -4,7 +4,6 @@ import * as alert_words from "./alert_words";
 import {all_messages_data} from "./all_messages_data";
 import * as blueslip from "./blueslip";
 import * as channel from "./channel";
-import * as compose_fade from "./compose_fade";
 import * as compose_state from "./compose_state";
 import * as compose_validate from "./compose_validate";
 import * as drafts from "./drafts";
@@ -173,7 +172,6 @@ export function update_messages(events) {
     const messages_to_rerender = [];
     let any_topic_edited = false;
     let changed_narrow = false;
-    let changed_compose = false;
     let any_message_content_edited = false;
     let any_stream_changed = false;
 
@@ -296,10 +294,8 @@ export function update_messages(events) {
                 old_stream.stream_id === compose_stream_id &&
                 orig_topic === compose_state.topic()
             ) {
-                changed_compose = true;
                 compose_state.topic(new_topic);
                 compose_validate.warn_if_topic_resolved(true);
-                compose_fade.set_focused_recipient("stream");
             }
 
             if (going_forward_change) {
@@ -555,12 +551,6 @@ export function update_messages(events) {
         for (const list of message_lists.all_rendered_message_lists()) {
             list.view.rerender_messages(messages_to_rerender, any_message_content_edited);
         }
-    }
-
-    if (changed_compose) {
-        // We need to do this after we rerender the message list, to
-        // produce correct results.
-        compose_fade.update_message_list();
     }
 
     unread_ui.update_unread_counts();

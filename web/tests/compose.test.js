@@ -38,7 +38,6 @@ const compose_actions = mock_esm("../src/compose_actions", {
     register_compose_cancel_hook: noop,
     register_compose_box_clear_hook: noop,
 });
-const compose_fade = mock_esm("../src/compose_fade");
 const compose_pm_pill = mock_esm("../src/compose_pm_pill");
 const loading = mock_esm("../src/loading");
 const markdown = mock_esm("../src/markdown");
@@ -489,42 +488,6 @@ test_ui("initialize", ({override}) => {
         assert.equal($("#compose-send-button").attr(), undefined);
         assert.ok(uppy_cancel_all_called);
     })();
-});
-
-test_ui("update_fade", ({override, override_rewire}) => {
-    mock_banners();
-    initialize_handlers({override});
-
-    let set_focused_recipient_checked = false;
-    let update_all_called = false;
-    let update_narrow_to_recipient_visibility_called = false;
-
-    override(compose_fade, "set_focused_recipient", (msg_type) => {
-        assert.equal(msg_type, "private");
-        set_focused_recipient_checked = true;
-    });
-
-    override(compose_fade, "update_all", () => {
-        update_all_called = true;
-    });
-
-    override_rewire(compose_recipient, "update_narrow_to_recipient_visibility", () => {
-        update_narrow_to_recipient_visibility_called = true;
-    });
-
-    compose_state.set_message_type(false);
-    compose_recipient.update_on_recipient_change();
-    assert.ok(!set_focused_recipient_checked);
-    assert.ok(!update_all_called);
-    assert.ok(update_narrow_to_recipient_visibility_called);
-
-    update_narrow_to_recipient_visibility_called = false;
-
-    compose_state.set_message_type("private");
-    compose_recipient.update_on_recipient_change();
-    assert.ok(set_focused_recipient_checked);
-    assert.ok(update_all_called);
-    assert.ok(update_narrow_to_recipient_visibility_called);
 });
 
 test_ui("trigger_submit_compose_form", ({override, override_rewire}) => {

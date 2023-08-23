@@ -22,11 +22,6 @@ autosize.update = () => {};
 mock_esm("autosize", {default: autosize});
 
 const channel = mock_esm("../src/channel");
-const compose_fade = mock_esm("../src/compose_fade", {
-    clear_compose: noop,
-    set_focused_recipient: noop,
-    update_all: noop,
-});
 const compose_pm_pill = mock_esm("../src/compose_pm_pill");
 const compose_ui = mock_esm("../src/compose_ui", {
     autosize_textarea: noop,
@@ -509,17 +504,7 @@ test("on_narrow", ({override, override_rewire}) => {
     });
     assert.ok(on_topic_narrow_called);
 
-    let update_message_list_called = false;
     narrowed_by_topic_reply = false;
-    compose_fade.update_message_list = () => {
-        update_message_list_called = true;
-    };
-    compose_state.message_content("foo");
-    compose_actions.on_narrow({
-        force_close: false,
-    });
-    assert.ok(update_message_list_called);
-
     compose_state.message_content("");
     let start_called = false;
     override_rewire(compose_actions, "start", () => {

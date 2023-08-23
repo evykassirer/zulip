@@ -29,7 +29,6 @@ const watchdog = mock_esm("../src/watchdog");
 set_global("document", _document);
 
 const huddle_data = zrequire("huddle_data");
-const compose_fade = zrequire("compose_fade");
 const keydown_util = zrequire("keydown_util");
 const muted_users = zrequire("muted_users");
 const presence = zrequire("presence");
@@ -398,7 +397,6 @@ test("first/prev/next", ({override, mock_template}) => {
             case alice.user_id:
                 rendered_alice = true;
                 assert.deepEqual(data, {
-                    faded: false,
                     href: "#narrow/dm/1-Alice-Smith",
                     is_current_user: false,
                     name: "Alice Smith",
@@ -417,7 +415,6 @@ test("first/prev/next", ({override, mock_template}) => {
             case fred.user_id:
                 rendered_fred = true;
                 assert.deepEqual(data, {
-                    faded: false,
                     href: "#narrow/dm/2-Fred-Flintstone",
                     name: "Fred Flintstone",
                     user_id: fred.user_id,
@@ -463,7 +460,6 @@ test("insert_one_user_into_empty_list", ({override, mock_template}) => {
     user_settings.user_list_style = 2;
     mock_template("presence_row.hbs", true, (data, html) => {
         assert.deepEqual(data, {
-            faded: false,
             href: "#narrow/dm/1-Alice-Smith",
             name: "Alice Smith",
             user_id: 1,

@@ -226,8 +226,7 @@ export function create<T>(opts: InputPillCreateOptions<T>): InputPillContainer<T
                 }
 
                 // This is needed to run the "change" event handler registered in
-                // compose_recipient.js, which calls the `update_on_recipient_change` to update
-                // the compose_fade state.
+                // compose_recipient.js, which calls `update_on_recipient_change`.
                 store.$input.trigger("change");
 
                 return pill;

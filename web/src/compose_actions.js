@@ -7,7 +7,6 @@ import * as fenced_code from "../shared/src/fenced_code";
 
 import * as channel from "./channel";
 import * as compose_banner from "./compose_banner";
-import * as compose_fade from "./compose_fade";
 import * as compose_pm_pill from "./compose_pm_pill";
 import * as compose_recipient from "./compose_recipient";
 import * as compose_state from "./compose_state";
@@ -59,7 +58,6 @@ function hide_box() {
     $("#stream_message_recipient_topic").hide();
     $("#compose-direct-recipient").hide();
     $(".new_message_textarea").css("min-height", "");
-    compose_fade.clear_compose();
     $(".message_comp").hide();
     $("#compose_controls").show();
 }
@@ -112,13 +110,12 @@ export function expand_compose_box() {
     $(".message_comp").show();
 }
 
-export function complete_starting_tasks(msg_type, opts) {
+export function complete_starting_tasks(opts) {
     // This is sort of a kitchen sink function, and it's called only
     // by compose.start() for now.  Having this as a separate function
     // makes testing a bit easier.
 
     maybe_scroll_up_selected_message();
-    compose_fade.start_compose(msg_type);
     stream_bar.decorate(
         opts.stream_id,
         $("#stream_message_recipient_topic .message_header_stream"),
@@ -272,7 +269,7 @@ export function start(msg_type, opts) {
     // while writing a long message.
     resize.reset_compose_message_max_height();
 
-    complete_starting_tasks(msg_type, opts);
+    complete_starting_tasks(opts);
 }
 
 export function cancel() {
@@ -285,8 +282,7 @@ export function cancel() {
 
     if (page_params.narrow !== undefined) {
         // Never close the compose box in narrow embedded windows, but
-        // at least clear the topic and unfade.
-        compose_fade.clear_compose();
+        // at least clear the topic.
         if (page_params.narrow_topic !== undefined) {
             compose_state.topic(page_params.narrow_topic);
         } else {
@@ -410,7 +406,6 @@ export function on_topic_narrow() {
         // If we changed streams, then we only leave the
         // compose box open if there is content or if the recipient was edited.
         if (compose_state.has_message_content() || compose_state.is_recipient_edited_manually()) {
-            compose_fade.update_message_list();
             return;
         }
 
@@ -430,7 +425,6 @@ export function on_topic_narrow() {
         // content in compose or the topic was edited to determine whether
         // the user had firmly decided to compose to the old topic or is
         // just looking to reply to what they see.
-        compose_fade.update_message_list();
         return;
     }
 
@@ -441,8 +435,6 @@ export function on_topic_narrow() {
     // this convenience.
     compose_state.topic(narrow_state.topic());
     compose_validate.warn_if_topic_resolved(true);
-    compose_fade.set_focused_recipient("stream");
-    compose_fade.update_message_list();
     $("#compose-textarea").trigger("focus");
 }
 
@@ -511,7 +503,6 @@ export function on_narrow(opts) {
     }
 
     if (opts.trigger === "narrow_to_compose_target") {
-        compose_fade.update_message_list();
         return;
     }
 
@@ -521,7 +512,6 @@ export function on_narrow(opts) {
     }
 
     if (compose_state.has_message_content() || compose_state.is_recipient_edited_manually()) {
-        compose_fade.update_message_list();
         return;
     }
 

@@ -9,7 +9,6 @@ import * as channel from "./channel";
 import * as compose_actions from "./compose_actions";
 import * as compose_banner from "./compose_banner";
 import * as compose_closed_ui from "./compose_closed_ui";
-import * as compose_fade from "./compose_fade";
 import * as compose_recipient from "./compose_recipient";
 import * as compose_state from "./compose_state";
 import * as condense from "./condense";
@@ -1001,8 +1000,6 @@ export function to_compose_target() {
 }
 
 function handle_post_narrow_deactivate_processes() {
-    compose_fade.update_message_list();
-
     left_sidebar_navigation_area.handle_narrow_deactivated();
     pm_list.handle_narrow_deactivated();
     stream_list.handle_narrow_deactivated();
