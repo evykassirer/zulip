@@ -74,7 +74,7 @@ export function would_receive_message(user_id, current_sub, pm_ids_string) {
     }
     if (pm_ids_string) {
         const ids = pm_ids_string.split(",");
-        return ids.includes(user_id.toString());
+        return ids.includes(user_id.toString()) || people.is_my_user_id(user_id);
     }
     return false;
 }
