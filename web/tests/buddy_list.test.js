@@ -73,7 +73,7 @@ run_test("basics", ({override}) => {
     override(padded_widget, "update_padding", () => {});
 
     let appended;
-    $("#user_presences").append = (html) => {
+    $("#narrow-user-presences").append = (html) => {
         assert.equal(html, "html-stub");
         appended = true;
     };

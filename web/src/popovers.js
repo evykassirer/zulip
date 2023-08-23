@@ -534,8 +534,8 @@ export function hide_user_sidebar_popover() {
         // this would confuse $.popover("destroy"), which looks at the .data() attached
         // to a certain element. We thus save off the .data("popover") in the
         // show_user_sidebar_popover and inject it here before calling destroy.
-        $("#user_presences").data("popover", current_user_sidebar_popover);
-        $("#user_presences").popover("destroy");
+        $("#narrow-user-presences").data("popover", current_user_sidebar_popover);
+        $("#narrow-user-presences").popover("destroy");
         current_user_sidebar_user_id = undefined;
         current_user_sidebar_popover = undefined;
     }
@@ -822,7 +822,7 @@ export function register_click_handlers() {
     $("body").on("click", ".update_status_text", open_user_status_modal);
 
     // Clicking on one's own status emoji should open the user status modal.
-    $("#user_presences").on(
+    $("#narrow-user-presences").on(
         "click",
         ".user_sidebar_entry_me .status-emoji",
         open_user_status_modal,
@@ -865,7 +865,7 @@ export function register_click_handlers() {
         settings_users.confirm_reactivation(user_id, handle_confirm, true);
     });
 
-    $("#user_presences").on("click", ".user-list-sidebar-menu-icon", function (e) {
+    $("#narrow-user-presences").on("click", ".user-list-sidebar-menu-icon", function (e) {
         e.stopPropagation();
 
         const $target = $(this).closest("li");

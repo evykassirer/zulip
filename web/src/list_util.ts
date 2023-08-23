@@ -3,7 +3,7 @@ import $ from "jquery";
 const list_selectors = [
     "#stream_filters",
     "#global_filters",
-    "#user_presences",
+    "#narrow-user-presences",
     "#send_later_options",
 ];
 

@@ -244,7 +244,7 @@ function buddy_list_add(user_id, $stub) {
     }
     $stub.length = 1;
     const sel = `li.user_sidebar_entry[data-user-id='${CSS.escape(user_id)}']`;
-    $("#user_presences").set_find_results(sel, $stub);
+    $("#narrow-user-presences").set_find_results(sel, $stub);
 }
 
 test("direct_message_update_dom_counts", () => {
@@ -302,7 +302,7 @@ test("handlers", ({override, mock_template}) => {
             keys: [me.user_id, alice.user_id, fred.user_id],
         });
         activity.set_cursor_and_filter();
-        $("#user_presences").empty = () => {};
+        $("#narrow-user-presences").empty = () => {};
 
         $me_li = $.create("me stub");
         $alice_li = $.create("alice stub");
@@ -571,7 +571,7 @@ test("realm_presence_disabled", () => {
 test("redraw_muted_user", () => {
     muted_users.add_muted_user(mark.user_id);
     activity.redraw_user(mark.user_id);
-    assert.equal($("#user_presences").html(), "never-been-set");
+    assert.equal($("#narrow-user-presences").html(), "never-been-set");
 });
 
 test("update_presence_info", ({override}) => {
@@ -627,7 +627,7 @@ test("initialize", ({override, mock_template}) => {
 
     function clear() {
         $.clear_all_elements();
-        buddy_list.$container = $("#user_presences");
+        buddy_list.$container = $("#narrow-user-presences");
         buddy_list.$container.append = () => {};
         clear_buddy_list();
         page_params.presences = {};
