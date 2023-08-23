@@ -239,6 +239,8 @@ function user_is_recently_active(user_id) {
 }
 
 function maybe_shrink_list(user_ids, user_filter_text) {
+    // NO NOT MERGE --- TEMP CHANGE to avoid filtering out all the users
+    return user_ids;
     if (user_ids.length <= max_size_before_shrinking) {
         return user_ids;
     }
