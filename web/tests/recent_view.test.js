@@ -2,13 +2,20 @@
 
 const {strict: assert} = require("assert");
 
-const {mock_esm, zrequire} = require("./lib/namespace");
+const {mock_esm, set_global, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const $ = require("./lib/zjquery");
 const {page_params} = require("./lib/zpage_params");
 
 const noop = () => {};
 const test_url = () => "https://www.example.com";
+
+const _document = {
+    hasFocus() {
+        return true;
+    },
+};
+set_global("document", _document);
 
 // We assign this in our test() wrapper.
 let messages;

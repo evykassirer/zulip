@@ -43,34 +43,31 @@ run_test("get_items", () => {
     // because our test only cares that it comes
     // back from get_items.
     const $alice_li = "alice stub";
-    const sel = "li.user_sidebar_entry";
-    const $container = $.create("get_items container", {
+    const $bob_li = "bob stub";
+    const $narrow_users_container = $.create("get_items #narrow-user-presences", {
         children: [{to_$: () => $alice_li}],
     });
-    buddy_list.$container.set_find_results(sel, $container);
+    const $other_users_container = $.create("get_items #other-user-presences", {
+        children: [{to_$: () => $bob_li}],
+    });
+    const sel = "li.user_sidebar_entry";
+    buddy_list.$narrow_users_container.set_find_results(sel, $narrow_users_container);
+    buddy_list.$other_users_container.set_find_results(sel, $other_users_container);
 
     const items = buddy_list.get_items();
-    assert.deepEqual(items, [$alice_li]);
+    assert.deepEqual(items, [$alice_li, $bob_li]);
 });
 
 run_test("basics", ({override}) => {
     const buddy_list = new BuddyList();
     init_simulated_scrolling();
 
-    override(buddy_list, "get_data_from_keys", (opts) => {
-        const keys = opts.keys;
-        assert.deepEqual(keys, [alice.user_id]);
-        return "data-stub";
-    });
-
-    override(buddy_list, "items_to_html", (opts) => {
-        const items = opts.items;
-        assert.equal(items, "data-stub");
-        return "html-stub";
-    });
-
+    override(buddy_list, "items_to_html", () => "html-stub");
     override(message_viewport, "height", () => 550);
     override(padded_widget, "update_padding", () => {});
+    // Set these both to empty lists since we're not testing CSS.
+    $("#narrow-user-presences").children = () => [];
+    $("#other-user-presences").children = () => [];
 
     let appended;
     $("#narrow-user-presences").append = (html) => {
@@ -83,7 +80,7 @@ run_test("basics", ({override}) => {
     });
     assert.ok(appended);
 
-    const $alice_li = {length: 1};
+    const $alice_li = "alice-stub";
 
     override(buddy_list, "get_li_from_key", (opts) => {
         const key = opts.key;
@@ -163,14 +160,14 @@ run_test("find_li w/force_render", ({override}) => {
     // key is not already rendered in DOM, then the
     // widget will call show_key to force-render it.
     const key = "999";
-    const $stub_li = {length: 0};
+    const $stub_li = "stub-li";
 
     override(buddy_list, "get_li_from_key", (opts) => {
         assert.equal(opts.key, key);
         return $stub_li;
     });
 
-    buddy_list.keys = ["foo", "bar", key, "baz"];
+    buddy_list.all_user_ids = ["foo", "bar", key, "baz"];
 
     let shown;
 
@@ -179,10 +176,10 @@ run_test("find_li w/force_render", ({override}) => {
         shown = true;
     });
 
-    const $empty_li = buddy_list.find_li({
+    const $hidden_li = buddy_list.find_li({
         key,
     });
-    assert.equal($empty_li, $stub_li);
+    assert.equal($hidden_li, $stub_li);
     assert.ok(!shown);
 
     const $li = buddy_list.find_li({
@@ -196,7 +193,7 @@ run_test("find_li w/force_render", ({override}) => {
 
 run_test("find_li w/bad key", ({override}) => {
     const buddy_list = new BuddyList();
-    override(buddy_list, "get_li_from_key", () => ({length: 0}));
+    override(buddy_list, "get_li_from_key", () => "stub-li");
 
     const $undefined_li = buddy_list.find_li({
         key: "not-there",
@@ -209,8 +206,6 @@ run_test("find_li w/bad key", ({override}) => {
 run_test("scrolling", ({override}) => {
     const buddy_list = new BuddyList();
     init_simulated_scrolling();
-
-    override(message_viewport, "height", () => 550);
 
     buddy_list.populate({
         keys: [],

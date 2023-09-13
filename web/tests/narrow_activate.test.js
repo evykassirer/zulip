@@ -10,6 +10,13 @@ mock_esm("../src/resize", {
     resize_stream_filters_container() {},
 });
 
+const _document = {
+    hasFocus() {
+        return true;
+    },
+};
+set_global("document", _document);
+
 const all_messages_data = mock_esm("../src/all_messages_data");
 const compose_actions = mock_esm("../src/compose_actions");
 const compose_banner = mock_esm("../src/compose_banner");
