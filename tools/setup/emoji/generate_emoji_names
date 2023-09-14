@@ -70,8 +70,31 @@ SKIN_TONE_EMOJI_CODES = [
     "1f3ff",
 ]
 
+ASCII_CHARACTER_EMOJI = [
+    "ココ", "サ", "指", "空", "無", "禁", "合", "満", "有", "月",
+    "申",
+    "割",
+    "営",
+    "得",
+    "可",
+    "〒",
+    "✓",
+    "✓",
+    "✓",
+    "×",
+    "×",
+    "×",
+    "−",
+    "÷",
+    "祝",
+    "秘",
+    "〒♪&%",
+]
 
 def cleanup_name(name: str) -> str:
+    if name == "〒♪&%":
+        return name
+
     replacements = {
         " ": "_",
         "-": "_",
@@ -192,7 +215,7 @@ def main() -> None:
         for name in [emoji_names["canonical_name"]] + emoji_names["aliases"]:
             # These are known names where we don't have an ascii-only version and there are ascii aliases
             # that a user can still enter instead to get the same emoji.
-            if name in ["ココ", "サ", "指", "空"]:
+            if name in ASCII_CHARACTER_EMOJI:
                 assert any(alias.isascii() for alias in emoji_names["aliases"])
                 continue
             if not name.isascii():
