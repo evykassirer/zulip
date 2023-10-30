@@ -178,6 +178,7 @@ export function activate(raw_operators, opts) {
 
         const filter = new Filter(raw_operators);
         const operators = filter.operators();
+        const narrowing_to_recent_stream_topics = opts.is_recent_view;
 
         // These two narrowing operators specify what message should be
         // selected and should be the center of the narrow.
@@ -321,7 +322,7 @@ export function activate(raw_operators, opts) {
         // recursively.
         reset_ui_state();
 
-        if (coming_from_recent_view) {
+        if (coming_from_recent_view && !narrowing_to_recent_stream_topics) {
             recent_view_ui.hide();
         } else if (coming_from_inbox) {
             inbox_ui.hide();
@@ -345,6 +346,13 @@ export function activate(raw_operators, opts) {
             trigger: opts ? opts.trigger : undefined,
             previous_id: message_lists.current.selected_id(),
         });
+
+        if (narrowing_to_recent_stream_topics) {
+            const stream_name = operators[0].operand;
+            const stream_id = stream_data.get_sub(stream_name).stream_id;
+            recent_view_ui.show(stream_id);
+            return;
+        }
 
         if (opts.then_select_id > 0) {
             // We override target_id in this case, since the user could be

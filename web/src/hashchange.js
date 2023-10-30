@@ -61,13 +61,13 @@ function show_all_message_view() {
     setTimeout(message_viewport.maybe_scroll_to_selected, 0);
 }
 
-export function set_hash_to_default_view() {
-    let default_view_hash = `#${user_settings.default_view}`;
-    if (default_view_hash === "#recent_topics") {
-        default_view_hash = "#recent";
+export function set_hash_to_home_view() {
+    let home_view_hash = `#${user_settings.web_home_view}`;
+    if (home_view_hash === "#recent_topics") {
+        home_view_hash = "#recent";
     }
 
-    if (window.location.hash !== default_view_hash) {
+    if (window.location.hash !== home_view_hash) {
         // We want to set URL with no hash here. It is not possible
         // to do so with `window.location.hash` since it will set an empty
         // hash. So, we use `pushState` which simply updates the current URL
@@ -83,14 +83,14 @@ function hide_non_message_list_views() {
     maybe_hide_recent_view();
 }
 
-function show_default_view() {
+function show_home_view() {
     hide_non_message_list_views();
     // This function should only be called from the hashchange
     // handlers, as it does not set the hash to "".
     //
-    // We only allow the primary recommended options for default views
+    // We only allow the primary recommended options for home views
     // rendered without a hash.
-    switch (user_settings.default_view) {
+    switch (user_settings.web_home_view) {
         case "recent_topics": {
             recent_view_ui.show();
             break;
@@ -110,7 +110,7 @@ function show_default_view() {
             // go back in browser history. See
             // https://chat.zulip.org/#narrow/stream/9-issues/topic/Browser.20back.20button.20on.20RT
             // for detailed description of the issue.
-            window.location.hash = user_settings.default_view;
+            window.location.hash = user_settings.web_home_view;
         }
     }
 }
@@ -124,7 +124,17 @@ function do_hashchange_normal(from_reload) {
     // be #ABCD.
     const hash = window.location.hash.split("/");
 
+    // Do this before the switch statement to differentiate between
+    // recent topics for all messages and recent topics for a specific
+    // stream.
+    if (hash.length === 1 && hash[0] === "#recent") {
+        maybe_hide_inbox();
+        recent_view_ui.show();
+        return false;
+    }
+
     switch (hash[0]) {
+        case "#recent":
         case "#narrow": {
             hide_non_message_list_views();
             let operators;
@@ -141,11 +151,11 @@ function do_hashchange_normal(from_reload) {
             }
             if (operators === undefined) {
                 // If the narrow URL didn't parse,
-                // send them to default_view.
+                // send them to web_home_view.
                 // We cannot clear hash here since
                 // it will block user from going back
                 // in browser history.
-                show_default_view();
+                show_home_view();
                 return false;
             }
             const narrow_opts = {
@@ -166,12 +176,13 @@ function do_hashchange_normal(from_reload) {
                 narrow_opts.then_select_id = location_data_for_hash.narrow_pointer;
                 narrow_opts.then_select_offset = location_data_for_hash.narrow_offset;
             }
+            narrow_opts.is_recent_view = hash[0] === "#recent";
             narrow.activate(operators, narrow_opts);
             return true;
         }
         case "":
         case "#":
-            show_default_view();
+            show_home_view();
             break;
         case "#recent_topics":
             // The URL for Recent Conversations was changed from
@@ -183,10 +194,6 @@ function do_hashchange_normal(from_reload) {
             // this detail in the browser's forward/back session history.
             recent_view_ui.show();
             window.location.replace("#recent");
-            break;
-        case "#recent":
-            maybe_hide_inbox();
-            recent_view_ui.show();
             break;
         case "#inbox":
             maybe_hide_recent_view();
@@ -208,7 +215,7 @@ function do_hashchange_normal(from_reload) {
             blueslip.error("overlay logic skipped for: " + hash);
             break;
         default:
-            show_default_view();
+            show_home_view();
     }
     return false;
 }
@@ -216,8 +223,8 @@ function do_hashchange_normal(from_reload) {
 function do_hashchange_overlay(old_hash) {
     if (old_hash === undefined) {
         // The user opened the app with an overlay hash; we need to
-        // show the user's default view behind it.
-        show_default_view();
+        // show the user's home view behind it.
+        show_home_view();
     }
     const base = hash_parser.get_current_hash_category();
     const old_base = hash_parser.get_hash_category(old_hash);
@@ -225,7 +232,7 @@ function do_hashchange_overlay(old_hash) {
 
     if (base === "groups" && (!page_params.development_environment || page_params.is_guest)) {
         // The #groups settings page is unfinished, and disabled in production.
-        show_default_view();
+        show_home_view();
         return;
     }
 
