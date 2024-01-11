@@ -338,10 +338,7 @@ export function render_and_show_preview($preview_spinner, $preview_content_box, 
             // wrong, users will see a brief flicker of the locally
             // echoed frontend rendering before receiving the
             // authoritative backend rendering from the server).
-            const message_obj = {
-                raw_content: content,
-            };
-            markdown.apply_markdown(message_obj);
+            markdown.apply_markdown({raw_content: content});
         }
         channel.post({
             url: "/json/messages/render",

@@ -2,7 +2,7 @@ import url_template_lib from "url-template";
 
 import * as blueslip from "./blueslip";
 
-type LinkifierMap = Map<
+export type LinkifierMap = Map<
     RegExp,
     {url_template: url_template_lib.Template; group_number_to_name: Record<number, string>}
 >;
