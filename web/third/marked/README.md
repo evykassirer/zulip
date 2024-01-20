@@ -59,7 +59,7 @@ console.log(marked('I am using __markdown__.'));
 </html>
 ```
 
-## marked(markdownString [,options] [,callback])
+## marked(markdownString [,options])
 
 ### markdownString
 
@@ -73,14 +73,6 @@ Type: `object`
 
 Hash of options. Can also be set using the `marked.setOptions` method as seen
 above.
-
-### callback
-
-Type: `function`
-
-Function called when the `markdownString` has been fully parsed when using
-async highlighting. If the `options` argument is omitted, this can be used as
-the second argument.
 
 ## Options
 
@@ -104,12 +96,6 @@ marked.setOptions({
       callback(err, result.toString());
     });
   }
-});
-
-// Using async version of marked
-marked(markdownString, function (err, content) {
-  if (err) throw err;
-  console.log(content);
 });
 
 // Synchronous highlighting with highlight.js
