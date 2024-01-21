@@ -6,6 +6,7 @@ import type {PrimitiveValue} from "url-template";
 
 import * as fenced_code from "../shared/src/fenced_code";
 import marked from "../third/marked/lib/marked";
+import type {RegExpOrStub, Renderer} from "../third/marked/lib/marked";
 
 import type {LinkifierMap} from "./linkifiers";
 
@@ -348,7 +349,7 @@ function parse_with_options(
     };
 
     // Our Python-Markdown processor appends two \n\n to input
-    const content = marked(raw_content + "\n\n", marked_options).trim();
+    const content = marked(raw_content + "\n\n", marked_options)!.trim();
 
     // Simulate message flags for our locally rendered
     // message. Messages the user themselves sent via the browser are
@@ -674,10 +675,7 @@ export function parse({
         return [...helper_config.get_linkifier_map().keys()];
     }
 
-    function disable_markdown_regex(
-        rules: Record<string, {exec: () => boolean}>,
-        name: string,
-    ): void {
+    function disable_markdown_regex(rules: Record<string, RegExpOrStub>, name: string): void {
         rules[name] = {
             exec() {
                 return false;
@@ -690,12 +688,13 @@ export function parse({
 
     // No <code> around our code blocks instead a codehilite <div> and disable
     // class-specific highlighting.
-    renderer.code = (code: string): string => fenced_code.wrap_code(code) + "\n\n";
+    renderer.code = (code) => fenced_code.wrap_code(code) + "\n\n";
 
     // Prohibit empty links for some reason.
     const old_link = renderer.link;
-    renderer.link = (href: string, title: string, text: string): void =>
+    renderer.link = (href, title, text) => {
         old_link.call(renderer, href, title, text.trim() ? text : href);
+    };
 
     // Put a newline after a <br> in the generated HTML to match Markdown
     renderer.br = function () {
@@ -819,7 +818,7 @@ export type ParseOptions = {
     smartLists: boolean;
     smartypants: boolean;
     zulip: boolean;
-    renderer: marked.Renderer;
+    renderer: Renderer;
     preprocessors: ((src: string) => string)[];
 };
 

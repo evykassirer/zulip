@@ -1,4 +1,4 @@
-import type {ParseOptions} from "./markdown";
+import type {ParseOptions} from "../../../src/markdown";
 
 export class Renderer {
     code: (code: string) => string;
@@ -6,7 +6,9 @@ export class Renderer {
     br: () => string;
 }
 
-type RegExpOrStub = RegExp | (() => boolean);
+export type RegExpOrStub = RegExp | {
+    exec: () => boolean;
+};
 
 type MarkedOptions = ParseOptions & {
     userMentionHandler: (mention: string, silently: boolean) => string | undefined;
@@ -15,7 +17,7 @@ type MarkedOptions = ParseOptions & {
 };
 
 type MarkedStub = {
-    (): (src: string, opt: MarkedOptions) => string | undefined;
+    (src: string, opt: MarkedOptions): string | undefined;
     Lexer: {
         rules: {
             tables: Record<string, RegExpOrStub>;
@@ -26,11 +28,10 @@ type MarkedStub = {
             zulip: Record<string, RegExpOrStub>;
         };
     };
-    Renderer: Renderer;
+    Renderer: typeof Renderer;
     stashHtml: (html: string, safe: boolean) => string;
 };
 
-declare module "web/third/marked/lib/marked" {
-    const marked_stub: MarkedStub;
-    export = marked_stub;
-}
+
+declare const marked_stub: MarkedStub;
+export default marked_stub;
