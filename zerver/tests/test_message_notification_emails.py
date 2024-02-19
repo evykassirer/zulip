@@ -27,15 +27,11 @@ from zerver.lib.email_notifications import (
 )
 from zerver.lib.send_email import FromAddress
 from zerver.lib.test_classes import ZulipTestCase
-from zerver.models import (
-    NotificationTriggers,
-    UserMessage,
-    UserProfile,
-    UserTopic,
-    get_name_keyed_dict_for_active_realm_emoji,
-    get_realm,
-    get_stream,
-)
+from zerver.models import UserMessage, UserProfile, UserTopic
+from zerver.models.realm_emoji import get_name_keyed_dict_for_active_realm_emoji
+from zerver.models.realms import get_realm
+from zerver.models.scheduled_jobs import NotificationTriggers
+from zerver.models.streams import get_stream
 
 
 class TestMessageNotificationEmails(ZulipTestCase):
@@ -194,7 +190,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             # Test in case if message content in missed email message are disabled.
             verify_body_include = [
                 "This email does not include message content because you have disabled message ",
-                "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                "http://zulip.testserver/help/dm-mention-alert-notifications ",
                 "View or reply in Zulip Dev Zulip",
                 " Manage email preferences: http://zulip.testserver/#settings/notifications",
             ]
@@ -254,7 +250,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             # Test in case if message content in missed email message are disabled.
             verify_body_include = [
                 "This email does not include message content because you have disabled message ",
-                "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                "http://zulip.testserver/help/dm-mention-alert-notifications ",
                 "View or reply in Zulip Dev Zulip",
                 " Manage email preferences: http://zulip.testserver/#settings/notifications",
             ]
@@ -294,7 +290,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             # Test in case if message content in missed email message are disabled.
             verify_body_include = [
                 "This email does not include message content because you have disabled message ",
-                "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                "http://zulip.testserver/help/dm-mention-alert-notifications ",
                 "View or reply in Zulip Dev Zulip",
                 " Manage email preferences: http://zulip.testserver/#settings/notifications",
             ]
@@ -353,7 +349,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             # Test in case if message content in missed email message are disabled.
             verify_body_include = [
                 "This email does not include message content because you have disabled message ",
-                "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                "http://zulip.testserver/help/dm-mention-alert-notifications ",
                 "View or reply in Zulip Dev Zulip",
                 " Manage email preferences: http://zulip.testserver/#settings/notifications",
             ]
@@ -393,7 +389,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             # Test in case if message content in missed email message are disabled.
             verify_body_include = [
                 "This email does not include message content because you have disabled message ",
-                "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                "http://zulip.testserver/help/dm-mention-alert-notifications ",
                 "View or reply in Zulip Dev Zulip",
                 " Manage email preferences: http://zulip.testserver/#settings/notifications",
             ]
@@ -508,7 +504,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             elif message_content_disabled_by_user:
                 verify_body_include = [
                     "This email does not include message content because you have disabled message ",
-                    "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                    "http://zulip.testserver/help/dm-mention-alert-notifications ",
                     "View or reply in Zulip Dev Zulip",
                     " Manage email preferences: http://zulip.testserver/#settings/notifications",
                 ]
@@ -569,7 +565,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
         else:
             verify_body_include = [
                 "This email does not include message content because you have disabled message ",
-                "http://zulip.testserver/help/pm-mention-alert-notifications ",
+                "http://zulip.testserver/help/dm-mention-alert-notifications ",
                 "View or reply in Zulip Dev Zulip",
                 " Manage email preferences: http://zulip.testserver/#settings/notifications",
             ]
@@ -1184,7 +1180,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             f"http://zulip.testserver/user_avatars/{realm.id}/emoji/images/{realm_emoji_id}.png"
         )
         verify_body_include = [
-            f'<img alt=":green_tick:" src="{realm_emoji_url}" style="height: 20px;" title="green tick">'
+            f'<img alt=":green_tick:" src="{realm_emoji_url}" title="green tick" style="height: 20px;">'
         ]
         email_subject = "DMs with Othello, the Moor of Venice"
         self._test_cases(
@@ -1204,7 +1200,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
             "Extremely personal message with a hamburger :hamburger:!",
         )
         verify_body_include = [
-            '<img alt=":hamburger:" src="http://testserver/static/generated/emoji/images-twitter-64/1f354.png" style="height: 20px;" title="hamburger">'
+            '<img alt=":hamburger:" src="http://testserver/static/generated/emoji/images-twitter-64/1f354.png" title="hamburger" style="height: 20px;">'
         ]
         email_subject = "DMs with Othello, the Moor of Venice"
         self._test_cases(
@@ -1223,7 +1219,7 @@ class TestMessageNotificationEmails(ZulipTestCase):
         stream_id = get_stream("Verona", get_realm("zulip")).id
         href = f"http://zulip.testserver/#narrow/stream/{stream_id}-Verona"
         verify_body_include = [
-            f'<a class="stream" data-stream-id="{stream_id}" href="{href}">#Verona</a'
+            f'<a class="stream" href="{href}" data-stream-id="{stream_id}">#Verona</a'
         ]
         email_subject = "DMs with Othello, the Moor of Venice"
         self._test_cases(

@@ -9,7 +9,8 @@ from zerver.lib.emoji import check_remove_custom_emoji, check_valid_emoji_name, 
 from zerver.lib.exceptions import JsonableError, ResourceNotFoundError
 from zerver.lib.request import REQ, has_request_variables
 from zerver.lib.response import json_success
-from zerver.models import RealmEmoji, UserProfile, get_all_custom_emoji_for_realm
+from zerver.models import RealmEmoji, UserProfile
+from zerver.models.realm_emoji import get_all_custom_emoji_for_realm
 
 
 def list_emoji(request: HttpRequest, user_profile: UserProfile) -> HttpResponse:
@@ -43,7 +44,7 @@ def upload_emoji(
     [emoji_file] = request.FILES.values()
     assert isinstance(emoji_file, UploadedFile)
     assert emoji_file.size is not None
-    if (settings.MAX_EMOJI_FILE_SIZE_MIB * 1024 * 1024) < emoji_file.size:
+    if emoji_file.size > settings.MAX_EMOJI_FILE_SIZE_MIB * 1024 * 1024:
         raise JsonableError(
             _("Uploaded file is larger than the allowed limit of {max_size} MiB").format(
                 max_size=settings.MAX_EMOJI_FILE_SIZE_MIB,

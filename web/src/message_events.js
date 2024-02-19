@@ -19,13 +19,13 @@ import * as message_store from "./message_store";
 import * as message_util from "./message_util";
 import * as narrow from "./narrow";
 import * as narrow_state from "./narrow_state";
-import {page_params} from "./page_params";
 import * as pm_list from "./pm_list";
 import * as recent_senders from "./recent_senders";
 import * as recent_view_ui from "./recent_view_ui";
 import * as recent_view_util from "./recent_view_util";
 import * as starred_messages from "./starred_messages";
 import * as starred_messages_ui from "./starred_messages_ui";
+import {realm} from "./state_data";
 import * as stream_list from "./stream_list";
 import * as stream_topic_history from "./stream_topic_history";
 import * as sub_store from "./sub_store";
@@ -45,7 +45,7 @@ function maybe_add_narrowed_messages(messages, msg_list, callback, attempt = 1) 
         url: "/json/messages/matches_narrow",
         data: {
             msg_ids: JSON.stringify(ids),
-            narrow: JSON.stringify(narrow_state.public_operators()),
+            narrow: JSON.stringify(narrow_state.public_search_terms()),
         },
         timeout: 5000,
         success(data) {
@@ -204,7 +204,7 @@ export function update_messages(events) {
             // edits have edit_history logged for both before any
             // potential narrowing as part of the topic edit loop.
             if (event.orig_content !== undefined) {
-                if (page_params.realm_allow_edit_history) {
+                if (realm.realm_allow_edit_history) {
                     // Note that we do this for topic edits separately, below.
                     // If an event changed both content and topic, we'll generate
                     // two client-side events, which is probably good for display.
@@ -305,7 +305,7 @@ export function update_messages(events) {
             }
 
             for (const moved_message of event_messages) {
-                if (page_params.realm_allow_edit_history) {
+                if (realm.realm_allow_edit_history) {
                     /* Simulate the format of server-generated edit
                      * history events. This logic ensures that all
                      * messages that were moved are displayed as such
@@ -421,12 +421,12 @@ export function update_messages(events) {
                 //       with data fetched from the server (which is already updated)
                 //       when we move to new narrow and what data is locally available.
                 if (changed_narrow) {
-                    const operators = new_filter.operators();
+                    const terms = new_filter.terms();
                     const opts = {
                         trigger: "stream/topic change",
                         then_select_id: current_selected_id,
                     };
-                    narrow.activate(operators, opts);
+                    narrow.activate(terms, opts);
                 }
             }
 

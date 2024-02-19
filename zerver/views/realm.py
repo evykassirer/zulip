@@ -19,6 +19,7 @@ from zerver.actions.realm_settings import (
     do_set_realm_signup_notifications_stream,
     do_set_realm_user_default_setting,
     parse_and_set_setting_value_if_required,
+    validate_authentication_methods_dict_from_api,
 )
 from zerver.decorator import require_realm_admin, require_realm_owner
 from zerver.forms import check_subdomain_available as check_subdomain
@@ -32,13 +33,13 @@ from zerver.lib.user_groups import access_user_group_for_setting
 from zerver.lib.validator import (
     check_bool,
     check_capped_string,
+    check_capped_url,
     check_dict,
     check_int,
     check_int_in,
     check_string_in,
     check_string_or_int,
     check_union,
-    check_url,
     to_non_negative_int,
 )
 from zerver.models import Realm, RealmReactivationStatus, RealmUserDefault, UserProfile
@@ -52,6 +53,9 @@ def parse_jitsi_server_url(
         return special_values_map[value]
 
     return value
+
+
+JITSI_SERVER_URL_MAX_LENGTH = 200
 
 
 @require_realm_admin
@@ -147,7 +151,10 @@ def update_realm(
     jitsi_server_url_raw: Optional[str] = REQ(
         "jitsi_server_url",
         json_validator=check_union(
-            [check_string_in(list(Realm.JITSI_SERVER_SPECIAL_VALUES_MAP.keys())), check_url]
+            [
+                check_string_in(list(Realm.JITSI_SERVER_SPECIAL_VALUES_MAP.keys())),
+                check_capped_url(JITSI_SERVER_URL_MAX_LENGTH),
+            ]
         ),
         default=None,
     ),
@@ -190,8 +197,11 @@ def update_realm(
     if authentication_methods is not None:
         if not user_profile.is_realm_owner:
             raise OrganizationOwnerRequiredError
+
+        validate_authentication_methods_dict_from_api(realm, authentication_methods)
         if True not in authentication_methods.values():
             raise JsonableError(_("At least one authentication method must be enabled."))
+
     if video_chat_provider is not None and video_chat_provider not in {
         p["id"] for p in Realm.VIDEO_CHAT_PROVIDERS.values()
     }:
@@ -282,9 +292,9 @@ def update_realm(
         )
 
         if setting_value_changed:
-            data[
-                "move_messages_within_stream_limit_seconds"
-            ] = move_messages_within_stream_limit_seconds
+            data["move_messages_within_stream_limit_seconds"] = (
+                move_messages_within_stream_limit_seconds
+            )
 
     move_messages_between_streams_limit_seconds: Optional[int] = None
     if move_messages_between_streams_limit_seconds_raw is not None:
@@ -299,9 +309,9 @@ def update_realm(
         )
 
         if setting_value_changed:
-            data[
-                "move_messages_between_streams_limit_seconds"
-            ] = move_messages_between_streams_limit_seconds
+            data["move_messages_between_streams_limit_seconds"] = (
+                move_messages_between_streams_limit_seconds
+            )
 
     jitsi_server_url: Optional[str] = None
     if jitsi_server_url_raw is not None:

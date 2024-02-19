@@ -86,14 +86,14 @@ from zerver.lib.validator import (
     check_union,
     check_url,
 )
-from zerver.models import (
+from zerver.models import Service, Stream, UserProfile
+from zerver.models.realms import (
     DisposableEmailError,
     DomainNotAllowedForRealmError,
     EmailContainsPlusError,
     InvalidFakeEmailDomainError,
-    Service,
-    Stream,
-    UserProfile,
+)
+from zerver.models.users import (
     get_user_by_delivery_email,
     get_user_by_id_in_realm_including_cross_realm,
     get_user_including_cross_realm,
@@ -188,20 +188,20 @@ def reactivate_user_backend(
     return json_success(request)
 
 
-check_profile_data: Validator[
-    List[Dict[str, Optional[Union[int, ProfileDataElementValue]]]]
-] = check_list(
-    check_dict_only(
-        [
-            ("id", check_int),
-            (
-                "value",
-                check_none_or(
-                    check_union([check_string, check_list(check_int)]),
+check_profile_data: Validator[List[Dict[str, Optional[Union[int, ProfileDataElementValue]]]]] = (
+    check_list(
+        check_dict_only(
+            [
+                ("id", check_int),
+                (
+                    "value",
+                    check_none_or(
+                        check_union([check_string, check_list(check_int)]),
+                    ),
                 ),
-            ),
-        ]
-    ),
+            ]
+        ),
+    )
 )
 
 

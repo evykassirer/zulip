@@ -5,11 +5,9 @@ const {strict: assert} = require("assert");
 const {mock_stream_header_colorblock} = require("./lib/compose");
 const {mock_banners} = require("./lib/compose_banner");
 const {mock_esm, set_global, with_overrides, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {page_params, user_settings} = require("./lib/zpage_params");
-
-const noop = () => {};
+const {current_user, realm, user_settings} = require("./lib/zpage_params");
 
 let autosize_called;
 
@@ -53,7 +51,7 @@ const compose_pm_pill = zrequire("compose_pm_pill");
 const compose_recipient = zrequire("compose_recipient");
 const composebox_typeahead = zrequire("composebox_typeahead");
 const settings_config = zrequire("settings_config");
-const pygments_data = zrequire("../generated/pygments_data.json");
+const pygments_data = zrequire("pygments_data");
 
 const ct = composebox_typeahead;
 
@@ -193,7 +191,7 @@ const emoji_list = [...emojis_by_name.values()].map((emoji_dict) => ({
 const me_slash = {
     name: "me",
     aliases: "",
-    text: "translated: /me is excited (Display action text)",
+    text: "translated: /me (Action message)",
     placeholder: "translated: is …",
 };
 
@@ -487,7 +485,7 @@ test("content_typeahead_selected", ({override}) => {
     // mention
     fake_this.completing = "mention";
 
-    override(compose_validate, "warn_if_mentioning_unsubscribed_user", () => {});
+    override(compose_validate, "warn_if_mentioning_unsubscribed_user", noop);
     override(
         compose_validate,
         "convert_mentions_to_silent_in_direct_messages",
@@ -741,7 +739,7 @@ test("initialize", ({override, override_rewire, mock_template}) => {
     });
 
     let expected_value;
-    page_params.custom_profile_field_types = {
+    realm.custom_profile_field_types = {
         PRONOUNS: {id: 8, name: "Pronouns"},
     };
 
@@ -755,7 +753,7 @@ test("initialize", ({override, override_rewire, mock_template}) => {
         assert.equal(typeof data.has_image, "boolean");
         return html;
     });
-    override(stream_topic_history_util, "get_server_history", () => {});
+    override(stream_topic_history_util, "get_server_history", noop);
 
     let topic_typeahead_called = false;
     $("input#stream_message_recipient_topic").typeahead = (options) => {
@@ -1307,7 +1305,7 @@ test("begins_typeahead", ({override, override_rewire}) => {
         assert.equal(stream_id, sweden_stream.stream_id);
         return sweden_topics_to_show;
     });
-    override(stream_topic_history_util, "get_server_history", () => {});
+    override(stream_topic_history_util, "get_server_history", noop);
 
     const begin_typehead_this = {
         options: {
@@ -1570,11 +1568,11 @@ test("content_highlighter", ({override_rewire}) => {
     fake_this = {completing: "slash"};
     let th_render_slash_command_called = false;
     const me_slash = {
-        text: "/me is excited (Display action text)",
+        text: "/me (Action message)",
     };
     override_rewire(typeahead_helper, "render_typeahead_item", (item) => {
         assert.deepEqual(item, {
-            primary: "/me is excited (Display action text)",
+            primary: "/me (Action message)",
         });
         th_render_slash_command_called = true;
     });
@@ -1611,7 +1609,7 @@ test("content_highlighter", ({override_rewire}) => {
 test("filter_and_sort_mentions (normal)", () => {
     compose_state.set_message_type("stream");
     const is_silent = false;
-    page_params.user_id = 101;
+    current_user.user_id = 101;
     let suggestions = ct.filter_and_sort_mentions(is_silent, "al");
 
     const mention_all = ct.broadcast_mentions()[0];
@@ -1619,14 +1617,14 @@ test("filter_and_sort_mentions (normal)", () => {
 
     // call_center group is shown in typeahead even when user is member of
     // one of the subgroups of can_mention_group.
-    page_params.user_id = 104;
+    current_user.user_id = 104;
     suggestions = ct.filter_and_sort_mentions(is_silent, "al");
     assert.deepEqual(suggestions, [mention_all, ali, alice, hal, call_center]);
 
     // call_center group is not shown in typeahead when user is neither
     // a direct member of can_mention_group nor a member of any of its
     // recursive subgroups.
-    page_params.user_id = 102;
+    current_user.user_id = 102;
     suggestions = ct.filter_and_sort_mentions(is_silent, "al");
     assert.deepEqual(suggestions, [mention_all, ali, alice, hal]);
 });
@@ -1641,7 +1639,7 @@ test("filter_and_sort_mentions (silent)", () => {
     // call_center group is shown in typeahead irrespective of whether
     // user is member of can_mention_group or its subgroups for a
     // silent mention.
-    page_params.user_id = 102;
+    current_user.user_id = 102;
     suggestions = ct.filter_and_sort_mentions(is_silent, "al");
     assert.deepEqual(suggestions, [ali, alice, hal, call_center]);
 });
@@ -1752,7 +1750,7 @@ test("typeahead_results", () => {
     // Earlier user group and stream mentions were autocompleted by their
     // description too. This is now removed as it often led to unexpected
     // behaviour, and did not have any great discoverability advantage.
-    page_params.user_id = 101;
+    current_user.user_id = 101;
     // Autocomplete user group mentions by group name.
     assert_mentions_matches("hamletchar", [hamletcharacters]);
 
@@ -1807,11 +1805,9 @@ test("message people", ({override, override_rewire}) => {
     let results;
 
     /*
-        We will simulate that we talk to Hal and Harry,
-        while we don't talk to King Hamlet.  This will
-        knock King Hamlet out of consideration in the
-        filtering pass.  Then Hal will be truncated in
-        the sorting step.
+        We will initially simulate that we talk to Hal and Harry, while
+        we don't talk to King Hamlet or Characters of Hamlet. This
+        will knock these 2 out of consideration in the filtering pass.
     */
 
     let user_ids = [hal.user_id, harry.user_id];
@@ -1825,23 +1821,20 @@ test("message people", ({override, override_rewire}) => {
     };
 
     results = ct.get_person_suggestions("Ha", opts);
-    assert.deepEqual(results, [harry, hamletcharacters]);
+    assert.deepEqual(results, [harry, hal]);
 
-    // Now let's exclude Hal.
+    // Now let's exclude Hal and include King Hamlet.
     user_ids = [hamlet.user_id, harry.user_id];
 
     results = ct.get_person_suggestions("Ha", opts);
-    assert.deepEqual(results, [harry, hamletcharacters]);
+    assert.deepEqual(results, [harry, hamlet]);
 
+    // Reincluding Hal and deactivating harry
     user_ids = [hamlet.user_id, harry.user_id, hal.user_id];
-
-    results = ct.get_person_suggestions("Ha", opts);
-    assert.deepEqual(results, [harry, hamletcharacters]);
-
     people.deactivate(harry);
     results = ct.get_person_suggestions("Ha", opts);
     // harry is excluded since it has been deactivated.
-    assert.deepEqual(results, [hamletcharacters, hal]);
+    assert.deepEqual(results, [hal, hamlet]);
 });
 
 test("muted users excluded from results", () => {

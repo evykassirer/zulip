@@ -38,6 +38,10 @@ from zerver.actions.streams import (
 )
 from zerver.actions.user_groups import add_subgroups_to_user_group, check_add_user_group
 from zerver.actions.users import do_change_user_role, do_deactivate_user
+from zerver.lib.attachments import (
+    validate_attachment_request,
+    validate_attachment_request_for_spectator_access,
+)
 from zerver.lib.default_streams import (
     get_default_stream_ids_for_realm,
     get_default_streams_for_realm_as_dicts,
@@ -104,15 +108,10 @@ from zerver.models import (
     UserGroup,
     UserMessage,
     UserProfile,
-    active_non_guest_user_ids,
-    get_default_stream_groups,
-    get_realm,
-    get_stream,
-    get_user,
-    get_user_profile_by_id_in_realm,
-    validate_attachment_request,
-    validate_attachment_request_for_spectator_access,
 )
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_default_stream_groups, get_stream
+from zerver.models.users import active_non_guest_user_ids, get_user, get_user_profile_by_id_in_realm
 from zerver.views.streams import compose_views
 
 if TYPE_CHECKING:
@@ -4598,7 +4597,7 @@ class SubscriptionAPITest(ZulipTestCase):
         realm = get_realm("zulip")
         streams_to_sub = ["multi_user_stream"]
         with self.capture_send_event_calls(expected_num_events=5) as events:
-            with self.assert_database_query_count(37):
+            with self.assert_database_query_count(36):
                 self.common_subscribe_to_streams(
                     self.test_user,
                     streams_to_sub,
@@ -4622,7 +4621,7 @@ class SubscriptionAPITest(ZulipTestCase):
 
         # Now add ourselves
         with self.capture_send_event_calls(expected_num_events=2) as events:
-            with self.assert_database_query_count(13):
+            with self.assert_database_query_count(14):
                 self.common_subscribe_to_streams(
                     self.test_user,
                     streams_to_sub,
@@ -5523,7 +5522,7 @@ class SubscriptionAPITest(ZulipTestCase):
         ]
 
         # Test creating a public stream when realm does not have a notification stream.
-        with self.assert_database_query_count(37):
+        with self.assert_database_query_count(36):
             self.common_subscribe_to_streams(
                 self.test_user,
                 [new_streams[0]],
@@ -5531,7 +5530,7 @@ class SubscriptionAPITest(ZulipTestCase):
             )
 
         # Test creating private stream.
-        with self.assert_database_query_count(36):
+        with self.assert_database_query_count(38):
             self.common_subscribe_to_streams(
                 self.test_user,
                 [new_streams[1]],
@@ -5543,7 +5542,7 @@ class SubscriptionAPITest(ZulipTestCase):
         notifications_stream = get_stream(self.streams[0], self.test_realm)
         self.test_realm.notifications_stream_id = notifications_stream.id
         self.test_realm.save()
-        with self.assert_database_query_count(45):
+        with self.assert_database_query_count(47):
             self.common_subscribe_to_streams(
                 self.test_user,
                 [new_streams[2]],
@@ -6012,7 +6011,7 @@ class GetSubscribersTest(ZulipTestCase):
             polonius.id,
         ]
 
-        with self.assert_database_query_count(47):
+        with self.assert_database_query_count(46):
             self.common_subscribe_to_streams(
                 self.user_profile,
                 streams,

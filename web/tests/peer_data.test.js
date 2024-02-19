@@ -11,15 +11,15 @@ const {strict: assert} = require("assert");
 const {zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
-const {page_params} = require("./lib/zpage_params");
+const {current_user, page_params} = require("./lib/zpage_params");
 
 const peer_data = zrequire("peer_data");
 const people = zrequire("people");
 const stream_data = zrequire("stream_data");
 
-page_params.is_admin = false;
+current_user.is_admin = false;
 page_params.realm_users = [];
-page_params.is_guest = false;
+current_user.is_guest = false;
 
 const me = {
     email: "me@zulip.com",
@@ -152,7 +152,7 @@ test("subscribers", () => {
     // verify that checking subscription with undefined user id
 
     blueslip.expect("warn", "Undefined user_id passed to function is_user_subscribed");
-    assert.equal(stream_data.is_user_subscribed(stream_id, undefined), undefined);
+    assert.ok(!stream_data.is_user_subscribed(stream_id, undefined));
     blueslip.reset();
 
     // Verify noop for bad stream when removing subscriber
@@ -193,9 +193,9 @@ test("subscribers", () => {
         2,
     );
     sub.invite_only = true;
-    assert.equal(stream_data.is_user_subscribed(stream_id, brutus.user_id), undefined);
+    assert.ok(!stream_data.is_user_subscribed(stream_id, brutus.user_id));
     peer_data.remove_subscriber(stream_id, brutus.user_id);
-    assert.equal(stream_data.is_user_subscribed(stream_id, brutus.user_id), undefined);
+    assert.ok(!stream_data.is_user_subscribed(stream_id, brutus.user_id));
     blueslip.reset();
 
     // Verify that we don't crash for a bad stream.
@@ -214,6 +214,13 @@ test("get_subscriber_count", () => {
     people.add_active_user(fred);
     people.add_active_user(gail);
     people.add_active_user(george);
+    const welcome_bot = {
+        email: "welcome-bot@example.com",
+        user_id: 40,
+        full_name: "Welcome Bot",
+        is_bot: true,
+    };
+    people.add_active_user(welcome_bot);
 
     const india = {
         stream_id: 102,
@@ -235,6 +242,11 @@ test("get_subscriber_count", () => {
 
     peer_data.remove_subscriber(india.stream_id, george.user_id);
     assert.deepStrictEqual(peer_data.get_subscriber_count(india.stream_id), 1);
+
+    peer_data.add_subscriber(india.stream_id, welcome_bot.user_id);
+    assert.deepStrictEqual(peer_data.get_subscriber_count(india.stream_id), 2);
+    // Get the count without bots
+    assert.deepStrictEqual(peer_data.get_subscriber_count(india.stream_id, false), 1);
 });
 
 test("is_subscriber_subset", () => {

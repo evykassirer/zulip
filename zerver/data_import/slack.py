@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 import posixpath
@@ -277,6 +278,7 @@ def users_to_zerver_userprofile(
     primary_owner_id = user_id_count
     user_id_count += 1
 
+    found_emails: Dict[str, int] = {}
     for user in users:
         slack_user_id = user["id"]
 
@@ -286,6 +288,12 @@ def users_to_zerver_userprofile(
             user_id = user_id_count
 
         email = get_user_email(user, domain_name)
+        if email.lower() in found_emails:
+            slack_user_id_to_zulip_user_id[slack_user_id] = found_emails[email.lower()]
+            logging.info("%s: %s MERGED", slack_user_id, email)
+            continue
+        found_emails[email.lower()] = user_id
+
         # ref: https://zulip.com/help/change-your-profile-picture
         avatar_url = build_avatar_url(
             slack_user_id, user["team_id"], user["profile"]["avatar_hash"]
@@ -343,7 +351,7 @@ def users_to_zerver_userprofile(
         if not user.get("is_primary_owner", False):
             user_id_count += 1
 
-        logging.info("%s -> %s", user["name"], userprofile_dict["email"])
+        logging.info("%s: %s -> %s", slack_user_id, user["name"], userprofile_dict["email"])
 
     process_customprofilefields(zerver_customprofilefield, zerver_customprofilefield_values)
     logging.info("######### IMPORTING USERS FINISHED #########\n")
@@ -625,9 +633,18 @@ def channels_to_zerver_stream(
         mpims = []
     process_mpims(mpims)
 
+    # This may have duplicated zulip user_ids, since we merge multiple
+    # Slack same-email shared-channel users into one Zulip dummy user
+    zulip_user_to_recipient: Dict[int, int] = {}
     for slack_user_id, zulip_user_id in slack_user_id_to_zulip_user_id.items():
+        if zulip_user_id in zulip_user_to_recipient:
+            slack_recipient_name_to_zulip_recipient_id[slack_user_id] = zulip_user_to_recipient[
+                zulip_user_id
+            ]
+            continue
         recipient = build_recipient(zulip_user_id, recipient_id_count, Recipient.PERSONAL)
         slack_recipient_name_to_zulip_recipient_id[slack_user_id] = recipient_id_count
+        zulip_user_to_recipient[zulip_user_id] = recipient_id_count
         sub = build_subscription(recipient_id_count, zulip_user_id, subscription_id_count)
         realm["zerver_recipient"].append(recipient)
         realm["zerver_subscription"].append(sub)
@@ -738,17 +755,7 @@ def convert_slack_workspace_messages(
         zerver_subscription=realm["zerver_subscription"],
     )
 
-    while True:
-        message_data = []
-        _counter = 0
-        for msg in all_messages:
-            _counter += 1
-            message_data.append(msg)
-            if _counter == chunk_size:
-                break
-        if len(message_data) == 0:
-            break
-
+    while message_data := list(itertools.islice(all_messages, chunk_size)):
         (
             zerver_message,
             zerver_usermessage,
@@ -1256,11 +1263,21 @@ def fetch_shared_channel_users(
         private_channels = get_data_file(slack_data_dir + "/groups.json")
     except FileNotFoundError:
         private_channels = []
-    for channel in public_channels + private_channels:
+    try:
+        huddles = get_data_file(slack_data_dir + "/mpims.json")
+    except FileNotFoundError:
+        huddles = []
+    for channel in public_channels + private_channels + huddles:
         added_channels[channel["name"]] = True
         for user_id in channel["members"]:
             if user_id not in normal_user_ids:
                 mirror_dummy_user_ids.add(user_id)
+    if os.path.exists(slack_data_dir + "/dms.json"):
+        dms = get_data_file(slack_data_dir + "/dms.json")
+        for dm_data in dms:
+            for user_id in dm_data["members"]:
+                if user_id not in normal_user_ids:
+                    mirror_dummy_user_ids.add(user_id)
 
     all_messages = get_messages_iterator(slack_data_dir, added_channels, {}, {})
     for message in all_messages:
@@ -1292,7 +1309,7 @@ def fetch_team_icons(
     records = []
 
     team_icons_dict = team_info_dict["icon"]
-    if "image_default" in team_icons_dict and team_icons_dict["image_default"]:
+    if team_icons_dict.get("image_default", False):
         return []
 
     icon_url = (

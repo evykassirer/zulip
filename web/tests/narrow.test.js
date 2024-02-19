@@ -6,7 +6,7 @@ const {mock_esm, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
 const $ = require("./lib/zjquery");
-const {page_params} = require("./lib/zpage_params");
+const {page_params, realm} = require("./lib/zpage_params");
 
 const hash_util = zrequire("hash_util");
 const compose_state = zrequire("compose_state");
@@ -38,12 +38,12 @@ function empty_narrow_html(title, html, search_data) {
     return require("../templates/empty_feed_notice.hbs")(opts);
 }
 
-function set_filter(operators) {
-    operators = operators.map((op) => ({
+function set_filter(terms) {
+    terms = terms.map((op) => ({
         operator: op[0],
         operand: op[1],
     }));
-    narrow_state.set_current_filter(new Filter(operators));
+    narrow_state.set_current_filter(new Filter(terms));
 }
 
 const me = {
@@ -199,7 +199,7 @@ run_test("urls", () => {
 });
 
 run_test("show_empty_narrow_message", ({mock_template}) => {
-    page_params.stop_words = [];
+    realm.stop_words = [];
 
     mock_template("empty_feed_notice.hbs", true, (_data, html) => html);
 
@@ -292,7 +292,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
     );
 
     // organization has disabled sending direct messages
-    page_params.realm_private_message_policy =
+    realm.realm_private_message_policy =
         settings_config.private_message_policy_values.disabled.code;
     set_filter([["is", "dm"]]);
     narrow_banner.show_empty_narrow_message();
@@ -304,7 +304,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
     );
 
     // sending direct messages enabled
-    page_params.realm_private_message_policy =
+    realm.realm_private_message_policy =
         settings_config.private_message_policy_values.by_anyone.code;
     set_filter([["is", "dm"]]);
     narrow_banner.show_empty_narrow_message();
@@ -331,7 +331,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
     );
 
     // organization has disabled sending direct messages
-    page_params.realm_private_message_policy =
+    realm.realm_private_message_policy =
         settings_config.private_message_policy_values.disabled.code;
 
     // prioritize information about invalid user(s) in narrow/search
@@ -384,7 +384,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
     );
 
     // sending direct messages enabled
-    page_params.realm_private_message_policy =
+    realm.realm_private_message_policy =
         settings_config.private_message_policy_values.by_anyone.code;
     set_filter([["dm", "alice@example.com"]]);
     narrow_banner.show_empty_narrow_message();
@@ -419,7 +419,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
     );
 
     // organization has disabled sending direct messages
-    page_params.realm_private_message_policy =
+    realm.realm_private_message_policy =
         settings_config.private_message_policy_values.disabled.code;
 
     // prioritize information about invalid user in narrow/search
@@ -449,7 +449,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
     );
 
     // sending direct messages enabled
-    page_params.realm_private_message_policy =
+    realm.realm_private_message_policy =
         settings_config.private_message_policy_values.by_anyone.code;
     set_filter([["dm-including", "alice@example.com"]]);
     narrow_banner.show_empty_narrow_message();
@@ -525,7 +525,7 @@ run_test("show_empty_narrow_message", ({mock_template}) => {
 });
 
 run_test("show_empty_narrow_message_with_search", ({mock_template}) => {
-    page_params.stop_words = [];
+    realm.stop_words = [];
 
     mock_template("empty_feed_notice.hbs", true, (_data, html) => html);
 
@@ -541,7 +541,7 @@ run_test("hide_empty_narrow_message", () => {
 });
 
 run_test("show_search_stopwords", ({mock_template}) => {
-    page_params.stop_words = ["what", "about"];
+    realm.stop_words = ["what", "about"];
 
     mock_template("empty_feed_notice.hbs", true, (_data, html) => html);
 
@@ -660,7 +660,7 @@ run_test("narrow_to_compose_target errors", ({disallow_rewire}) => {
     disallow_rewire(narrow, "activate");
 
     // No-op when not composing.
-    compose_state.set_message_type(false);
+    compose_state.set_message_type(undefined);
     narrow.to_compose_target();
 
     // No-op when empty stream.
@@ -671,8 +671,8 @@ run_test("narrow_to_compose_target errors", ({disallow_rewire}) => {
 
 run_test("narrow_to_compose_target streams", ({override_rewire}) => {
     const args = {called: false};
-    override_rewire(narrow, "activate", (operators, opts) => {
-        args.operators = operators;
+    override_rewire(narrow, "activate", (terms, opts) => {
+        args.terms = terms;
         args.opts = opts;
         args.called = true;
     });
@@ -687,7 +687,7 @@ run_test("narrow_to_compose_target streams", ({override_rewire}) => {
     narrow.to_compose_target();
     assert.equal(args.called, true);
     assert.equal(args.opts.trigger, "narrow_to_compose_target");
-    assert.deepEqual(args.operators, [
+    assert.deepEqual(args.terms, [
         {operator: "stream", operand: "ROME"},
         {operator: "topic", operand: "one"},
     ]);
@@ -697,7 +697,7 @@ run_test("narrow_to_compose_target streams", ({override_rewire}) => {
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [
+    assert.deepEqual(args.terms, [
         {operator: "stream", operand: "ROME"},
         {operator: "topic", operand: "four"},
     ]);
@@ -707,20 +707,20 @@ run_test("narrow_to_compose_target streams", ({override_rewire}) => {
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [{operator: "stream", operand: "ROME"}]);
+    assert.deepEqual(args.terms, [{operator: "stream", operand: "ROME"}]);
 
     // Test with no topic
     compose_state.topic(undefined);
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [{operator: "stream", operand: "ROME"}]);
+    assert.deepEqual(args.terms, [{operator: "stream", operand: "ROME"}]);
 });
 
 run_test("narrow_to_compose_target direct messages", ({override, override_rewire}) => {
     const args = {called: false};
-    override_rewire(narrow, "activate", (operators, opts) => {
-        args.operators = operators;
+    override_rewire(narrow, "activate", (terms, opts) => {
+        args.terms = terms;
         args.opts = opts;
         args.called = true;
     });
@@ -738,37 +738,35 @@ run_test("narrow_to_compose_target direct messages", ({override, override_rewire
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [{operator: "dm", operand: "alice@example.com"}]);
+    assert.deepEqual(args.terms, [{operator: "dm", operand: "alice@example.com"}]);
 
     // Test with valid persons
     emails = "alice@example.com,ray@example.com";
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [
-        {operator: "dm", operand: "alice@example.com,ray@example.com"},
-    ]);
+    assert.deepEqual(args.terms, [{operator: "dm", operand: "alice@example.com,ray@example.com"}]);
 
     // Test with some invalid persons
     emails = "alice@example.com,random,ray@example.com";
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [{operator: "is", operand: "dm"}]);
+    assert.deepEqual(args.terms, [{operator: "is", operand: "dm"}]);
 
     // Test with all invalid persons
     emails = "alice,random,ray";
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [{operator: "is", operand: "dm"}]);
+    assert.deepEqual(args.terms, [{operator: "is", operand: "dm"}]);
 
     // Test with no persons
     emails = "";
     args.called = false;
     narrow.to_compose_target();
     assert.equal(args.called, true);
-    assert.deepEqual(args.operators, [{operator: "is", operand: "dm"}]);
+    assert.deepEqual(args.terms, [{operator: "is", operand: "dm"}]);
 });
 
 run_test("narrow_compute_title", () => {

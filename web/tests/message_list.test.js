@@ -7,7 +7,7 @@ const {make_stub} = require("./lib/stub");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
 const $ = require("./lib/zjquery");
-const {page_params} = require("./lib/zpage_params");
+const {current_user} = require("./lib/zpage_params");
 
 // These unit tests for web/src/message_list.js emphasize the model-ish
 // aspects of the MessageList class.  We have to stub out a few functions
@@ -41,7 +41,7 @@ mock_esm("../src/message_list_view", {
 const {Filter} = zrequire("filter");
 
 run_test("basics", ({override}) => {
-    const filter = new Filter();
+    const filter = new Filter([]);
 
     const list = new MessageList({
         filter,
@@ -136,7 +136,7 @@ run_test("basics", ({override}) => {
 
 run_test("prev_next", () => {
     const list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
 
     assert.equal(list.prev(), undefined);
@@ -177,7 +177,7 @@ run_test("prev_next", () => {
 
 run_test("message_range", () => {
     const list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
 
     const messages = [{id: 30}, {id: 40}, {id: 50}, {id: 60}];
@@ -193,7 +193,7 @@ run_test("message_range", () => {
 
 run_test("nth_most_recent_id", () => {
     const list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
     list.append([{id: 10}, {id: 20}, {id: 30}]);
     assert.equal(list.nth_most_recent_id(1), 30);
@@ -204,7 +204,7 @@ run_test("nth_most_recent_id", () => {
 
 run_test("change_message_id", () => {
     const list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
     list.data._add_to_hash([
         {id: 10.5, content: "good job"},
@@ -227,7 +227,7 @@ run_test("change_message_id", () => {
 
 run_test("last_sent_by_me", () => {
     const list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
     const items = [
         {
@@ -245,14 +245,14 @@ run_test("last_sent_by_me", () => {
     ];
 
     list.append(items);
-    page_params.user_id = 3;
+    current_user.user_id = 3;
     // Look for the last message where user_id == 3 (our ID)
     assert.equal(list.get_last_message_sent_by_me().id, 2);
 });
 
 run_test("local_echo", () => {
     let list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
     list.append([
         {id: 10},
@@ -284,7 +284,7 @@ run_test("local_echo", () => {
     assert.equal(list.closest_id(58), 60);
 
     list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
     list.append([
         {id: 10},
@@ -326,7 +326,7 @@ run_test("local_echo", () => {
 
 run_test("bookend", ({override}) => {
     const list = new MessageList({
-        filter: new Filter(),
+        filter: new Filter([]),
     });
 
     list.view.clear_trailing_bookend = noop;
@@ -419,7 +419,7 @@ run_test("bookend", ({override}) => {
 });
 
 run_test("add_remove_rerender", () => {
-    const filter = new Filter();
+    const filter = new Filter([]);
     const list = new MessageList({
         filter,
     });

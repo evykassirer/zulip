@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils.cache import patch_cache_control
 
 from zerver.actions.user_settings import do_change_tos_version, do_change_user_setting
@@ -17,8 +18,7 @@ from zerver.lib.narrow_helpers import NarrowTerm
 from zerver.lib.request import RequestNotes
 from zerver.lib.streams import access_stream_by_name
 from zerver.lib.subdomains import get_subdomain
-from zerver.lib.user_counts import realm_user_count
-from zerver.models import PreregistrationUser, Realm, RealmUserDefault, Stream, UserProfile
+from zerver.models import Realm, RealmUserDefault, Stream, UserProfile
 
 
 def need_accept_tos(user_profile: Optional[UserProfile]) -> bool:
@@ -89,9 +89,9 @@ def accounts_accept_terms(request: HttpRequest) -> HttpResponse:
         request.user.tos_version == UserProfile.TOS_VERSION_BEFORE_FIRST_LOGIN
         and settings.FIRST_TIME_TERMS_OF_SERVICE_TEMPLATE is not None
     ):
-        context[
-            "first_time_terms_of_service_message_template"
-        ] = settings.FIRST_TIME_TERMS_OF_SERVICE_TEMPLATE
+        context["first_time_terms_of_service_message_template"] = (
+            settings.FIRST_TIME_TERMS_OF_SERVICE_TEMPLATE
+        )
 
     return render(
         request,
@@ -110,7 +110,7 @@ def detect_narrowed_window(
 
     narrow: List[NarrowTerm] = []
     narrow_stream = None
-    narrow_topic = request.GET.get("topic")
+    narrow_topic_name = request.GET.get("topic")
 
     if "stream" in request.GET:
         try:
@@ -121,9 +121,9 @@ def detect_narrowed_window(
             narrow = [NarrowTerm(operator="stream", operand=narrow_stream.name)]
         except Exception:
             logging.warning("Invalid narrow requested, ignoring", extra=dict(request=request))
-        if narrow_stream is not None and narrow_topic is not None:
-            narrow.append(NarrowTerm(operator="topic", operand=narrow_topic))
-    return narrow, narrow_stream, narrow_topic
+        if narrow_stream is not None and narrow_topic_name is not None:
+            narrow.append(NarrowTerm(operator="topic", operand=narrow_topic_name))
+    return narrow, narrow_stream, narrow_topic_name
 
 
 def update_last_reminder(user_profile: Optional[UserProfile]) -> None:
@@ -154,6 +154,10 @@ def home(request: HttpRequest) -> HttpResponse:
 
         return hello_view(request)
 
+    if subdomain == settings.SOCIAL_AUTH_SUBDOMAIN:
+        return redirect(settings.ROOT_DOMAIN_URI)
+    elif subdomain == settings.SELF_HOSTING_MANAGEMENT_SUBDOMAIN:
+        return redirect(reverse("remote_billing_legacy_server_login"))
     realm = get_realm_from_request(request)
     if realm is None:
         return render(request, "zerver/invalid_realm.html", status=404)
@@ -207,21 +211,12 @@ def home_real(request: HttpRequest) -> HttpResponse:
     if need_accept_tos(user_profile):
         return accounts_accept_terms(request)
 
-    narrow, narrow_stream, narrow_topic = detect_narrowed_window(request, user_profile)
+    narrow, narrow_stream, narrow_topic_name = detect_narrowed_window(request, user_profile)
 
     if user_profile is not None:
-        first_in_realm = realm_user_count(user_profile.realm) == 1
-        # If you are the only person in the realm and you didn't invite
-        # anyone, we'll continue to encourage you to do so on the frontend.
-        prompt_for_invites = (
-            first_in_realm
-            and not PreregistrationUser.objects.filter(referred_by=user_profile).count()
-        )
         needs_tutorial = user_profile.tutorial_status == UserProfile.TUTORIAL_WAITING
 
     else:
-        first_in_realm = False
-        prompt_for_invites = False
         # The current tutorial doesn't super make sense for logged-out users.
         needs_tutorial = False
 
@@ -232,9 +227,7 @@ def home_real(request: HttpRequest) -> HttpResponse:
         insecure_desktop_app=insecure_desktop_app,
         narrow=narrow,
         narrow_stream=narrow_stream,
-        narrow_topic=narrow_topic,
-        first_in_realm=first_in_realm,
-        prompt_for_invites=prompt_for_invites,
+        narrow_topic_name=narrow_topic_name,
         needs_tutorial=needs_tutorial,
     )
 

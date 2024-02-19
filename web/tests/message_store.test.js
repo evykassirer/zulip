@@ -3,11 +3,9 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
-const {page_params} = require("./lib/zpage_params");
-
-const noop = () => {};
+const {current_user, realm} = require("./lib/zpage_params");
 
 mock_esm("../src/stream_topic_history", {
     add_message: noop,
@@ -19,8 +17,8 @@ mock_esm("../src/recent_senders", {
 });
 
 set_global("document", "document-stub");
-page_params.realm_allow_message_editing = true;
-page_params.is_admin = true;
+realm.realm_allow_message_editing = true;
+current_user.is_admin = true;
 
 const util = zrequire("util");
 const people = zrequire("people");
@@ -117,11 +115,7 @@ test("process_new_message", () => {
     assert.equal(message.alerted, true);
     assert.equal(message.is_me_message, false);
 
-    let retrieved_message = message_store.get(2067);
-    assert.equal(retrieved_message, message);
-
-    blueslip.expect("error", "message_store got non-number");
-    retrieved_message = message_store.get("2067");
+    const retrieved_message = message_store.get(2067);
     assert.equal(retrieved_message, message);
 
     // access cached previous message, and test match subject/content
@@ -226,7 +220,7 @@ test("errors", ({disallow_rewire}) => {
     blueslip.expect("error", "Unknown user id", 1); // From person.js
 
     // Expect each to throw two blueslip errors
-    // One from message_store.js, one from person.js
+    // One from message_store.ts, one from person.js
     const emails = message_store.get_pm_emails(message);
     assert.equal(emails, "?");
 
@@ -338,13 +332,13 @@ test("update_property", () => {
 
     assert.equal(message1.sender_full_name, alice.full_name);
     assert.equal(message2.sender_full_name, bob.full_name);
-    message_store.update_property("sender_full_name", "Bobby", {user_id: bob.user_id});
+    message_store.update_sender_full_name(bob.user_id, "Bobby");
     assert.equal(message1.sender_full_name, alice.full_name);
     assert.equal(message2.sender_full_name, "Bobby");
 
     assert.equal(message1.small_avatar_url, "alice_url");
     assert.equal(message2.small_avatar_url, "bob_url");
-    message_store.update_property("small_avatar_url", "bobby_url", {user_id: bob.user_id});
+    message_store.update_small_avatar_url(bob.user_id, "bobby_url");
     assert.equal(message1.small_avatar_url, "alice_url");
     assert.equal(message2.small_avatar_url, "bobby_url");
 
@@ -352,14 +346,9 @@ test("update_property", () => {
     assert.equal(message1.display_recipient, devel.name);
     assert.equal(message2.stream_id, denmark.stream_id);
     assert.equal(message2.display_recipient, denmark.name);
-    message_store.update_property("stream_name", "Prod", {stream_id: devel.stream_id});
+    message_store.update_stream_name(devel.stream_id, "Prod");
     assert.equal(message1.stream_id, devel.stream_id);
     assert.equal(message1.display_recipient, "Prod");
     assert.equal(message2.stream_id, denmark.stream_id);
     assert.equal(message2.display_recipient, denmark.name);
-});
-
-test("errors", () => {
-    blueslip.expect("error", "message_store.get got bad value");
-    message_store.get(undefined);
 });

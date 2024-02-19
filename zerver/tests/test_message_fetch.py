@@ -18,15 +18,16 @@ from zerver.actions.uploads import do_claim_attachments
 from zerver.actions.user_settings import do_change_user_setting
 from zerver.actions.users import do_deactivate_user
 from zerver.lib.avatar import avatar_url
+from zerver.lib.display_recipient import get_display_recipient
 from zerver.lib.exceptions import JsonableError
+from zerver.lib.markdown import render_message_markdown
 from zerver.lib.mention import MentionBackend, MentionData
 from zerver.lib.message import (
-    MessageDict,
     get_first_visible_message_id,
     maybe_update_first_visible_message_id,
-    render_markdown,
     update_first_visible_message_id,
 )
+from zerver.lib.message_cache import MessageDict
 from zerver.lib.narrow import (
     LARGER_THAN_MAX_MESSAGE_ID,
     BadNarrowOperatorError,
@@ -57,10 +58,9 @@ from zerver.models import (
     UserMessage,
     UserProfile,
     UserTopic,
-    get_display_recipient,
-    get_realm,
-    get_stream,
 )
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
 from zerver.views.message_fetch import get_messages_backend
 
 if TYPE_CHECKING:
@@ -4299,7 +4299,7 @@ class MessageHasKeywordsTest(ZulipTestCase):
     def update_message(self, msg: Message, content: str) -> None:
         hamlet = self.example_user("hamlet")
         realm_id = hamlet.realm.id
-        rendering_result = render_markdown(msg, content)
+        rendering_result = render_message_markdown(msg, content)
         mention_backend = MentionBackend(realm_id)
         mention_data = MentionData(mention_backend, content, msg.sender)
         do_update_message(

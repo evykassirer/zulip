@@ -1,6 +1,6 @@
 import os
 from email.headerregistry import Address
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, Optional, Tuple
 
 from django_auth_ldap.config import GroupOfUniqueNamesType, LDAPGroupType
 
@@ -11,6 +11,8 @@ from .config import DEVELOPMENT, PRODUCTION, get_secret
 
 if TYPE_CHECKING:
     from django_auth_ldap.config import LDAPSearch
+
+    from zerver.models.users import UserProfile
 
 if PRODUCTION:  # nocoverage
     from .prod_settings import EXTERNAL_HOST, ZULIP_ADMINISTRATOR
@@ -148,6 +150,7 @@ S3_AVATAR_BUCKET = ""
 S3_AUTH_UPLOADS_BUCKET = ""
 S3_REGION: Optional[str] = None
 S3_ENDPOINT_URL: Optional[str] = None
+S3_ADDRESSING_STYLE: Literal["auto", "virtual", "path"] = "auto"
 S3_SKIP_PROXY = True
 S3_UPLOADS_STORAGE_CLASS: Literal[
     "GLACIER_IR",
@@ -287,6 +290,12 @@ DEFAULT_RATE_LIMITING_RULES = {
     "spectator_attachment_access_by_file": [
         # 1000 per day per file
         (86400, 1000),
+    ],
+    # A zilencer-only limit that applies to requests to the
+    # remote billing system that trigger the sending of an email.
+    "sends_email_by_remote_server": [
+        # 10 emails per day
+        (86400, 10),
     ],
 }
 # Rate limiting defaults can be individually overridden by adding
@@ -547,7 +556,7 @@ ARCHIVED_DATA_VACUUMING_DELAY_DAYS = 30
 BILLING_ENABLED = False
 
 CLOUD_FREE_TRIAL_DAYS: Optional[int] = int(get_secret("cloud_free_trial_days", "0"))
-SELF_HOSTING_FREE_TRIAL_DAYS: Optional[int] = int(get_secret("self_hosting_free_trial_days", "0"))
+SELF_HOSTING_FREE_TRIAL_DAYS: Optional[int] = int(get_secret("self_hosting_free_trial_days", "30"))
 
 # Custom message (supports HTML) to be shown in the navbar of landing pages. Used mainly for
 # making announcements.
@@ -565,7 +574,7 @@ GOOGLE_ANALYTICS_ID: Optional[str] = None
 # This is overridden by dev_settings.py for droplets.
 IS_DEV_DROPLET = False
 
-# Used by puppet/zulip_ops/files/cron.d/check_send_receive_time.
+# Used by puppet/kandra/files/cron.d/check_send_receive_time.
 NAGIOS_BOT_HOST = EXTERNAL_HOST
 
 # Use half of the available CPUs for data import purposes.
@@ -618,3 +627,5 @@ CAN_ACCESS_ALL_USERS_GROUP_LIMITS_PRESENCE = False
 # General expiry time for signed tokens we may generate
 # in some places through the codebase.
 SIGNED_ACCESS_TOKEN_VALIDITY_IN_SECONDS = 60
+
+CUSTOM_AUTHENTICATION_WRAPPER_FUNCTION: Optional[Callable[..., Optional["UserProfile"]]] = None

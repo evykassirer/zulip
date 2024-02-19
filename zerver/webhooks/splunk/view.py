@@ -6,7 +6,8 @@ from zerver.lib.response import json_success
 from zerver.lib.typed_endpoint import JsonBodyPayload, typed_endpoint
 from zerver.lib.validator import WildValue, check_string
 from zerver.lib.webhooks.common import check_send_webhook_message
-from zerver.models import MAX_TOPIC_NAME_LENGTH, UserProfile
+from zerver.models import UserProfile
+from zerver.models.constants import MAX_TOPIC_NAME_LENGTH
 
 MESSAGE_TEMPLATE = """
 Splunk alert from saved search:
@@ -34,9 +35,9 @@ def api_splunk_webhook(
 
     # for the default topic, use search name but truncate if too long
     if len(search_name) >= MAX_TOPIC_NAME_LENGTH:
-        topic = f"{search_name[:(MAX_TOPIC_NAME_LENGTH - 3)]}..."
+        topic_name = f"{search_name[:(MAX_TOPIC_NAME_LENGTH - 3)]}..."
     else:
-        topic = search_name
+        topic_name = search_name
 
     # construct the message body
     body = MESSAGE_TEMPLATE.format(
@@ -48,6 +49,6 @@ def api_splunk_webhook(
     )
 
     # send the message
-    check_send_webhook_message(request, user_profile, topic, body)
+    check_send_webhook_message(request, user_profile, topic_name, body)
 
     return json_success(request)

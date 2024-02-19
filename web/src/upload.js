@@ -13,8 +13,8 @@ import * as compose_validate from "./compose_validate";
 import {csrf_token} from "./csrf";
 import {$t} from "./i18n";
 import * as message_lists from "./message_lists";
-import {page_params} from "./page_params";
 import * as rows from "./rows";
+import {realm} from "./state_data";
 
 let drag_drop_img = null;
 export let compose_upload_object;
@@ -117,7 +117,11 @@ export function get_item(key, config, file_id) {
             case "source":
                 return "message-edit-file-input";
             case "drag_drop_container":
-                return $(`#zfilt${CSS.escape(config.row)} .message_edit_form`);
+                return $(
+                    `#message-row-${message_lists.current.id}-${CSS.escape(
+                        config.row,
+                    )} .message_edit_form`,
+                );
             case "markdown_preview_hide_button":
                 return $(`#edit_form_${CSS.escape(config.row)} .undo_markdown_preview`);
             default:
@@ -146,14 +150,14 @@ function add_upload_banner(
     file_id,
     is_upload_process_tracker = false,
 ) {
-    const new_banner = render_upload_banner({
+    const new_banner_html = render_upload_banner({
         banner_type,
         is_upload_process_tracker,
         banner_text,
         file_id,
     });
     compose_banner.append_compose_banner_to_banner_list(
-        new_banner,
+        $(new_banner_html),
         get_item("banner_container", config),
     );
 }
@@ -179,7 +183,7 @@ export async function upload_files(uppy, config, files) {
     if (files.length === 0) {
         return;
     }
-    if (page_params.max_file_upload_size_mib === 0) {
+    if (realm.max_file_upload_size_mib === 0) {
         show_error_message(
             config,
             $t({
@@ -255,7 +259,7 @@ export function setup_upload(config) {
         debug: false,
         autoProceed: true,
         restrictions: {
-            maxFileSize: page_params.max_file_upload_size_mib * 1024 * 1024,
+            maxFileSize: realm.max_file_upload_size_mib * 1024 * 1024,
         },
         locale: {
             strings: {
@@ -264,7 +268,7 @@ export function setup_upload(config) {
                         defaultMessage:
                             "%'{file}' exceeds the maximum file size for attachments ({variable} MB).",
                     },
-                    {variable: `${page_params.max_file_upload_size_mib}`},
+                    {variable: `${realm.max_file_upload_size_mib}`},
                 ),
                 failedToUpload: $t({defaultMessage: "Failed to upload %'{file}'"}),
             },

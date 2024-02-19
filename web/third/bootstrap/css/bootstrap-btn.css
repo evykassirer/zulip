@@ -85,15 +85,13 @@ THE SOFTWARE.
 .btn-default:hover,
 .btn-default:focus,
 .btn-default:active,
-.btn-default.active,
-.open .dropdown-toggle.btn-default {
+.btn-default.active {
   color: #333;
   background-color: #ebebeb;
   border-color: #adadad;
 }
 .btn-default:active,
-.btn-default.active,
-.open .dropdown-toggle.btn-default {
+.btn-default.active {
   background-image: none;
 }
 .btn-default.disabled,
@@ -113,18 +111,6 @@ THE SOFTWARE.
   color: #fff;
   background-color: #333;
 }
-.btn-info {
-  color: #fff;
-  background-color: #5bc0de;
-  border-color: #46b8da;
-}
-.btn-info:hover,
-.btn-info:focus,
-.btn-info:active {
-  color: #fff;
-  background-color: #39b3d7;
-  border-color: #269abc;
-}
 .btn-warning {
   color: #fff;
   background-color: #f0ad4e;
@@ -133,15 +119,13 @@ THE SOFTWARE.
 .btn-warning:hover,
 .btn-warning:focus,
 .btn-warning:active,
-.btn-warning.active,
-.open .dropdown-toggle.btn-warning {
+.btn-warning.active {
   color: #fff;
   background-color: #ed9c28;
   border-color: #d58512;
 }
 .btn-warning:active,
-.btn-warning.active,
-.open .dropdown-toggle.btn-warning {
+.btn-warning.active {
   background-image: none;
 }
 .btn-warning.disabled,
@@ -169,15 +153,13 @@ THE SOFTWARE.
 .btn-danger:hover,
 .btn-danger:focus,
 .btn-danger:active,
-.btn-danger.active,
-.open .dropdown-toggle.btn-danger {
+.btn-danger.active {
   color: #fff;
   background-color: #d2322d;
   border-color: #ac2925;
 }
 .btn-danger:active,
-.btn-danger.active,
-.open .dropdown-toggle.btn-danger {
+.btn-danger.active {
   background-image: none;
 }
 .btn-danger.disabled,
@@ -196,43 +178,4 @@ THE SOFTWARE.
 .btn-danger .badge {
   color: #d9534f;
   background-color: #fff;
-}
-.btn-link {
-  font-weight: normal;
-  color: #428bca;
-  cursor: pointer;
-  border-radius: 0;
-}
-.btn-link,
-.btn-link:active,
-.btn-link[disabled] {
-  background-color: transparent;
-  -webkit-box-shadow: none;
-          box-shadow: none;
-}
-.btn-link,
-.btn-link:hover,
-.btn-link:focus,
-.btn-link:active {
-  border-color: transparent;
-}
-.btn-link:hover,
-.btn-link:focus {
-  color: #2a6496;
-  text-decoration: underline;
-  background-color: transparent;
-}
-.btn-link[disabled]:hover,
-.btn-link[disabled]:focus {
-  color: #999;
-  text-decoration: none;
-}
-.btn-block {
-  display: block;
-  width: 100%;
-  padding-right: 0;
-  padding-left: 0;
-}
-.btn-block + .btn-block {
-  margin-top: 5px;
 }

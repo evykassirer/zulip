@@ -67,7 +67,6 @@ from zerver.models import (
     Service,
     Stream,
     Subscription,
-    SystemGroups,
     UserActivity,
     UserActivityInterval,
     UserGroup,
@@ -77,11 +76,11 @@ from zerver.models import (
     UserProfile,
     UserStatus,
     UserTopic,
-    get_huddle_hash,
-    get_realm,
-    get_system_bot,
-    get_user_profile_by_id,
 )
+from zerver.models.groups import SystemGroups
+from zerver.models.realms import get_realm
+from zerver.models.recipients import get_huddle_hash
+from zerver.models.users import get_system_bot, get_user_profile_by_id
 
 realm_tables = [
     ("zerver_realmauthenticationmethod", RealmAuthenticationMethod, "realmauthenticationmethod"),
@@ -787,12 +786,7 @@ def import_uploads(
             bucket_name = settings.S3_AUTH_UPLOADS_BUCKET
         bucket = get_bucket(bucket_name)
 
-    count = 0
-    for record in records:
-        count += 1
-        if count % 1000 == 0:
-            logging.info("Processed %s/%s uploads", count, len(records))
-
+    for count, record in enumerate(records, 1):
         if processing_avatars:
             # For avatars, we need to rehash the user ID with the
             # new server's avatar salt
@@ -878,6 +872,9 @@ def import_uploads(
             orig_file_path = os.path.join(import_dir, record["path"])
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             shutil.copy(orig_file_path, file_path)
+
+        if count % 1000 == 0:
+            logging.info("Processed %s/%s uploads", count, len(records))
 
     if processing_avatars:
         # Ensure that we have medium-size avatar images for every
@@ -1338,6 +1335,9 @@ def do_import_realm(import_dir: Path, subdomain: str, processes: int = 1) -> Rea
 
     sender_map = {user["id"]: user for user in data["zerver_userprofile"]}
 
+    # Import zerver_message and zerver_usermessage
+    import_message_data(realm=realm, sender_map=sender_map, import_dir=import_dir)
+
     if "zerver_scheduledmessage" in data:
         fix_datetime_fields(data, "zerver_scheduledmessage")
         re_map_foreign_keys(data, "zerver_scheduledmessage", "sender", related_table="user_profile")
@@ -1347,6 +1347,9 @@ def do_import_realm(import_dir: Path, subdomain: str, processes: int = 1) -> Rea
         )
         re_map_foreign_keys(data, "zerver_scheduledmessage", "stream", related_table="stream")
         re_map_foreign_keys(data, "zerver_scheduledmessage", "realm", related_table="realm")
+        re_map_foreign_keys(
+            data, "zerver_scheduledmessage", "delivered_message", related_table="message"
+        )
 
         fix_upload_links(data, "zerver_scheduledmessage")
 
@@ -1358,9 +1361,6 @@ def do_import_realm(import_dir: Path, subdomain: str, processes: int = 1) -> Rea
 
         update_model_ids(ScheduledMessage, data, "scheduledmessage")
         bulk_import_model(data, ScheduledMessage)
-
-    # Import zerver_message and zerver_usermessage
-    import_message_data(realm=realm, sender_map=sender_map, import_dir=import_dir)
 
     re_map_foreign_keys(data, "zerver_reaction", "message", related_table="message")
     re_map_foreign_keys(data, "zerver_reaction", "user_profile", related_table="user_profile")

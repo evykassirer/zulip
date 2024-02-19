@@ -14,7 +14,8 @@ from zerver.context_processors import get_apps_page_url
 from zerver.lib.integrations import CATEGORIES, INTEGRATIONS, META_CATEGORY
 from zerver.lib.test_classes import ZulipTestCase
 from zerver.lib.test_helpers import HostRequestMock
-from zerver.models import Realm, get_realm
+from zerver.models import Realm
+from zerver.models.realms import get_realm
 from zerver.views.documentation import add_api_url_context
 
 if TYPE_CHECKING:
@@ -239,7 +240,7 @@ class DocPageTest(ZulipTestCase):
     def test_dev_environment_endpoints(self) -> None:
         self._test("/devlogin/", ["Normal users"])
         self._test("/devtools/", ["Useful development URLs"])
-        self._test("/emails/", ["manually generate most of the emails by clicking"])
+        self._test("/emails/", ["Manually generate most emails"])
 
     def test_error_endpoints(self) -> None:
         self._test("/errors/404/", ["Page not found"])
@@ -256,7 +257,7 @@ class DocPageTest(ZulipTestCase):
         self._test("/hello/", ["your mission-critical communications with Zulip"])
         self._test("/communities/", ["Open communities directory"])
         self._test("/development-community/", ["Zulip development community"])
-        self._test("/features/", ["Beautiful messaging"])
+        self._test("/features/", ["Complete team chat solution"])
         self._test("/jobs/", ["Work with us"])
         self._test("/self-hosting/", ["Self-host Zulip"])
         self._test("/security/", ["TLS encryption"])
@@ -546,7 +547,7 @@ class PlansPageTest(ZulipTestCase):
         sign_up_now = "Create organization"
         upgrade_to_standard = "Upgrade to Standard"
         current_plan = "Current plan"
-        sponsorship_pending = "Sponsorship pending"
+        sponsorship_pending = "Sponsorship requested"
 
         # Root domain
         result = self.client_get("/plans/", subdomain="")
@@ -693,6 +694,10 @@ class PrivacyTermsTest(ZulipTestCase):
             response = self.client_get("/policies/terms")
         self.assert_in_response(not_configured_message, response)
 
+        with self.settings(POLICIES_DIRECTORY="zerver/policies_minimal"):
+            response = self.client_get("/policies/terms")
+        self.assert_in_success_response(["These are the custom terms and conditions."], response)
+
         with self.settings(POLICIES_DIRECTORY="corporate/policies"):
             response = self.client_get("/policies/terms")
         self.assert_in_success_response(["Kandra Labs"], response)
@@ -702,6 +707,10 @@ class PrivacyTermsTest(ZulipTestCase):
         with self.settings(POLICIES_DIRECTORY="zerver/policies_absent"):
             response = self.client_get("/policies/privacy")
         self.assert_in_response(not_configured_message, response)
+
+        with self.settings(POLICIES_DIRECTORY="zerver/policies_minimal"):
+            response = self.client_get("/policies/privacy")
+        self.assert_in_success_response(["This is the custom privacy policy."], response)
 
         with self.settings(POLICIES_DIRECTORY="corporate/policies"):
             response = self.client_get("/policies/privacy")

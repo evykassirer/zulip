@@ -1,5 +1,6 @@
 import autosize from "autosize";
 import $ from "jquery";
+import assert from "minimalistic-assert";
 
 import {all_messages_data} from "./all_messages_data";
 import * as blueslip from "./blueslip";
@@ -16,6 +17,7 @@ import * as stream_data from "./stream_data";
 import {user_settings} from "./user_settings";
 
 export class MessageList {
+    static id_counter = 0;
     // A MessageList is the main interface for a message feed that is
     // rendered in the DOM. Code outside the message feed rendering
     // internals will directly call this module in order to manipulate
@@ -29,6 +31,8 @@ export class MessageList {
     // is not particularly well-defined; it could be nice to figure
     // out a good rule.
     constructor(opts) {
+        MessageList.id_counter += 1;
+        this.id = MessageList.id_counter;
         // The MessageListData keeps track of the actual sequence of
         // messages displayed by this MessageList. Most
         // configuration/logic questions in this module will be
@@ -45,11 +49,6 @@ export class MessageList {
             });
         }
 
-        // The table_name is the outer HTML element for this message
-        // list in the DOM.
-        const table_name = opts.table_name;
-        this.table_name = table_name;
-
         // TODO: This property should likely just be inlined into
         // having the MessageListView code that needs to access it
         // query .data.filter directly.
@@ -58,18 +57,11 @@ export class MessageList {
         // The MessageListView object that is responsible for
         // maintaining this message feed's HTML representation in the
         // DOM.
-        this.view = new MessageListView(this, table_name, collapse_messages);
+        this.view = new MessageListView(this, collapse_messages, opts.is_node_test);
 
         // Whether this is a narrowed message list. The only message
         // list that is not is the home_msg_list global.
-        //
-        // TODO: It would probably be more readable to replace this
-        // with another property with an inverted meaning, since
-        // home_msg_list is the message list that is special/unique.
-        this.narrowed = this.table_name === "zfilt";
-
-        // TODO: This appears to be unused and can be deleted.
-        this.num_appends = 0;
+        this.narrowed = !this.data.filter.is_in_home();
 
         // Keeps track of whether the user has done a UI interaction,
         // such as "Mark as unread", that should disable marking
@@ -108,7 +100,7 @@ export class MessageList {
 
         if (interior_messages.length > 0) {
             this.view.rerender_preserving_scrolltop(true);
-            return true;
+            return {need_user_to_scroll: true};
         }
         if (top_messages.length > 0) {
             this.view.prepend(top_messages);
@@ -131,7 +123,9 @@ export class MessageList {
             // message. Regardless of whether the messages are new or
             // old, we want to select a message as though we just
             // entered this view.
-            this.select_id(this.first_unread_message_id(), {then_scroll: true, use_closest: true});
+            const first_unread_message_id = this.first_unread_message_id();
+            assert(first_unread_message_id !== undefined);
+            this.select_id(first_unread_message_id, {then_scroll: true, use_closest: true});
         }
 
         return render_info;
@@ -270,7 +264,7 @@ export class MessageList {
         // false.
         if (!opts.use_closest && closest_id !== id) {
             error_data = {
-                table_name: this.table_name,
+                filter_terms: this.filter.terms(),
                 id,
                 closest_id,
             };
@@ -279,7 +273,7 @@ export class MessageList {
 
         if (closest_id === -1 && !opts.empty_ok) {
             error_data = {
-                table_name: this.table_name,
+                filter_terms: this.filter.terms(),
                 id,
                 items_length: this.data.num_items(),
             };
@@ -292,6 +286,15 @@ export class MessageList {
         this.data.set_selected_id(id);
 
         if (opts.force_rerender) {
+            // TODO: Because rerender() itself will call
+            // reselect_selected_id after doing the rendering, we
+            // actually end up with this function being called
+            // recursively in this case. The ordering will end up
+            // being that the message_selected.zulip event for that
+            // rerender is processed before execution returns here.
+            //
+            // The recursive call is unnecessary, so we should figure
+            // out how to avoid that, both here and in the next block.
             this.rerender();
         } else if (!opts.from_rendering) {
             this.view.maybe_rerender();
@@ -369,7 +372,6 @@ export class MessageList {
     }
 
     append_to_view(messages, {messages_are_new = false} = {}) {
-        this.num_appends += 1;
         const render_info = this.view.append(messages, messages_are_new);
         return render_info;
     }
@@ -385,7 +387,6 @@ export class MessageList {
         }
         $row.find(".message_edit_form").append(edit_obj.$form);
         $row.find(".message_content, .status-message, .message_controls").hide();
-        $row.find(".sender-status").toggleClass("sender-status-edit");
         $row.find(".messagebox-content").addClass("content_edit_mode");
         $row.find(".message_edit").css("display", "block");
         autosize($row.find(".message_edit_content"));
@@ -393,7 +394,6 @@ export class MessageList {
 
     hide_edit_message($row) {
         $row.find(".message_content, .status-message, .message_controls").show();
-        $row.find(".sender-status").toggleClass("sender-status-edit");
         $row.find(".message_edit_form").empty();
         $row.find(".messagebox-content").removeClass("content_edit_mode");
         $row.find(".message_edit").hide();
@@ -473,11 +473,10 @@ export class MessageList {
         // all_messages_data, since otherwise unmuting a previously
         // muted stream won't work.
         //
-        // TODO: The zhome conditional is a bit awkward, but a check
-        // for whether the filter excludes muted streams wouldn't be
-        // correct, because other narrows can't pull from
-        // all_messages.
-        if (this.table_name === "zhome") {
+        // "in-home" filter doesn't included muted stream messages, so we
+        // need to repopulate the message list with all messages to include
+        // the previous messages in muted streams so that update_items_for_muting works.
+        if (this.data.filter.is_in_home()) {
             this.data.clear();
             this.data.add_messages(all_messages_data.all_messages());
         }
@@ -534,7 +533,6 @@ export class MessageList {
 export function initialize() {
     /* Create home_msg_list and register it. */
     const home_msg_list = new MessageList({
-        table_name: "zhome",
         filter: new Filter([{operator: "in", operand: "home"}]),
         excludes_muted_topics: true,
     });

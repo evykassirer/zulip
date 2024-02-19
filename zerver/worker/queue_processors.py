@@ -42,6 +42,7 @@ from django.db.utils import IntegrityError
 from django.utils.timezone import now as timezone_now
 from django.utils.translation import gettext as _
 from django.utils.translation import override as override_language
+from psycopg2.sql import SQL, Literal
 from returns.curry import partial
 from sentry_sdk import add_breadcrumb, configure_scope
 from typing_extensions import override
@@ -53,7 +54,7 @@ from zerver.actions.message_flags import do_mark_stream_messages_as_read
 from zerver.actions.message_send import internal_send_private_message, render_incoming_message
 from zerver.actions.presence import do_update_user_presence
 from zerver.actions.realm_export import notify_realm_export
-from zerver.actions.user_activity import do_update_user_activity, do_update_user_activity_interval
+from zerver.actions.user_activity import do_update_user_activity_interval
 from zerver.context_processors import common_context
 from zerver.lib.bot_lib import EmbeddedBotHandler, EmbeddedBotQuitError, get_bot_handler
 from zerver.lib.context_managers import lockfile
@@ -104,12 +105,11 @@ from zerver.models import (
     Stream,
     UserMessage,
     UserProfile,
-    filter_to_valid_prereg_users,
-    get_bot_services,
-    get_client,
-    get_system_bot,
-    get_user_profile_by_id,
 )
+from zerver.models.bots import get_bot_services
+from zerver.models.clients import get_client
+from zerver.models.prereg_users import filter_to_valid_prereg_users
+from zerver.models.users import get_system_bot, get_user_profile_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -542,19 +542,35 @@ class UserActivityWorker(LoopQueueProcessingWorker):
             if key_tuple not in uncommitted_events:
                 uncommitted_events[key_tuple] = (1, event["time"])
             else:
-                count, time = uncommitted_events[key_tuple]
-                uncommitted_events[key_tuple] = (count + 1, max(time, event["time"]))
+                count, event_time = uncommitted_events[key_tuple]
+                uncommitted_events[key_tuple] = (count + 1, max(event_time, event["time"]))
 
-        # Then we insert the updates into the database.
-        #
-        # TODO: Doing these updates in sequence individually is likely
-        # inefficient; the idealized version would do some sort of
-        # bulk insert_or_update query.
-        for key_tuple in uncommitted_events:
-            (user_profile_id, client_id, query) = key_tuple
-            count, time = uncommitted_events[key_tuple]
-            log_time = timestamp_to_datetime(time)
-            do_update_user_activity(user_profile_id, client_id, query, count, log_time)
+        rows = []
+        for key_tuple, value_tuple in uncommitted_events.items():
+            user_profile_id, client_id, query = key_tuple
+            count, event_time = value_tuple
+            rows.append(
+                SQL("({},{},{},{},to_timestamp({}))").format(
+                    Literal(user_profile_id),
+                    Literal(client_id),
+                    Literal(query),
+                    Literal(count),
+                    Literal(event_time),
+                )
+            )
+
+        # Perform a single bulk UPSERT for all of the rows
+        sql_query = SQL(
+            """
+            INSERT INTO zerver_useractivity(user_profile_id, client_id, query, count, last_visit)
+            VALUES {rows}
+            ON CONFLICT (user_profile_id, client_id, query) DO UPDATE SET
+                count = zerver_useractivity.count + excluded.count,
+                last_visit = greatest(zerver_useractivity.last_visit, excluded.last_visit)
+            """
+        ).format(rows=SQL(", ").join(rows))
+        with connection.cursor() as cursor:
+            cursor.execute(sql_query)
 
 
 @assign_queue("user_activity_interval")
@@ -791,7 +807,7 @@ class MissedMessageWorker(QueueProcessingWorker):
 class EmailSendingWorker(LoopQueueProcessingWorker):
     def __init__(self, threaded: bool = False, disable_timeout: bool = False) -> None:
         super().__init__(threaded, disable_timeout)
-        self.connection: BaseEmailBackend = initialize_connection(None)
+        self.connection: Optional[BaseEmailBackend] = None
 
     @retry_send_email_failures
     def send_email(self, event: Dict[str, Any]) -> None:
@@ -813,7 +829,8 @@ class EmailSendingWorker(LoopQueueProcessingWorker):
     @override
     def stop(self) -> None:
         try:
-            self.connection.close()
+            if self.connection is not None:
+                self.connection.close()
         finally:
             super().stop()
 

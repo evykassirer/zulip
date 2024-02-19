@@ -13,7 +13,8 @@ from zerver.actions.create_user import notify_new_user
 from zerver.actions.user_settings import do_change_user_setting
 from zerver.lib.initial_password import initial_password
 from zerver.lib.test_classes import ZulipTestCase
-from zerver.models import Message, Realm, Recipient, Stream, UserProfile, get_realm
+from zerver.models import Message, Realm, Recipient, Stream, UserProfile
+from zerver.models.realms import get_realm
 from zerver.signals import JUST_CREATED_THRESHOLD, get_device_browser, get_device_os
 
 if sys.version_info < (3, 9):  # nocoverage
@@ -285,7 +286,7 @@ class TestNotifyNewUser(ZulipTestCase):
         actual_stream = Stream.objects.get(id=message.recipient.type_id)
         self.assertEqual(actual_stream.name, Realm.INITIAL_PRIVATE_STREAM_NAME)
         self.assertIn(
-            f"@_**Cordelia, Lear's daughter|{new_user.id}** just signed up for Zulip.",
+            f"@_**Cordelia, Lear's daughter|{new_user.id}** joined this organization.",
             message.content,
         )
 
@@ -322,7 +323,7 @@ class TestNotifyNewUser(ZulipTestCase):
             actual_stream = Stream.objects.get(id=message.recipient.type_id)
             self.assertEqual(actual_stream, realm.signup_notifications_stream)
             self.assertIn(
-                f"@_**new user {user_no}|{new_user.id}** just signed up for Zulip.",
+                f"@_**new user {user_no}|{new_user.id}** joined this organization.",
                 message.content,
             )
             for string_present in strings_present:

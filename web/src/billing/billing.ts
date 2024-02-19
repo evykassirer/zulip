@@ -184,11 +184,12 @@ export function initialize(): void {
             "planchange",
             [],
             "PATCH",
-            () =>
+            () => {
                 window.location.replace(
                     `${billing_base_url}/upgrade/?success_message=` +
                         encodeURIComponent("Your plan is no longer scheduled for an upgrade."),
-                ),
+                );
+            },
         );
         e.preventDefault();
     });
@@ -208,17 +209,20 @@ export function initialize(): void {
         },
     );
 
-    $("#confirm-cancel-subscription-modal .dialog_submit_button").on("click", (e) => {
+    $(
+        "#confirm-cancel-self-hosted-subscription-modal .dialog_submit_button, #confirm-cancel-cloud-subscription-modal .dialog_submit_button",
+    ).on("click", (e) => {
         helpers.create_ajax_request(
             `/json${billing_base_url}/billing/plan`,
             "planchange",
             [],
             "PATCH",
-            () =>
+            () => {
                 window.location.replace(
                     `${billing_base_url}/billing/?success_message=` +
                         encodeURIComponent("Your plan has been canceled and will not renew."),
-                ),
+                );
+            },
         );
         e.preventDefault();
     });
@@ -229,13 +233,14 @@ export function initialize(): void {
             "planchange",
             [],
             "PATCH",
-            () =>
+            () => {
                 window.location.replace(
                     `${billing_base_url}/billing/?success_message=` +
                         encodeURIComponent(
                             "Your plan has been reactivated and will renew automatically.",
                         ),
-                ),
+                );
+            },
         );
         e.preventDefault();
     });
@@ -246,20 +251,26 @@ export function initialize(): void {
             "planchange",
             [],
             "PATCH",
-            () =>
+            () => {
                 window.location.replace(
                     `${billing_base_url}/billing/?success_message=` +
                         encodeURIComponent(
                             "Your plan will be canceled at the end of the trial. Your card will not be charged.",
                         ),
-                ),
+                );
+            },
         );
         e.preventDefault();
     });
 
-    $("#cancel-subscription .cancel-current-plan-button").on("click", (e) => {
+    $("#cancel-subscription .cancel-current-cloud-plan-button").on("click", (e) => {
         e.preventDefault();
-        portico_modals.open("confirm-cancel-subscription-modal");
+        portico_modals.open("confirm-cancel-cloud-subscription-modal");
+    });
+
+    $("#cancel-subscription .cancel-current-self-hosted-plan-button").on("click", (e) => {
+        e.preventDefault();
+        portico_modals.open("confirm-cancel-self-hosted-subscription-modal");
     });
 
     $("#end-free-trial .end-free-trial-button").on("click", (e) => {

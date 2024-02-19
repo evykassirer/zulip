@@ -1,6 +1,8 @@
 import json
 import os
+import random
 import re
+import string
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Union
 from unittest import mock
@@ -47,16 +49,15 @@ from zerver.models import (
     RealmUserDefault,
     ScheduledEmail,
     Stream,
-    SystemGroups,
     UserGroup,
     UserGroupMembership,
     UserMessage,
     UserProfile,
-    get_realm,
-    get_stream,
-    get_system_bot,
-    get_user_profile_by_id,
 )
+from zerver.models.groups import SystemGroups
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
+from zerver.models.users import get_system_bot, get_user_profile_by_id
 
 
 class RealmTest(ZulipTestCase):
@@ -924,6 +925,12 @@ class RealmTest(ZulipTestCase):
         self.assert_json_error(result, "jitsi_server_url is not an allowed_type")
 
         req = dict(jitsi_server_url=orjson.dumps(12).decode())
+        result = self.client_patch("/json/realm", req)
+        self.assert_json_error(result, "jitsi_server_url is not an allowed_type")
+
+        url_string = "".join(random.choices(string.ascii_lowercase, k=180))
+        long_url = "https://jitsi.example.com/" + url_string
+        req = dict(jitsi_server_url=orjson.dumps(long_url).decode())
         result = self.client_patch("/json/realm", req)
         self.assert_json_error(result, "jitsi_server_url is not an allowed_type")
 

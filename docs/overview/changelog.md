@@ -3,11 +3,97 @@
 This page contains the release history for the Zulip server. See also the
 [Zulip release lifecycle](../overview/release-lifecycle.md).
 
+## Zulip 9.x series
+
+### 9.0 -- unreleased
+
+This section is an incomplete draft of the release notes for the next
+major release, and is only updated occasionally. See the [commit
+log][commit-log] for an up-to-date list of all changes.
+
+#### Upgrade notes for 9.0
+
+- None yet.
+
 ## Zulip Server 8.x series
 
-### Zulip Server 8.0-beta2
+### Zulip Server 8.2
 
-_Released 2023-12-12_
+_Released 2024-02-16_
+
+- Fixed an error reporting bug that caused an email to be sent to the
+  server administrator each time that the server had a failed attempt
+  to send a mobile push notification. This bug could cause a lot of
+  error emails on servers that are registered with the [Mobile Push
+  Notification Service][mobile-push], but are not signed up for a plan
+  that includes access to this service, or not [uploading basic
+  metadata][mobile-push-metadata] required to verify eligibility for
+  free access to the service.
+- Fixed several scroll position bugs encountered when entering a
+  conversation view, most importantly when opening a direct message
+  conversation.
+- Fixed a minor bug in the organization settings UI.
+- Improved rate-limiting logic to avoid errors when loading the app for some users.
+- Adjusted memory usage configuration to reduce memory usage to avoid
+  OOM kills on systems with close to 4GiB of RAM, and require less
+  tuning for larger systems.
+- Upgraded dependencies.
+- Updated translations.
+
+### Zulip Server 8.1
+
+_Released 2024-01-24_
+
+- CVE-2024-21630: Zulip version 8.0 and its betas had a bug affecting
+  an unlikely permissions configuration where some user roles had
+  permission to create reusable invitation links to join the
+  organization, but lacked the permission to subscribe other users to
+  streams. A user with such a role could incorrectly create an
+  invitation link that subscribes new users to streams. This
+  vulnerability is similar to CVE-2023-32677, but applies to multi-use
+  invitations, not single-user invites.
+- Fixed a fault-tolerance bug, where failing outgoing email
+  authentication could cause other queue workers to not progress
+  properly on low-memory Zulip servers.
+- Added support for using PostgreSQL 16 as the database. See the
+  PostgreSQL upgrade documentation if you’re interested in upgrading
+  an existing server to newer Postgres.
+- Added support for explicitly deactivating a mobile push
+  notifications registration.
+- Added support for a new class of custom authentication hook.
+- Improved the workflow for sending password reset emails to users
+  imported from another chat app.
+- Improved the file uploads integration to be compatible with S3
+  alternatives that use a different URL addressing style.
+- Improved the Terms of Service/Privacy Policy settings if no policies
+  sidebar is configured.
+- Fixed a bug preventing the incoming email integration from
+  mentioning groups that everyone is allowed to mention.
+- Fixed the data import tool crashing when processing delivered
+  scheduled messages.
+- Fixed buggy tooltips in the push notifications column of
+  notification settings.
+- Fixed minor UI bugs with the user group settings panel.
+- Fixed minor UI bugs with the new compose box buttons.
+- Fixed minor UI bugs with limiting guest user access to other users.
+- Fixed incorrect alert words color in the dark theme.
+- Fixed a few subtle bugs with the Zulip plan management login flow.
+- Fixed a live-update bug involving user statuses enabled via the API.
+- Fixed a configuration problem preventing the logrotate service from
+  starting.
+- Fixed a layout bug for the mobile help center navbar area affecting
+  some servers.
+- Fixed Slack data import tool corner cases involving shared users.
+- Fixed mentions being incorrectly converted to silent mentions in DMs
+  with bot users.
+- Fixed an unexploitable HTML injection bug in the typeahead for
+  configuring custom code playgrounds.
+- Improved in-app documentation for following topics.
+- Backported several documentation improvements.
+
+### Zulip Server 8.0
+
+_Released 2023-12-15_
 
 #### Highlights
 
@@ -1030,7 +1116,7 @@ _Released 2022-03-29_
   manage a variety of workflows, including support interactions,
   answering questions, and investigating issues.
 - Administrators may enable the option to create [web-public
-  streams](https://zulip.com/help/web-public-streams). Web-public
+  streams](https://zulip.com/help/public-access-option). Web-public
   streams can be viewed by anyone on the Internet without creating an
   account in your organization.
 - Users can now select a status emoji alongside their status
@@ -3704,7 +3790,8 @@ _Released 2015-10-19_
 This section links to the upgrade notes from past releases, so you can
 easily read them all when upgrading across multiple releases.
 
-- [Draft upgrade notes for 8.0](#upgrade-notes-for-80)
+- [Draft upgrade notes for 9.0](#upgrade-notes-for-90)
+- [Upgrade notes for 8.0](#upgrade-notes-for-80)
 - [Upgrade notes for 7.0](#upgrade-notes-for-70)
 - [Upgrade notes for 6.0](#upgrade-notes-for-60)
 - [Upgrade notes for 5.0](#upgrade-notes-for-50)

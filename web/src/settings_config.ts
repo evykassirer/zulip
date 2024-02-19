@@ -1,8 +1,9 @@
 import Handlebars from "handlebars/runtime";
 
+import {page_params} from "./base_page_params";
 import {$t, $t_html} from "./i18n";
-import {page_params} from "./page_params";
 import type {RealmDefaultSettings} from "./realm_user_settings_defaults";
+import {realm} from "./state_data";
 import type {StreamSpecificNotificationSettings} from "./sub_store";
 import {StreamPostPolicy} from "./sub_store";
 import type {
@@ -139,7 +140,7 @@ export type DisplaySettings = {
 };
 
 /* istanbul ignore next */
-export const get_all_display_settings = (): DisplaySettings => ({
+export const get_all_preferences = (): DisplaySettings => ({
     settings: {
         user_display_settings: [
             "dense_mode",
@@ -536,7 +537,7 @@ export const expires_in_values = {
 const user_role_array = Object.values(user_role_values);
 export const user_role_map = new Map(user_role_array.map((role) => [role.code, role.description]));
 
-export const display_settings_labels = {
+export const preferences_settings_labels = {
     dense_mode: $t({defaultMessage: "Dense mode"}),
     fluid_layout_width: $t({defaultMessage: "Use full width on wide screens"}),
     high_contrast_mode: $t({defaultMessage: "High contrast mode"}),
@@ -593,7 +594,7 @@ export const notification_settings_labels = {
 
 export const realm_user_settings_defaults_labels = {
     ...notification_settings_labels,
-    ...display_settings_labels,
+    ...preferences_settings_labels,
 
     /* Overrides to remove "I" from labels for the realm-level versions of these labels. */
     enable_online_push_notifications: $t({
@@ -805,7 +806,7 @@ export function get_notifications_table_row_data(
             is_mobile_checkbox: false,
         };
         if (column === "mobile") {
-            checkbox.is_disabled = !page_params.realm_push_notifications_enabled;
+            checkbox.is_disabled = !realm.realm_push_notifications_enabled;
             checkbox.is_mobile_checkbox = true;
         }
         return checkbox;
@@ -857,8 +858,8 @@ export const all_notifications = (settings_object: Settings): AllNotifications =
         other_email_settings,
     },
     show_push_notifications_tooltip: {
-        push_notifications: !page_params.realm_push_notifications_enabled,
-        enable_online_push_notifications: !page_params.realm_push_notifications_enabled,
+        push_notifications: !realm.realm_push_notifications_enabled,
+        enable_online_push_notifications: !realm.realm_push_notifications_enabled,
     },
 });
 
@@ -1006,7 +1007,7 @@ export const stream_privacy_policy_values = {
 
 export const stream_post_policy_values = {
     // These strings should match the strings in the
-    // Stream.POST_POLICIES object in zerver/models.py.
+    // Stream.POST_POLICIES object in zerver/models/streams.py.
     everyone: {
         code: StreamPostPolicy.EVERYONE,
         description: $t({defaultMessage: "Everyone"}),

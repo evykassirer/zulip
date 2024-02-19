@@ -1,4 +1,4 @@
-<form class="display-settings-form">
+<form class="preferences-settings-form">
     <div class="general-settings {{#if for_realm_settings}}settings-subsection-parent{{else}}subsection-parent{{/if}}">
         <!-- this is inline block so that the alert notification can sit beside
         it. If there's not an alert, don't make it inline-block.-->
@@ -30,17 +30,17 @@
         </div>
     </div>
 
-    <div class="emoji-display-settings {{#if for_realm_settings}}settings-subsection-parent{{else}}subsection-parent{{/if}}">
+    <div class="emoji-preferences {{#if for_realm_settings}}settings-subsection-parent{{else}}subsection-parent{{/if}}">
         <div class="subsection-header">
             <h3 class="light">{{t "Emoji" }}</h3>
-            {{> settings_save_discard_widget section_name="emoji-display-settings" show_only_indicator=(not for_realm_settings) }}
+            {{> settings_save_discard_widget section_name="emoji-preferences-settings" show_only_indicator=(not for_realm_settings) }}
         </div>
 
         <div class="input-group">
             <label class="emoji-theme title">{{t "Emoji theme" }}</label>
             <div class="emojiset_choices grey-box prop-element" id="{{prefix}}emojiset" data-setting-widget-type="radio-group" data-setting-choice-type="string">
                 {{#each settings_object.emojiset_choices}}
-                    <label class="display-settings-radio-choice-label">
+                    <label class="preferences-radio-choice-label">
                         <div class="radio-choice-controls">
                             <input type="radio" class="setting_emojiset_choice" name="emojiset" value="{{this.key}}"/>
                             <span>{{this.text}}</span>
@@ -68,7 +68,7 @@
           setting_name="translate_emoticons"
           is_checked=settings_object.translate_emoticons
           label=settings_label.translate_emoticons
-          help_link="/help/enable-emoticon-translations"
+          help_link="/help/configure-emoticon-translations"
           prefix=prefix}}
 
         {{> settings_checkbox
@@ -97,7 +97,7 @@
             <label class="title">{{t "User list style" }}</label>
             <div class="user_list_style_values grey-box prop-element" id="{{prefix}}user_list_style" data-setting-widget-type="radio-group" data-setting-choice-type="number">
                 {{#each user_list_style_values}}
-                    <label class="display-settings-radio-choice-label">
+                    <label class="preferences-radio-choice-label">
                         <div class="radio-choice-controls">
                             <input type="radio" class="setting_user_list_style_choice" name="user_list_style" value="{{this.code}}"/>
                             <span>{{this.description}}</span>

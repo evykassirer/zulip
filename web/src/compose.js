@@ -20,12 +20,12 @@ import * as loading from "./loading";
 import * as markdown from "./markdown";
 import * as message_events from "./message_events";
 import * as onboarding_steps from "./onboarding_steps";
-import {page_params} from "./page_params";
 import * as people from "./people";
 import * as rendered_markdown from "./rendered_markdown";
 import * as scheduled_messages from "./scheduled_messages";
 import * as sent_messages from "./sent_messages";
 import * as server_events from "./server_events";
+import {current_user} from "./state_data";
 import * as transmit from "./transmit";
 import {user_settings} from "./user_settings";
 import * as util from "./util";
@@ -58,6 +58,26 @@ export function clear_preview_area() {
     $("#compose .preview_mode_disabled .compose_control_button").attr("tabindex", 0);
 }
 
+export function show_preview_area() {
+    // Disable unneeded compose_control_buttons as we don't
+    // need them in preview mode.
+    $("#compose").addClass("preview_mode");
+    $("#compose .preview_mode_disabled .compose_control_button").attr("tabindex", -1);
+
+    const content = $("textarea#compose-textarea").val();
+    $("textarea#compose-textarea").hide();
+    $("#compose .markdown_preview").hide();
+    $("#compose .undo_markdown_preview").show();
+    $("#compose .undo_markdown_preview").trigger("focus");
+    $("#compose .preview_message_area").show();
+
+    render_and_show_preview(
+        $("#compose .markdown_preview_spinner"),
+        $("#compose .preview_content"),
+        content,
+    );
+}
+
 export function create_message_object() {
     // Topics are optional, and we provide a placeholder if one isn't given.
     let topic = compose_state.topic();
@@ -69,8 +89,8 @@ export function create_message_object() {
     const message = {
         type: compose_state.get_message_type(),
         content: compose_state.message_content(),
-        sender_id: page_params.user_id,
-        queue_id: page_params.queue_id,
+        sender_id: current_user.user_id,
+        queue_id: server_events.queue_id,
         stream_id: undefined,
     };
     message.topic = "";
@@ -192,11 +212,14 @@ export function send_message(request = create_message_object()) {
             if (server_error_code === "TOPIC_WILDCARD_MENTION_NOT_ALLOWED") {
                 // The topic wildcard mention permission code path has
                 // a special error.
-                const new_row = render_wildcard_mention_not_allowed_error({
+                const new_row_html = render_wildcard_mention_not_allowed_error({
                     banner_type: compose_banner.ERROR,
                     classname: compose_banner.CLASSNAMES.wildcards_not_allowed,
                 });
-                compose_banner.append_compose_banner_to_banner_list(new_row, $("#compose_banners"));
+                compose_banner.append_compose_banner_to_banner_list(
+                    $(new_row_html),
+                    $("#compose_banners"),
+                );
             } else {
                 compose_banner.show_error_message(
                     response,
@@ -309,7 +332,7 @@ export function render_and_show_preview($preview_spinner, $preview_content_box, 
             // Handle previews of /me messages
             rendered_preview_html =
                 "<p><strong>" +
-                _.escape(page_params.full_name) +
+                _.escape(current_user.full_name) +
                 "</strong>" +
                 rendered_content.slice("<p>/me".length);
         } else {
@@ -335,10 +358,7 @@ export function render_and_show_preview($preview_spinner, $preview_content_box, 
             // wrong, users will see a brief flicker of the locally
             // echoed frontend rendering before receiving the
             // authoritative backend rendering from the server).
-            const message_obj = {
-                raw_content: content,
-            };
-            markdown.apply_markdown(message_obj);
+            markdown.render(content);
         }
         channel.post({
             url: "/json/messages/render",
@@ -386,12 +406,12 @@ function schedule_message_to_custom_date() {
     const success = function (data) {
         drafts.draft_model.deleteDraft($("textarea#compose-textarea").data("draft-id"));
         clear_compose_box();
-        const new_row = render_success_message_scheduled_banner({
+        const new_row_html = render_success_message_scheduled_banner({
             scheduled_message_id: data.scheduled_message_id,
             deliver_at,
         });
         compose_banner.clear_message_sent_banners();
-        compose_banner.append_compose_banner_to_banner_list(new_row, $banner_container);
+        compose_banner.append_compose_banner_to_banner_list($(new_row_html), $banner_container);
     };
 
     const error = function (xhr) {

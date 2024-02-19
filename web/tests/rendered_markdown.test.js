@@ -3,10 +3,10 @@
 const {strict: assert} = require("assert");
 
 const {mock_cjs, mock_esm, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
 const $ = require("./lib/zjquery");
-const {page_params, user_settings} = require("./lib/zpage_params");
+const {realm, user_settings} = require("./lib/zpage_params");
 
 let clipboard_args;
 class Clipboard {
@@ -162,11 +162,11 @@ run_test("misc_helpers", () => {
     rm.set_name_in_mention_element($elem, "Aaron, but silent");
     assert.equal($elem.text(), "Aaron, but silent");
 
-    page_params.realm_enable_guest_user_indicator = true;
+    realm.realm_enable_guest_user_indicator = true;
     rm.set_name_in_mention_element($elem, "Polonius", polonius.user_id);
     assert.equal($elem.text(), "translated: Polonius (guest)");
 
-    page_params.realm_enable_guest_user_indicator = false;
+    realm.realm_enable_guest_user_indicator = false;
     rm.set_name_in_mention_element($elem, "Polonius", polonius.user_id);
     assert.equal($elem.text(), "Polonius");
 });
@@ -200,7 +200,7 @@ run_test("user-mention", () => {
     $polonius.set_find_results(".highlight", false);
     $polonius.attr("data-user-id", polonius.user_id);
     $content.set_find_results(".user-mention", $array([$iago, $cordelia, $polonius]));
-    page_params.realm_enable_guest_user_indicator = true;
+    realm.realm_enable_guest_user_indicator = true;
     // Initial asserts
     assert.ok(!$iago.hasClass("user-mention-me"));
     assert.equal($iago.text(), "never-been-set");
@@ -227,7 +227,7 @@ run_test("user-mention without guest indicator", () => {
     $polonius.attr("data-user-id", polonius.user_id);
     $content.set_find_results(".user-mention", $array([$polonius]));
 
-    page_params.realm_enable_guest_user_indicator = false;
+    realm.realm_enable_guest_user_indicator = false;
     rm.update_elements($content);
     assert.equal($polonius.text(), `@${polonius.full_name}`);
 });
@@ -357,16 +357,6 @@ run_test("user-group-mention (error)", () => {
     const $content = get_content_element();
     const $group = $.create("user-group-mention(bogus)");
     $group.attr("data-user-group-id", "not-even-a-number");
-    $content.set_find_results(".user-group-mention", $array([$group]));
-
-    rm.update_elements($content);
-
-    assert.ok(!$group.hasClass("user-mention-me"));
-});
-
-run_test("user-group-mention (missing)", () => {
-    const $content = get_content_element();
-    const $group = $.create("whatever");
     $content.set_find_results(".user-group-mention", $array([$group]));
 
     rm.update_elements($content);
@@ -586,7 +576,7 @@ run_test("code playground none", ({override, mock_template}) => {
         return undefined;
     });
 
-    override(copied_tooltip, "show_copied_confirmation", () => {});
+    override(copied_tooltip, "show_copied_confirmation", noop);
 
     const {prepends, $copy_code, $view_code} = test_code_playground(mock_template, false);
     assert.deepEqual(prepends, [$copy_code]);
@@ -602,7 +592,7 @@ run_test("code playground single", ({override, mock_template}) => {
         return [{name: "Some Javascript Playground"}];
     });
 
-    override(copied_tooltip, "show_copied_confirmation", () => {});
+    override(copied_tooltip, "show_copied_confirmation", noop);
 
     const {prepends, $copy_code, $view_code} = test_code_playground(mock_template, true);
     assert.deepEqual(prepends, [$view_code, $copy_code]);
@@ -622,7 +612,7 @@ run_test("code playground multiple", ({override, mock_template}) => {
         return ["whatever", "whatever"];
     });
 
-    override(copied_tooltip, "show_copied_confirmation", () => {});
+    override(copied_tooltip, "show_copied_confirmation", noop);
 
     const {prepends, $copy_code, $view_code} = test_code_playground(mock_template, true);
     assert.deepEqual(prepends, [$view_code, $copy_code]);

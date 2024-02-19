@@ -6,9 +6,9 @@ const _ = require("lodash");
 
 const {zrequire, set_global} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
-const {page_params, user_settings} = require("./lib/zpage_params");
+const {realm, user_settings} = require("./lib/zpage_params");
 
-page_params.realm_push_notifications_enabled = false;
+realm.realm_push_notifications_enabled = false;
 
 set_global("document", "document-stub");
 const {FoldDict} = zrequire("fold_dict");
@@ -239,7 +239,7 @@ test("muting", () => {
     let counts = unread.get_counts();
     assert.equal(counts.stream_count.get(stream_id).unmuted_count, 1);
     assert.equal(counts.home_unread_messages, 1);
-    assert.equal(unread.num_unread_for_stream(stream_id).unmuted_count, 1);
+    assert.equal(unread.unread_count_info_for_stream(stream_id).unmuted_count, 1);
     assert.deepEqual(unread.get_msg_ids_for_stream(stream_id), [message.id]);
     test_notifiable_count(counts.home_unread_messages, 0);
 
@@ -251,14 +251,19 @@ test("muting", () => {
     counts = unread.get_counts();
     assert.equal(counts.stream_count.get(stream_id).unmuted_count, 0);
     assert.equal(counts.home_unread_messages, 0);
-    assert.equal(unread.num_unread_for_stream(stream_id).unmuted_count, 0);
+    assert.equal(unread.unread_count_info_for_stream(stream_id).unmuted_count, 0);
     assert.deepEqual(unread.get_msg_ids_for_stream(stream_id), []);
     test_notifiable_count(counts.home_unread_messages, 0);
 
     // we still find the message id here (muting is ignored)
     assert.deepEqual(unread.get_all_msg_ids(), [message.id]);
 
-    assert.equal(unread.num_unread_for_stream(unknown_stream_id), 0);
+    assert.deepEqual(unread.unread_count_info_for_stream(unknown_stream_id), {
+        unmuted_count: 0,
+        muted_count: 0,
+        followed_count: 0,
+        stream_is_muted: false,
+    });
 });
 
 test("num_unread_for_topic", () => {

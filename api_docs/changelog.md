@@ -18,14 +18,39 @@ clients should check the `zulip_feature_level` field, present in the
 /register`](/api/register-queue) responses, to determine the API
 format used by the Zulip server that they are interacting with.
 
+## Changes in Zulip 9.0
+
+**Feature level 240**
+
+* [`GET /events`](/api/get-events): The `restart` event no longer contains an
+  optional `immediate` flag.
+* [`GET /events`](/api/get-events): A new `web_reload_client` event has been
+  added; it is used to signal to website-based clients that they should reload
+  their code.  This was previously implied by the `restart` event.
+
+Feature levels 238-239 are reserved for future use in 8.x maintenance
+releases.
+
 ## Changes in Zulip 8.0
+
+**Feature level 237**
+
+No changes; feature level used for Zulip 8.0 release.
+
+**Feature level 236**
+
+* [`POST /messages`](/api/send-message), [`POST
+  /scheduled_messages`](/api/create-scheduled-message): The new
+  `read_by_sender` parameter lets the client override the heuristic
+  that determines whether the new message will be initially marked
+  read by its sender.
 
 **Feature level 235**
 
 * [`PATCH /realm/user_settings_defaults`](/api/update-realm-user-settings-defaults),
   [`POST /register`](/api/register-queue), [`PATCH /settings`](/api/update-settings):
-  Added a new user setting,`automatically_follow_topics_where_mentioned`
-  that allows user to automatically follow topics where the user is mentioned.
+  Added a new user setting, `automatically_follow_topics_where_mentioned`,
+  that allows the user to automatically follow topics where the user is mentioned.
 
 **Feature level 234**
 

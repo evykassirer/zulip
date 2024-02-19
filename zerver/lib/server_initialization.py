@@ -11,9 +11,9 @@ from zerver.models import (
     RealmAuthenticationMethod,
     RealmUserDefault,
     UserProfile,
-    get_client,
-    get_system_bot,
 )
+from zerver.models.clients import get_client
+from zerver.models.users import get_system_bot
 from zproject.backends import all_implemented_backend_names
 
 
@@ -53,6 +53,7 @@ def create_internal_realm() -> None:
     # just ensures these get low IDs in production, and in development
     # avoids an extra database write for the first HTTP request in
     # most tests.
+    get_client("Internal")
     get_client("website")
     get_client("ZulipMobile")
     get_client("ZulipElectron")

@@ -6,25 +6,25 @@ import * as blueslip from "./blueslip";
 import * as channel from "./channel";
 import * as emoji from "./emoji";
 import {$t} from "./i18n";
+import * as message_lists from "./message_lists";
 import * as message_store from "./message_store";
 import {page_params} from "./page_params";
 import * as people from "./people";
 import * as spectators from "./spectators";
+import {current_user} from "./state_data";
 import {user_settings} from "./user_settings";
 
-export const view = {
-    waiting_for_server_request_ids: new Set(),
-}; // function namespace
+const waiting_for_server_request_ids = new Set();
 
-export function get_local_reaction_id(reaction_info) {
-    return [reaction_info.reaction_type, reaction_info.emoji_code].join(",");
+export function get_local_reaction_id(rendering_details) {
+    return [rendering_details.reaction_type, rendering_details.emoji_code].join(",");
 }
 
 export function current_user_has_reacted_to_emoji(message, local_id) {
     set_clean_reactions(message);
 
     const clean_reaction_object = message.clean_reactions.get(local_id);
-    return clean_reaction_object && clean_reaction_object.user_ids.includes(page_params.user_id);
+    return clean_reaction_object && clean_reaction_object.user_ids.includes(current_user.user_id);
 }
 
 function get_message(message_id) {
@@ -38,18 +38,18 @@ function get_message(message_id) {
     return message;
 }
 
-function create_reaction(message_id, reaction_info) {
+function create_reaction(message_id, rendering_details) {
     return {
         message_id,
-        user_id: page_params.user_id,
-        local_id: get_local_reaction_id(reaction_info),
-        reaction_type: reaction_info.reaction_type,
-        emoji_name: reaction_info.emoji_name,
-        emoji_code: reaction_info.emoji_code,
+        user_id: current_user.user_id,
+        local_id: get_local_reaction_id(rendering_details),
+        reaction_type: rendering_details.reaction_type,
+        emoji_name: rendering_details.emoji_name,
+        emoji_code: rendering_details.emoji_code,
     };
 }
 
-function update_ui_and_send_reaction_ajax(message_id, reaction_info) {
+function update_ui_and_send_reaction_ajax(message_id, rendering_details) {
     if (page_params.is_spectator) {
         // Spectators can't react, since they don't have accounts.  We
         // stop here to avoid a confusing reaction local echo.
@@ -58,16 +58,16 @@ function update_ui_and_send_reaction_ajax(message_id, reaction_info) {
     }
 
     const message = get_message(message_id);
-    const local_id = get_local_reaction_id(reaction_info);
+    const local_id = get_local_reaction_id(rendering_details);
     const has_reacted = current_user_has_reacted_to_emoji(message, local_id);
     const operation = has_reacted ? "remove" : "add";
-    const reaction = create_reaction(message_id, reaction_info);
+    const reaction = create_reaction(message_id, rendering_details);
 
     // To avoid duplicate requests to the server, we construct a
     // unique request ID combining the message ID and the local ID,
     // which identifies just which emoji to use.
     const reaction_request_id = [message_id, local_id].join(",");
-    if (view.waiting_for_server_request_ids.has(reaction_request_id)) {
+    if (waiting_for_server_request_ids.has(reaction_request_id)) {
         return;
     }
 
@@ -79,12 +79,12 @@ function update_ui_and_send_reaction_ajax(message_id, reaction_info) {
 
     const args = {
         url: "/json/messages/" + message_id + "/reactions",
-        data: reaction_info,
+        data: rendering_details,
         success() {
-            view.waiting_for_server_request_ids.delete(reaction_request_id);
+            waiting_for_server_request_ids.delete(reaction_request_id);
         },
         error(xhr) {
-            view.waiting_for_server_request_ids.delete(reaction_request_id);
+            waiting_for_server_request_ids.delete(reaction_request_id);
             if (xhr.readyState !== 0) {
                 if (
                     xhr.responseJSON?.code === "REACTION_ALREADY_EXISTS" ||
@@ -99,7 +99,7 @@ function update_ui_and_send_reaction_ajax(message_id, reaction_info) {
         },
     };
 
-    view.waiting_for_server_request_ids.add(reaction_request_id);
+    waiting_for_server_request_ids.add(reaction_request_id);
     if (operation === "add") {
         channel.post(args);
     } else if (operation === "remove") {
@@ -114,8 +114,8 @@ export function toggle_emoji_reaction(message_id, emoji_name) {
     // method. This codepath is to be used only where there is no chance of an
     // user interacting with a deactivated realm emoji like emoji picker.
 
-    const reaction_info = emoji.get_emoji_details_by_name(emoji_name);
-    update_ui_and_send_reaction_ajax(message_id, reaction_info);
+    const rendering_details = emoji.get_emoji_details_by_name(emoji_name);
+    update_ui_and_send_reaction_ajax(message_id, rendering_details);
 }
 
 export function process_reaction_click(message_id, local_id) {
@@ -133,18 +133,18 @@ export function process_reaction_click(message_id, local_id) {
         return;
     }
 
-    const reaction_info = {
+    const rendering_details = {
         reaction_type: clean_reaction_object.reaction_type,
         emoji_name: clean_reaction_object.emoji_name,
         emoji_code: clean_reaction_object.emoji_code,
     };
 
-    update_ui_and_send_reaction_ajax(message_id, reaction_info);
+    update_ui_and_send_reaction_ajax(message_id, rendering_details);
 }
 
 function generate_title(emoji_name, user_ids) {
     const usernames = people.get_display_full_names(
-        user_ids.filter((user_id) => user_id !== page_params.user_id),
+        user_ids.filter((user_id) => user_id !== current_user.user_id),
     );
     const current_user_reacted = user_ids.length !== usernames.length;
 
@@ -203,20 +203,19 @@ export function get_reaction_title_data(message_id, local_id) {
     return title;
 }
 
-export function get_reaction_section(message_id) {
-    const $message_element = $(".message-list").find(`[zid='${CSS.escape(message_id)}']`);
-    const $section = $message_element.find(".message_reactions");
-    return $section;
+export function get_reaction_sections(message_id) {
+    const $rows = message_lists.all_rendered_row_for_message_id(message_id);
+    return $rows.find(".message_reactions");
 }
 
 export function find_reaction(message_id, local_id) {
-    const $reaction_section = get_reaction_section(message_id);
+    const $reaction_section = get_reaction_sections(message_id);
     const $reaction = $reaction_section.find(`[data-reaction-id='${CSS.escape(local_id)}']`);
     return $reaction;
 }
 
 export function get_add_reaction_button(message_id) {
-    const $reaction_section = get_reaction_section(message_id);
+    const $reaction_section = get_reaction_sections(message_id);
     const $add_button = $reaction_section.find(".reaction_button");
     return $add_button;
 }
@@ -248,8 +247,9 @@ export function add_reaction(event) {
 
     if (clean_reaction_object) {
         clean_reaction_object.user_ids.push(user_id);
-        update_user_fields(clean_reaction_object, message.clean_reactions);
-        view.update_existing_reaction(clean_reaction_object, message, user_id);
+        const should_display_reactors = check_should_display_reactors(message.clean_reactions);
+        update_user_fields(clean_reaction_object, should_display_reactors);
+        update_existing_reaction(clean_reaction_object, message, user_id);
     } else {
         clean_reaction_object = make_clean_reaction({
             local_id,
@@ -260,12 +260,13 @@ export function add_reaction(event) {
         });
 
         message.clean_reactions.set(local_id, clean_reaction_object);
-        update_user_fields(clean_reaction_object, message.clean_reactions);
-        view.insert_new_reaction(clean_reaction_object, message, user_id);
+        const should_display_reactors = check_should_display_reactors(message.clean_reactions);
+        update_user_fields(clean_reaction_object, should_display_reactors);
+        insert_new_reaction(clean_reaction_object, message, user_id);
     }
 }
 
-view.update_existing_reaction = function (clean_reaction_object, message, acting_user_id) {
+export function update_existing_reaction(clean_reaction_object, message, acting_user_id) {
     // Our caller ensures that this message already has a reaction
     // for this emoji and sets up our user_list.  This function
     // simply updates the DOM.
@@ -278,14 +279,14 @@ view.update_existing_reaction = function (clean_reaction_object, message, acting
     );
     $reaction.attr("aria-label", new_label);
 
-    if (acting_user_id === page_params.user_id) {
+    if (acting_user_id === current_user.user_id) {
         $reaction.addClass("reacted");
     }
 
     update_vote_text_on_message(message);
-};
+}
 
-view.insert_new_reaction = function (clean_reaction_object, message, user_id) {
+export function insert_new_reaction(clean_reaction_object, message, user_id) {
     // Our caller ensures we are the first user to react to this
     // message with this emoji. We then render the emoji/title/count
     // and insert it before the add button.
@@ -308,7 +309,7 @@ view.insert_new_reaction = function (clean_reaction_object, message, user_id) {
         context.reaction_type === "realm_emoji" || context.reaction_type === "zulip_extra_emoji";
     context.vote_text = ""; // Updated below
 
-    if (user_id === page_params.user_id) {
+    if (user_id === current_user.user_id) {
         context.class = "message_reaction reacted";
     } else {
         context.class = "message_reaction";
@@ -321,7 +322,7 @@ view.insert_new_reaction = function (clean_reaction_object, message, user_id) {
     $new_reaction.insertBefore($reaction_button_element);
 
     update_vote_text_on_message(message);
-};
+}
 
 export function remove_reaction(event) {
     const message_id = event.message_id;
@@ -356,10 +357,10 @@ export function remove_reaction(event) {
     const should_display_reactors = check_should_display_reactors(message.clean_reactions);
     update_user_fields(clean_reaction_object, should_display_reactors);
 
-    view.remove_reaction(clean_reaction_object, message, user_id);
+    remove_reaction_from_view(clean_reaction_object, message, user_id);
 }
 
-view.remove_reaction = function (clean_reaction_object, message, user_id) {
+export function remove_reaction_from_view(clean_reaction_object, message, user_id) {
     const local_id = get_local_reaction_id(clean_reaction_object);
     const $reaction = find_reaction(message.id, local_id);
     const reaction_count = clean_reaction_object.user_ids.length;
@@ -380,15 +381,15 @@ view.remove_reaction = function (clean_reaction_object, message, user_id) {
         clean_reaction_object.user_ids,
     );
     $reaction.attr("aria-label", new_label);
-    if (user_id === page_params.user_id) {
+    if (user_id === current_user.user_id) {
         $reaction.removeClass("reacted");
     }
 
     update_vote_text_on_message(message);
-};
+}
 
 export function get_emojis_used_by_user_for_message_id(message_id) {
-    const user_id = page_params.user_id;
+    const user_id = current_user.user_id;
     const message = message_store.get(message_id);
     set_clean_reactions(message);
 
@@ -501,7 +502,7 @@ function make_clean_reaction({local_id, user_ids, emoji_name, emoji_code, reacti
 
 export function update_user_fields(clean_reaction_object, should_display_reactors) {
     // update_user_fields needs to be called whenever the set of users
-    // whor eacted on a message might have changed, including due to
+    // who reacted on a message might have changed, including due to
     // upvote/downvotes on ANY reaction in the message, because those
     // can change the correct value of should_display_reactors to use.
     clean_reaction_object.count = clean_reaction_object.user_ids.length;
@@ -509,7 +510,7 @@ export function update_user_fields(clean_reaction_object, should_display_reactor
         clean_reaction_object.emoji_name,
         clean_reaction_object.user_ids,
     );
-    if (clean_reaction_object.user_ids.includes(page_params.user_id)) {
+    if (clean_reaction_object.user_ids.includes(current_user.user_id)) {
         clean_reaction_object.class = "message_reaction reacted";
     } else {
         clean_reaction_object.class = "message_reaction";
@@ -549,10 +550,10 @@ function check_should_display_reactors(cleaned_reactions) {
 
 function comma_separated_usernames(user_list) {
     const usernames = people.get_display_full_names(user_list);
-    const current_user_has_reacted = user_list.includes(page_params.user_id);
+    const current_user_has_reacted = user_list.includes(current_user.user_id);
 
     if (current_user_has_reacted) {
-        const current_user_index = user_list.indexOf(page_params.user_id);
+        const current_user_index = user_list.indexOf(current_user.user_id);
         usernames[current_user_index] = $t({
             defaultMessage: "You",
         });

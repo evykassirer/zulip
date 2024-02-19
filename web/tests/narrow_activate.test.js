@@ -3,7 +3,7 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
 
 mock_esm("../src/resize", {
@@ -21,8 +21,23 @@ const compose_recipient = mock_esm("../src/compose_recipient");
 const message_fetch = mock_esm("../src/message_fetch");
 const message_list = mock_esm("../src/message_list");
 const message_lists = mock_esm("../src/message_lists", {
-    home: {},
-    current: {},
+    home: {
+        view: {
+            $list: {
+                removeClass: noop,
+                addClass: noop,
+            },
+        },
+    },
+    current: {
+        view: {
+            $list: {
+                remove: noop,
+                removeClass: noop,
+                addClass: noop,
+            },
+        },
+    },
     set_current(msg_list) {
         message_lists.current = msg_list;
     },
@@ -98,7 +113,7 @@ function test_helper({override}) {
     stub(compose_closed_ui, "update_buttons_for_stream_views");
     stub(compose_closed_ui, "update_buttons_for_private");
     // We don't test the css calls; we just skip over them.
-    $("#mark_read_on_scroll_state_banner").toggleClass = () => {};
+    $("#mark_read_on_scroll_state_banner").toggleClass = noop;
 
     return {
         assert_events(expected_events) {
@@ -116,6 +131,12 @@ function stub_message_list() {
         view = {
             set_message_offset(offset) {
                 this.offset = offset;
+            },
+
+            $list: {
+                remove: noop,
+                removeClass: noop,
+                addClass: noop,
             },
         };
 
@@ -165,6 +186,9 @@ run_test("basics", ({override}) => {
         last: () => ({id: 1100}),
     };
 
+    $("#navbar-fixed-container").set_height(40);
+    $("#compose").get_offset_to_window = () => ({top: 200});
+
     message_fetch.load_messages_for_narrow = (opts) => {
         // Only validates the anchor and set of fields
         assert.deepEqual(opts, {
@@ -181,7 +205,9 @@ run_test("basics", ({override}) => {
     });
 
     assert.equal(message_lists.current.selected_id, selected_id);
-    assert.equal(message_lists.current.view.offset, 25);
+    // 25 was the offset of the selected message but it is low for the
+    // message top to be visible, so we use set offset to navbar height + header height.
+    assert.equal(message_lists.current.view.offset, 80);
     assert.equal(narrow_state.narrowed_to_pms(), false);
 
     helper.assert_events([
@@ -189,6 +215,7 @@ run_test("basics", ({override}) => {
         [message_feed_loading, "hide_indicators"],
         [message_lists, "save_pre_narrow_offset_for_reload"],
         [compose_banner, "clear_message_sent_banners"],
+        [compose_actions, "on_narrow"],
         [unread_ops, "process_visible"],
         [narrow_history, "save_narrow_state_and_flush"],
         [message_viewport, "stop_auto_scrolling"],
@@ -200,7 +227,6 @@ run_test("basics", ({override}) => {
         [narrow_title, "update_narrow_title"],
         [left_sidebar_navigation_area, "handle_narrow_activated"],
         [stream_list, "handle_narrow_activated"],
-        [compose_actions, "on_narrow"],
         [compose_recipient, "handle_middle_pane_transition"],
     ]);
 
@@ -212,4 +238,27 @@ run_test("basics", ({override}) => {
     });
 
     assert.equal(narrow_state.narrowed_to_pms(), true);
+
+    message_lists.current.selected_id = () => -1;
+    // Row offset is between navbar and compose, so we keep it in the same position.
+    row.get_offset_to_window = () => ({top: 100, bottom: 150});
+    message_lists.current.get_row = () => row;
+
+    narrow.activate(terms, {
+        then_select_id: selected_id,
+    });
+
+    assert.equal(message_lists.current.view.offset, 100);
+
+    message_lists.current.selected_id = () => -1;
+    // Row is below navbar and row bottom is below compose but since the message is
+    // visible enough, we don't scroll the message to a new position.
+    row.get_offset_to_window = () => ({top: 150, bottom: 250});
+    message_lists.current.get_row = () => row;
+
+    narrow.activate(terms, {
+        then_select_id: selected_id,
+    });
+
+    assert.equal(message_lists.current.view.offset, 150);
 });

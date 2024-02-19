@@ -5,6 +5,7 @@ import * as resolved_topic from "../shared/src/resolved_topic";
 import render_bookend from "../templates/bookend.hbs";
 import render_login_to_view_image_button from "../templates/login_to_view_image_button.hbs";
 import render_message_group from "../templates/message_group.hbs";
+import render_message_list from "../templates/message_list.hbs";
 import render_recipient_row from "../templates/recipient_row.hbs";
 import render_single_message from "../templates/single_message.hbs";
 
@@ -117,8 +118,7 @@ function analyze_edit_history(message, last_edit_timestr) {
 
 function render_group_display_date(group, message_container) {
     const time = new Date(message_container.msg.timestamp * 1000);
-    const today = new Date();
-    const date_element = timerender.render_date(time, today)[0];
+    const date_element = timerender.render_date(time)[0];
 
     group.date = date_element.outerHTML;
 }
@@ -150,10 +150,9 @@ function update_message_date_divider(opts) {
     }
 
     const curr_time = new Date(curr_msg_container.msg.timestamp * 1000);
-    const today = new Date();
 
     curr_msg_container.want_date_divider = true;
-    curr_msg_container.date_divider_html = timerender.render_date(curr_time, today)[0].outerHTML;
+    curr_msg_container.date_divider_html = timerender.render_date(curr_time)[0].outerHTML;
 }
 
 function set_timestr(message_container) {
@@ -260,9 +259,12 @@ export class MessageListView {
     // Logic to compute context, render templates, insert them into
     // the DOM, and generally
 
-    constructor(list, table_name, collapse_messages) {
+    constructor(list, collapse_messages, is_node_test = false) {
         // The MessageList that this MessageListView is responsible for rendering.
         this.list = list;
+        this._add_message_list_to_DOM();
+        // The jQuery element for the rendered list element.
+        this.$list = $(`.message-list[data-message-list-id="${this.list.id}"]`);
 
         // TODO: Access this via .list.data.
         this.collapse_messages = collapse_messages;
@@ -285,12 +287,10 @@ export class MessageListView {
         this.message_containers = new Map();
         this._message_groups = [];
 
-        // TODO: Should this be just accessing .list.table_name?
-        this.table_name = table_name;
-        if (this.table_name) {
+        if (!is_node_test) {
+            // Skip running this in node tests.
             this.clear_table();
         }
-
         // For performance reasons, this module renders at most
         // _RENDER_WINDOW_SIZE messages into the DOM at a time, and
         // will transparently adjust which messages are rendered
@@ -312,6 +312,10 @@ export class MessageListView {
     // trigger a re-render
     _RENDER_THRESHOLD = 50;
 
+    _add_message_list_to_DOM() {
+        $("#message-lists-container").append(render_message_list({message_list_id: this.list.id}));
+    }
+
     _get_msg_timestring(message_container) {
         let last_edit_timestamp;
         if (message_container.msg.local_edit_timestamp !== undefined) {
@@ -321,8 +325,7 @@ export class MessageListView {
         }
         if (last_edit_timestamp !== undefined) {
             const last_edit_time = new Date(last_edit_timestamp * 1000);
-            const today = new Date();
-            let date = timerender.render_date(last_edit_time, today)[0].textContent;
+            let date = timerender.render_date(last_edit_time)[0].textContent;
             // If the date is today or yesterday, we don't want to show the date as capitalized.
             // Thus, we need to check if the date string contains a digit or not using regex,
             // since any other date except today/yesterday will contain a digit.
@@ -352,9 +355,6 @@ export class MessageListView {
         //   * `edited_alongside_sender` -- when label appears alongside sender info.
         //   * `edited_status_msg`       -- when label appears for a "/me" message.
         const last_edit_timestr = this._get_msg_timestring(message_container);
-        const include_sender = message_container.include_sender;
-        const is_hidden = message_container.is_hidden;
-        const status_message = Boolean(message_container.status_message);
         const edit_history_details = analyze_edit_history(message_container.msg, last_edit_timestr);
 
         if (
@@ -374,10 +374,8 @@ export class MessageListView {
         }
 
         message_container.last_edit_timestr = last_edit_timestr;
-        message_container.edited_in_left_col = !include_sender && !is_hidden;
-        message_container.edited_alongside_sender = include_sender && !status_message;
-        message_container.edited_status_msg = include_sender && status_message;
         message_container.moved = edit_history_details.moved && !edit_history_details.edited;
+        message_container.modified = true;
     }
 
     set_calculated_message_container_variables(message_container, is_revealed) {
@@ -782,7 +780,7 @@ export class MessageListView {
         message_container.msg.message_reactions = msg_reactions;
         const msg_to_render = {
             ...message_container,
-            table_name: this.table_name,
+            message_list_id: this.list.id,
         };
         return render_single_message(msg_to_render);
     }
@@ -790,15 +788,26 @@ export class MessageListView {
     _render_group(opts) {
         const message_groups = opts.message_groups;
         const use_match_properties = opts.use_match_properties;
-        const table_name = opts.table_name;
 
         return $(
             render_message_group({
                 message_groups,
                 use_match_properties,
-                table_name,
+                message_list_id: this.list.id,
             }),
         );
+    }
+
+    set_edited_notice_locations(message_container) {
+        // Based on the variables that define the overall message's HTML layout, set
+        // variables defining where the message-edited notices should be placed.
+        const include_sender = message_container.include_sender;
+        const is_hidden = message_container.is_hidden;
+        const status_message = Boolean(message_container.status_message);
+        message_container.message_edit_notices_in_left_col = !include_sender && !is_hidden;
+        message_container.message_edit_notices_alongside_sender = include_sender && !status_message;
+        message_container.message_edit_notices_for_status_message =
+            include_sender && status_message;
     }
 
     render(messages, where, messages_are_new) {
@@ -810,8 +819,6 @@ export class MessageListView {
         }
 
         const list = this.list; // for convenience
-        const table_name = this.table_name;
-        const $table = rows.get_table(table_name);
         let orig_scrolltop_offset;
 
         // If we start with the message feed scrolled up (i.e.
@@ -857,7 +864,7 @@ export class MessageListView {
             return undefined;
         }
 
-        const new_message_groups = this.build_message_groups(message_containers, this.table_name);
+        const new_message_groups = this.build_message_groups(message_containers);
         const message_actions = this.merge_message_groups(new_message_groups, where);
         const new_dom_elements = [];
         let $rendered_groups;
@@ -866,6 +873,7 @@ export class MessageListView {
         let $last_group_row;
 
         for (const message_container of message_containers) {
+            this.set_edited_notice_locations(message_container);
             this.message_containers.set(message_container.msg.id, message_container);
         }
 
@@ -876,7 +884,6 @@ export class MessageListView {
             $rendered_groups = this._render_group({
                 message_groups: message_actions.prepend_groups,
                 use_match_properties: this.list.is_keyword_search(),
-                table_name: this.table_name,
             });
 
             $dom_messages = $rendered_groups.find(".message_row");
@@ -886,8 +893,8 @@ export class MessageListView {
 
             // The date row will be included in the message groups or will be
             // added in a rerendered in the group below
-            $table.find(".recipient_row").first().prev(".date_row").remove();
-            $table.prepend($rendered_groups);
+            this.$list.find(".recipient_row").first().prev(".date_row").remove();
+            this.$list.prepend($rendered_groups);
             condense.condense_and_collapse($dom_messages);
         }
 
@@ -903,7 +910,6 @@ export class MessageListView {
                 $rendered_groups = this._render_group({
                     message_groups: [message_group],
                     use_match_properties: this.list.is_keyword_search(),
-                    table_name: this.table_name,
                 });
 
                 $dom_messages = $rendered_groups.find(".message_row");
@@ -917,7 +923,7 @@ export class MessageListView {
 
         // Insert new messages in to the last message group
         if (message_actions.append_messages.length > 0) {
-            $last_message_row = $table.find(".message_row").last().expectOne();
+            $last_message_row = this.$list.find(".message_row").last().expectOne();
             $last_group_row = rows.get_message_recipient_row($last_message_row);
             $dom_messages = $(
                 message_actions.append_messages
@@ -940,7 +946,6 @@ export class MessageListView {
             $rendered_groups = this._render_group({
                 message_groups: message_actions.append_groups,
                 use_match_properties: this.list.is_keyword_search(),
-                table_name: this.table_name,
             });
 
             $dom_messages = $rendered_groups.find(".message_row");
@@ -962,7 +967,7 @@ export class MessageListView {
             // this next line seems to prevent the Chrome bug from firing.
             message_viewport.scrollTop();
 
-            $table.append($rendered_groups);
+            this.$list.append($rendered_groups);
             condense.condense_and_collapse($dom_messages);
         }
 
@@ -989,7 +994,7 @@ export class MessageListView {
 
             const get_element = (message_group) => {
                 // We don't have a MessageGroup class, but we can at least hide the messy details
-                // of rows.js from compose_fade.  We provide a callback function to be lazy--
+                // of rows.ts from compose_fade.  We provide a callback function to be lazy--
                 // compose_fade may not actually need the elements depending on its internal
                 // state.
                 const $message_row = this.get_row(message_group.message_containers[0].msg.id);
@@ -1155,7 +1160,7 @@ export class MessageListView {
     }
 
     update_render_window(selected_idx, check_for_changed) {
-        const new_start = Math.max(selected_idx - this._RENDER_WINDOW_SIZE / 2, 0);
+        const new_start = Math.max(selected_idx - Math.floor(this._RENDER_WINDOW_SIZE / 2), 0);
         if (check_for_changed && new_start === this._render_win_start) {
             return false;
         }
@@ -1436,10 +1441,44 @@ export class MessageListView {
         // We do not want to call .empty() because that also clears
         // jQuery data.  This does mean, however, that we need to be
         // mindful of memory leaks.
-        rows.get_table(this.table_name).children().detach();
+        this.$list.children().detach();
         this._rows.clear();
         this._message_groups = [];
         this.message_containers.clear();
+    }
+
+    last_rendered_message() {
+        return this.list.data._items[this._render_win_end - 1];
+    }
+
+    is_fetched_end_rendered() {
+        return this._render_win_end === this.list.num_items();
+    }
+
+    is_end_rendered() {
+        // Used as a helper in checks for whether a given scroll
+        // position is actually the very end of this view. It could
+        // fail to be for two reasons: Either some newer messages are
+        // not rendered due to a render window, or we haven't finished
+        // fetching the newest messages for this view from the server.
+        return this.is_fetched_end_rendered() && this.list.data.fetch_status.has_found_newest();
+    }
+
+    first_rendered_message() {
+        return this.list.data._items[this._render_win_start];
+    }
+
+    is_fetched_start_rendered() {
+        return this._render_win_start === 0;
+    }
+
+    is_start_rendered() {
+        // Used as a helper in checks for whether a given scroll
+        // position is actually the very start of this view. It could
+        // fail to be for two reasons: Either some older messages are
+        // not rendered due to a render window, or we haven't finished
+        // fetching the oldest messages for this view from the server.
+        return this.is_fetched_start_rendered() && this.list.data.fetch_status.has_found_oldest();
     }
 
     get_row(id) {
@@ -1448,14 +1487,14 @@ export class MessageListView {
         if ($row === undefined) {
             // For legacy reasons we need to return an empty
             // jQuery object here.
-            return $(undefined);
+            return $();
         }
 
         return $row;
     }
 
     clear_trailing_bookend() {
-        const $trailing_bookend = rows.get_table(this.table_name).find(".trailing_bookend");
+        const $trailing_bookend = this.$list.find(".trailing_bookend");
         $trailing_bookend.remove();
     }
 
@@ -1484,7 +1523,7 @@ export class MessageListView {
                 is_web_public,
             }),
         );
-        rows.get_table(this.table_name).append($rendered_trailing_bookend);
+        this.$list.append($rendered_trailing_bookend);
     }
 
     selected_row() {
@@ -1500,8 +1539,8 @@ export class MessageListView {
             const $row = this._rows.get(old_id);
             this._rows.delete(old_id);
 
-            $row.attr("zid", new_id);
-            $row.attr("id", this.table_name + new_id);
+            $row.attr("data-message-id", new_id);
+            $row.attr("id", `message-row-${this.list.id}-` + new_id);
             $row.removeClass("local");
             this._rows.set(new_id, $row);
         }
@@ -1570,8 +1609,7 @@ export class MessageListView {
             return 0;
         }
 
-        const $table = rows.get_table(this.table_name);
-        const $headers = $table.find(".message_header");
+        const $headers = this.$list.find(".message_header");
         const iterable_headers = $headers.toArray();
         let start = 0;
         let end = iterable_headers.length - 1;
@@ -1641,8 +1679,7 @@ export class MessageListView {
         }
         this.sticky_recipient_message_id = message.id;
         const time = new Date(message.timestamp * 1000);
-        const today = new Date();
-        const rendered_date = timerender.render_date(time, undefined, today);
+        const rendered_date = timerender.render_date(time);
         $sticky_header.find(".recipient_row_date").html(rendered_date);
 
         // The following prevents a broken looking situation where
@@ -1670,8 +1707,7 @@ export class MessageListView {
     }
 
     update_recipient_bar_background_color() {
-        const $table = rows.get_table(this.table_name);
-        const $stream_headers = $table.find(".message_header_stream");
+        const $stream_headers = this.$list.find(".message_header_stream");
         for (const stream_header of $stream_headers) {
             const $stream_header = $(stream_header);
             stream_color.update_stream_recipient_color($stream_header);
@@ -1689,9 +1725,9 @@ export class MessageListView {
     }
 
     show_messages_as_unread(message_ids) {
-        const $table = rows.get_table(this.table_name);
-        const $rows_to_show_as_unread = $table.find(".message_row").filter((_index, $row) => {
-            const message_id = Number.parseFloat($row.getAttribute("zid"));
+        const $rows_to_show_as_unread = this.$list.find(".message_row").filter((_index, $row) => {
+            // eslint-disable-next-line unicorn/prefer-dom-node-dataset
+            const message_id = Number.parseFloat($row.getAttribute("data-message-id"));
             return message_ids.includes(message_id);
         });
         $rows_to_show_as_unread.addClass("unread");

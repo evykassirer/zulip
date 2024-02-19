@@ -35,7 +35,7 @@ organization in Zulip). The following files are involved in the process:
 
 **Backend**
 
-- `zerver/models.py`: Defines the database model.
+- `zerver/models/realms.py`: Defines the database model.
 - `zerver/views/realm.py`: The view function that implements the API endpoint
   for editing realm objects.
 - `zerver/actions/realm_settings.py`: Contains code for updating and interacting with the database.
@@ -73,7 +73,7 @@ organization in Zulip). The following files are involved in the process:
 ### Adding a field to the database
 
 **Update the model:** The server accesses the underlying database in
-`zerver/models.py`. Add a new field in the appropriate class.
+`zerver/models/realms.py`. Add a new field in the appropriate class.
 
 **Create and run the migration:** To create and apply a migration, run the
 following commands:
@@ -185,10 +185,10 @@ task of requiring messages to have a topic, you can [view this commit](https://g
 
 First, update the database and model to store the new setting. Add a new
 boolean field, `mandatory_topics`, to the Realm model in
-`zerver/models.py`.
+`zerver/models/realms.py`.
 
 ```diff
- # zerver/models.py
+ # zerver/models/realms.py
 
  class Realm(models.Model):
      # ...
@@ -205,7 +205,7 @@ is the field's type. Add the new field to the `property_types`
 dictionary.
 
 ```diff
- # zerver/models.py
+ # zerver/models/realms.py
 
  class Realm(models.Model)
      # ...
@@ -545,11 +545,11 @@ Then add the new form control in `web/src/admin.js`.
 
  export function build_page() {
      const options = {
-         custom_profile_field_types: page_params.custom_profile_field_types,
-         full_name: page_params.full_name,
-         realm_name: page_params.realm_name,
+         custom_profile_field_types: realm.custom_profile_field_types,
+         full_name: current_user.full_name,
+         realm_name: realm.realm_name,
          // ...
-+        realm_mandatory_topics: page_params.mandatory_topics,
++        realm_mandatory_topics: realm.realm_mandatory_topics,
          // ...
 ```
 

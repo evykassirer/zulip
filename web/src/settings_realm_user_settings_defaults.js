@@ -2,17 +2,17 @@ import $ from "jquery";
 
 import * as audible_notifications from "./audible_notifications";
 import * as overlays from "./overlays";
-import {page_params} from "./page_params";
 import {realm_user_settings_defaults} from "./realm_user_settings_defaults";
 import * as settings_components from "./settings_components";
-import * as settings_display from "./settings_display";
 import * as settings_notifications from "./settings_notifications";
 import * as settings_org from "./settings_org";
+import * as settings_preferences from "./settings_preferences";
+import {current_user} from "./state_data";
 
 export const realm_default_settings_panel = {};
 
 export function maybe_disable_widgets() {
-    if (!page_params.is_admin) {
+    if (!current_user.is_admin) {
         $(".organization-box [data-name='organization-level-user-defaults']")
             .find("input, select")
             .prop("disabled", true);
@@ -58,7 +58,7 @@ export function set_up() {
     const $notification_sound_elem = $("audio#realm-default-notification-sound-audio");
     const $notification_sound_dropdown = $container.find(".setting_notification_sound");
 
-    settings_display.set_up(realm_default_settings_panel);
+    settings_preferences.set_up(realm_default_settings_panel);
 
     audible_notifications.update_notification_sound_source(
         $notification_sound_elem,

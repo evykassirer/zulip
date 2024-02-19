@@ -3,9 +3,9 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {page_params} = require("./lib/zpage_params");
+const {realm} = require("./lib/zpage_params");
 
 set_global("navigator", {
     userAgent: "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
@@ -29,9 +29,12 @@ const rows = mock_esm("../src/rows");
 const compose_ui = zrequire("compose_ui");
 const upload = zrequire("upload");
 const message_lists = zrequire("message_lists");
+message_lists.current = {
+    id: "1",
+};
 function test(label, f) {
     run_test(label, (helpers) => {
-        page_params.max_file_upload_size_mib = 25;
+        realm.max_file_upload_size_mib = 25;
         return f(helpers);
     });
 }
@@ -126,7 +129,7 @@ test("get_item", () => {
     assert.equal(upload.get_item("source", {mode: "edit", row: 123}), "message-edit-file-input");
     assert.equal(
         upload.get_item("drag_drop_container", {mode: "edit", row: 1}),
-        $(`#zfilt${CSS.escape(1)} .message_edit_form`),
+        $(`#message-row-1-${CSS.escape(1)} .message_edit_form`),
     );
     assert.equal(
         upload.get_item("markdown_preview_hide_button", {mode: "edit", row: 65}),
@@ -181,7 +184,7 @@ test("get_item", () => {
 });
 
 test("show_error_message", ({mock_template}) => {
-    $("#compose_banners .upload_banner .moving_bar").css = () => {};
+    $("#compose_banners .upload_banner .moving_bar").css = noop;
     $("#compose_banners .upload_banner").length = 0;
 
     let banner_shown = false;
@@ -189,6 +192,7 @@ test("show_error_message", ({mock_template}) => {
         assert.equal(data.banner_type, "error");
         assert.equal(data.banner_text, "Error message");
         banner_shown = true;
+        return "<banner-stub>";
     });
 
     $("#compose-send-button").prop("disabled", true);
@@ -201,13 +205,14 @@ test("show_error_message", ({mock_template}) => {
         assert.equal(data.banner_type, "error");
         assert.equal(data.banner_text, "translated: An unknown error occurred.");
         banner_shown = true;
+        return "<banner-stub>";
     });
     upload.show_error_message({mode: "compose"});
 });
 
 test("upload_files", async ({mock_template, override_rewire}) => {
-    $("#compose_banners .upload_banner").remove = () => {};
-    $("#compose_banners .upload_banner .moving_bar").css = () => {};
+    $("#compose_banners .upload_banner").remove = noop;
+    $("#compose_banners .upload_banner .moving_bar").css = noop;
     $("#compose_banners .upload_banner").length = 0;
 
     let files = [
@@ -249,13 +254,14 @@ test("upload_files", async ({mock_template, override_rewire}) => {
             "translated: File and image uploads have been disabled for this organization.",
         );
         banner_shown = true;
+        return "<banner-stub>";
     });
-    page_params.max_file_upload_size_mib = 0;
+    realm.max_file_upload_size_mib = 0;
     $("#compose_banners .upload_banner .upload_msg").text("");
     await upload.upload_files(uppy, config, files);
     assert.ok(banner_shown);
 
-    page_params.max_file_upload_size_mib = 25;
+    realm.max_file_upload_size_mib = 25;
     let on_click_close_button_callback;
 
     $("#compose_banners .upload_banner.file_id_123 .upload_banner_cancel_button").one = (
@@ -284,6 +290,7 @@ test("upload_files", async ({mock_template, override_rewire}) => {
     banner_shown = false;
     mock_template("compose_banner/upload_banner.hbs", false, () => {
         banner_shown = true;
+        return "<banner-stub>";
     });
     await upload.upload_files(uppy, config, files);
     assert.ok($(".message-send-controls").hasClass("disabled-message-send-controls"));
@@ -502,9 +509,9 @@ test("copy_paste", ({override, override_rewire}) => {
 });
 
 test("uppy_events", ({override_rewire, mock_template}) => {
-    $("#compose_banners .upload_banner .moving_bar").css = () => {};
+    $("#compose_banners .upload_banner .moving_bar").css = noop;
     $("#compose_banners .upload_banner").length = 0;
-    override_rewire(compose_ui, "smart_insert_inline", () => {});
+    override_rewire(compose_ui, "smart_insert_inline", noop);
 
     const callbacks = {};
     let state = {};
@@ -575,6 +582,7 @@ test("uppy_events", ({override_rewire, mock_template}) => {
     mock_template("compose_banner/upload_banner.hbs", false, (data) => {
         assert.equal(data.banner_type, "error");
         assert.equal(data.banner_text, "Some error message");
+        return "<banner-stub>";
     });
     state = {
         type: "error",
@@ -761,7 +769,7 @@ test("main_file_drop_edit_mode", ({override, override_rewire}) => {
             prevent_default_counter += 1;
         },
     };
-    const $drag_drop_container = $(`#zfilt${CSS.escape(40)} .message_edit_form`);
+    const $drag_drop_container = $(`#message-row-1-${CSS.escape(40)} .message_edit_form`);
 
     // Dragover event test
     const dragover_handler = $(".app, #navbar-fixed-container").get_on_handler("dragover");

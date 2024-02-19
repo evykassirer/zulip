@@ -1,3 +1,4 @@
+from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, Optional, Union
 
@@ -28,11 +29,20 @@ class Customer(models.Model):
     sponsorship_pending = models.BooleanField(default=False)
     # A percentage, like 85.
     default_discount = models.DecimalField(decimal_places=4, max_digits=7, null=True)
+    minimum_licenses = models.PositiveIntegerField(null=True)
+    # Used for limiting a default_discount or a fixed_price
+    # to be used only for a particular CustomerPlan tier.
+    required_plan_tier = models.SmallIntegerField(null=True)
     # Some non-profit organizations on manual license management pay
     # only for their paid employees.  We don't prevent these
     # organizations from adding more users than the number of licenses
     # they purchased.
     exempt_from_license_number_check = models.BooleanField(default=False)
+
+    # In cents.
+    flat_discount = models.IntegerField(default=2000)
+    # Number of months left in the flat discount period.
+    flat_discounted_months = models.IntegerField(default=0)
 
     class Meta:
         # Enforce that at least one of these is set.
@@ -49,8 +59,15 @@ class Customer(models.Model):
     def __str__(self) -> str:
         if self.realm is not None:
             return f"{self.realm!r} (with stripe_customer_id: {self.stripe_customer_id})"
+        elif self.remote_realm is not None:
+            return f"{self.remote_realm!r} (with stripe_customer_id: {self.stripe_customer_id})"
         else:
             return f"{self.remote_server!r} (with stripe_customer_id: {self.stripe_customer_id})"
+
+    def get_discount_for_plan_tier(self, plan_tier: int) -> Optional[Decimal]:
+        if self.required_plan_tier is None or self.required_plan_tier == plan_tier:
+            return self.default_discount
+        return None
 
 
 def get_customer_by_realm(realm: Realm) -> Optional[Customer]:
@@ -96,7 +113,7 @@ class Event(models.Model):
 
 
 def get_last_associated_event_by_type(
-    content_object: Union["PaymentIntent", "Session"], event_type: str
+    content_object: Union["Invoice", "PaymentIntent", "Session"], event_type: str
 ) -> Optional[Event]:
     content_type = ContentType.objects.get_for_model(type(content_object))
     return Event.objects.filter(
@@ -119,6 +136,9 @@ class Session(models.Model):
     # Did the user opt to manually manage licenses before clicking on update button?
     is_manual_license_management_upgrade_session = models.BooleanField(default=False)
 
+    # CustomerPlan tier that the user is upgrading to.
+    tier = models.SmallIntegerField(null=True)
+
     def get_status_as_string(self) -> str:
         return {Session.CREATED: "created", Session.COMPLETED: "completed"}[self.status]
 
@@ -133,9 +153,10 @@ class Session(models.Model):
 
         session_dict["status"] = self.get_status_as_string()
         session_dict["type"] = self.get_type_as_string()
-        session_dict[
-            "is_manual_license_management_upgrade_session"
-        ] = self.is_manual_license_management_upgrade_session
+        session_dict["is_manual_license_management_upgrade_session"] = (
+            self.is_manual_license_management_upgrade_session
+        )
+        session_dict["tier"] = self.tier
         event = self.get_last_associated_event()
         if event is not None:
             session_dict["event_handler"] = event.get_event_handler_details_as_dict()
@@ -147,7 +168,7 @@ class Session(models.Model):
         return get_last_associated_event_by_type(self, "checkout.session.completed")
 
 
-class PaymentIntent(models.Model):
+class PaymentIntent(models.Model):  # nocoverage
     customer = models.ForeignKey(Customer, on_delete=CASCADE)
     stripe_payment_intent_id = models.CharField(max_length=255, unique=True)
 
@@ -194,25 +215,113 @@ class PaymentIntent(models.Model):
         return payment_intent_dict
 
 
-class CustomerPlan(models.Model):
+class Invoice(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=CASCADE)
+    stripe_invoice_id = models.CharField(max_length=255, unique=True)
+
+    SENT = 1
+    PAID = 2
+    VOID = 3
+    status = models.SmallIntegerField()
+
+    def get_status_as_string(self) -> str:
+        return {
+            Invoice.SENT: "sent",
+            Invoice.PAID: "paid",
+            Invoice.VOID: "void",
+        }[self.status]
+
+    def get_last_associated_event(self) -> Optional[Event]:
+        if self.status == Invoice.PAID:
+            event_type = "invoice.paid"
+        # TODO: Add test for this case. Not sure how to trigger naturally.
+        else:  # nocoverage
+            return None  # nocoverage
+        return get_last_associated_event_by_type(self, event_type)
+
+    def to_dict(self) -> Dict[str, Any]:
+        stripe_invoice_dict: Dict[str, Any] = {}
+        stripe_invoice_dict["status"] = self.get_status_as_string()
+        event = self.get_last_associated_event()
+        if event is not None:
+            stripe_invoice_dict["event_handler"] = event.get_event_handler_details_as_dict()
+        return stripe_invoice_dict
+
+
+class AbstractCustomerPlan(models.Model):
+    # A customer can only have one ACTIVE / CONFIGURED plan,
+    # but old, inactive / processed plans are preserved to allow
+    # auditing - so there can be multiple CustomerPlan / CustomerPlanOffer
+    # objects pointing to one Customer.
+    customer = models.ForeignKey(Customer, on_delete=CASCADE)
+
+    fixed_price = models.IntegerField(null=True)
+
+    class Meta:
+        abstract = True
+
+
+class CustomerPlanOffer(AbstractCustomerPlan):
+    """
+    This is for storing offers configured via /support which
+    the customer is yet to buy or schedule a purchase.
+
+    Once customer buys or schedules a purchase, we create a
+    CustomerPlan record. The record in this table stays for
+    audit purpose with status=PROCESSED.
+    """
+
+    TIER_SELF_HOSTED_BASIC = 103
+    TIER_SELF_HOSTED_BUSINESS = 104
+    tier = models.SmallIntegerField()
+
+    # Whether the offer is:
+    # * only configured
+    # * processed by the customer to buy or schedule a purchase.
+    CONFIGURED = 1
+    PROCESSED = 2
+    status = models.SmallIntegerField()
+
+    # ID of invoice sent when chose to 'Pay by invoice'.
+    sent_invoice_id = models.CharField(max_length=255, null=True)
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.name} (status: {self.get_plan_status_as_text()})"
+
+    def get_plan_status_as_text(self) -> str:
+        return {
+            self.CONFIGURED: "Configured",
+            self.PROCESSED: "Processed",
+        }[self.status]
+
+    @staticmethod
+    def name_from_tier(tier: int) -> str:  # nocoverage
+        return {
+            CustomerPlanOffer.TIER_SELF_HOSTED_BASIC: "Zulip Basic",
+            CustomerPlanOffer.TIER_SELF_HOSTED_BUSINESS: "Zulip Business",
+        }[tier]
+
+    @property
+    def name(self) -> str:  # nocoverage
+        # TODO: This is used in `check_customer_not_on_paid_plan` as
+        # 'next_plan.name'. Related to sponsorship, add coverage.
+        return self.name_from_tier(self.tier)
+
+
+class CustomerPlan(AbstractCustomerPlan):
     """
     This is for storing most of the fiddly details
     of the customer's plan.
     """
 
-    # A customer can only have one ACTIVE plan, but old, inactive plans
-    # are preserved to allow auditing - so there can be multiple
-    # CustomerPlan objects pointing to one Customer.
-    customer = models.ForeignKey(Customer, on_delete=CASCADE)
-
     automanage_licenses = models.BooleanField(default=False)
     charge_automatically = models.BooleanField(default=False)
 
-    # Both of these are in cents. Exactly one of price_per_license or
-    # fixed_price should be set. fixed_price is only for manual deals, and
+    # Both of the price_per_license and fixed_price are in cents. Exactly
+    # one of them should be set. fixed_price is only for manual deals, and
     # can't be set via the self-serve billing system.
     price_per_license = models.IntegerField(null=True)
-    fixed_price = models.IntegerField(null=True)
 
     # Discount that was applied. For display purposes only.
     discount = models.DecimalField(decimal_places=4, max_digits=6, null=True)
@@ -238,6 +347,11 @@ class CustomerPlan(models.Model):
     # invoice will be generated the first time the cron job runs after
     # next_invoice_date.
     next_invoice_date = models.DateTimeField(db_index=True, null=True)
+
+    # Flag to track if an email has been sent to Zulip team for
+    # invoice overdue by >= one day. Helps to send an email only once
+    # and not every time when cron run.
+    invoice_overdue_email_sent = models.BooleanField(default=False)
 
     # On next_invoice_date, we go through ledger entries that were
     # created after invoiced_through and process them by generating
@@ -266,8 +380,8 @@ class CustomerPlan(models.Model):
     TIER_SELF_HOSTED_BASE = 100
     TIER_SELF_HOSTED_LEGACY = 101
     TIER_SELF_HOSTED_COMMUNITY = 102
-    TIER_SELF_HOSTED_BUSINESS = 103
-    TIER_SELF_HOSTED_PLUS = 104
+    TIER_SELF_HOSTED_BASIC = 103
+    TIER_SELF_HOSTED_BUSINESS = 104
     TIER_SELF_HOSTED_ENTERPRISE = 105
     tier = models.SmallIntegerField()
 
@@ -289,6 +403,10 @@ class CustomerPlan(models.Model):
     # TODO maybe override setattr to ensure billing_cycle_anchor, etc
     # are immutable.
 
+    @override
+    def __str__(self) -> str:
+        return f"{self.name} (status: {self.get_plan_status_as_text()})"
+
     @staticmethod
     def name_from_tier(tier: int) -> str:
         # NOTE: Check `statement_descriptor` values after updating this.
@@ -298,7 +416,8 @@ class CustomerPlan(models.Model):
             CustomerPlan.TIER_CLOUD_STANDARD: "Zulip Cloud Standard",
             CustomerPlan.TIER_CLOUD_PLUS: "Zulip Cloud Plus",
             CustomerPlan.TIER_CLOUD_ENTERPRISE: "Zulip Enterprise",
-            CustomerPlan.TIER_SELF_HOSTED_LEGACY: "Self-managed",
+            CustomerPlan.TIER_SELF_HOSTED_LEGACY: "Free (legacy plan)",
+            CustomerPlan.TIER_SELF_HOSTED_BASIC: "Zulip Basic",
             CustomerPlan.TIER_SELF_HOSTED_BUSINESS: "Zulip Business",
             CustomerPlan.TIER_SELF_HOSTED_COMMUNITY: "Community",
         }[tier]
@@ -310,12 +429,12 @@ class CustomerPlan(models.Model):
     def get_plan_status_as_text(self) -> str:
         return {
             self.ACTIVE: "Active",
-            self.DOWNGRADE_AT_END_OF_CYCLE: "Scheduled for downgrade at end of cycle",
+            self.DOWNGRADE_AT_END_OF_CYCLE: "Downgrade end of cycle",
             self.FREE_TRIAL: "Free trial",
-            self.SWITCH_TO_ANNUAL_AT_END_OF_CYCLE: "Scheduled for switch to annual at end of cycle",
-            self.SWITCH_TO_MONTHLY_AT_END_OF_CYCLE: "Scheduled for switch to monthly at end of cycle",
-            self.DOWNGRADE_AT_END_OF_FREE_TRIAL: "Scheduled for downgrade at end of free trial",
-            self.SWITCH_PLAN_TIER_AT_PLAN_END: "Scheduled for switch to new plan at the end of plan",
+            self.SWITCH_TO_ANNUAL_AT_END_OF_CYCLE: "Scheduled switch to annual",
+            self.SWITCH_TO_MONTHLY_AT_END_OF_CYCLE: "Scheduled switch to monthly",
+            self.DOWNGRADE_AT_END_OF_FREE_TRIAL: "Downgrade end of free trial",
+            self.SWITCH_PLAN_TIER_AT_PLAN_END: "New plan scheduled",
             self.ENDED: "Ended",
             self.NEVER_STARTED: "Never started",
         }[self.status]
@@ -390,6 +509,7 @@ class SponsoredPlanTypes(Enum):
     # unspecified used for cloud sponsorship requests
     UNSPECIFIED = ""
     COMMUNITY = "Community"
+    BASIC = "Basic"
     BUSINESS = "Business"
 
 

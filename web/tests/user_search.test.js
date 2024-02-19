@@ -3,9 +3,9 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {page_params} = require("./lib/zpage_params");
+const {realm} = require("./lib/zpage_params");
 
 const fake_buddy_list = {
     scroll_container_selector: "#whatever",
@@ -79,8 +79,8 @@ function set_input_val(val) {
 test("clear_search", ({override}) => {
     override(presence, "get_status", () => "active");
     override(presence, "get_user_ids", () => all_user_ids);
-    override(popovers, "hide_all", () => {});
-    override(resize, "resize_sidebars", () => {});
+    override(popovers, "hide_all", noop);
+    override(resize, "resize_sidebars", noop);
 
     // Empty because no users match this search string.
     override(fake_buddy_list, "populate", (user_ids) => {
@@ -100,10 +100,10 @@ test("clear_search", ({override}) => {
 });
 
 test("escape_search", ({override}) => {
-    page_params.realm_presence_disabled = true;
+    realm.realm_presence_disabled = true;
 
-    override(resize, "resize_sidebars", () => {});
-    override(popovers, "hide_all", () => {});
+    override(resize, "resize_sidebars", noop);
+    override(popovers, "hide_all", noop);
 
     set_input_val("somevalue");
     activity_ui.escape_search();
@@ -116,9 +116,9 @@ test("escape_search", ({override}) => {
 });
 
 test("blur search right", ({override}) => {
-    override(sidebar_ui, "show_userlist_sidebar", () => {});
-    override(popovers, "hide_all", () => {});
-    override(resize, "resize_sidebars", () => {});
+    override(sidebar_ui, "show_userlist_sidebar", noop);
+    override(popovers, "hide_all", noop);
+    override(resize, "resize_sidebars", noop);
 
     $(".user-list-filter").closest = (selector) => {
         assert.equal(selector, ".app-main [class^='column-']");
@@ -132,9 +132,9 @@ test("blur search right", ({override}) => {
 });
 
 test("blur search left", ({override}) => {
-    override(sidebar_ui, "show_streamlist_sidebar", () => {});
-    override(popovers, "hide_all", () => {});
-    override(resize, "resize_sidebars", () => {});
+    override(sidebar_ui, "show_streamlist_sidebar", noop);
+    override(popovers, "hide_all", noop);
+    override(resize, "resize_sidebars", noop);
 
     $(".user-list-filter").closest = (selector) => {
         assert.equal(selector, ".app-main [class^='column-']");
@@ -204,11 +204,11 @@ test("filter_user_ids", ({override}) => {
 test("click on user header to toggle display", ({override}) => {
     const $user_filter = $(".user-list-filter");
 
-    override(popovers, "hide_all", () => {});
-    override(sidebar_ui, "show_userlist_sidebar", () => {});
-    override(resize, "resize_sidebars", () => {});
+    override(popovers, "hide_all", noop);
+    override(sidebar_ui, "show_userlist_sidebar", noop);
+    override(resize, "resize_sidebars", noop);
 
-    page_params.realm_presence_disabled = true;
+    realm.realm_presence_disabled = true;
 
     assert.ok(!$("#user_search_section").hasClass("notdisplayed"));
 

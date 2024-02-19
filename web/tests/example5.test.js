@@ -3,7 +3,7 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 
 /*
    Our test from an earlier example verifies that the update events
@@ -25,7 +25,6 @@ const message_lists = mock_esm("../src/message_lists");
 const message_notifications = mock_esm("../src/message_notifications");
 const message_util = mock_esm("../src/message_util");
 const pm_list = mock_esm("../src/pm_list");
-const recent_view_data = mock_esm("../src/recent_view_data");
 const stream_list = mock_esm("../src/stream_list");
 const unread_ops = mock_esm("../src/unread_ops");
 const unread_ui = mock_esm("../src/unread_ui");
@@ -85,7 +84,7 @@ function test_helper({override}) {
 run_test("insert_message", ({override}) => {
     message_store.clear_for_testing();
 
-    override(pm_list, "update_private_messages", () => {});
+    override(pm_list, "update_private_messages", noop);
 
     const helper = test_helper({override});
 
@@ -102,7 +101,6 @@ run_test("insert_message", ({override}) => {
     helper.redirect(message_notifications, "received_messages");
     helper.redirect(message_util, "add_new_messages_data");
     helper.redirect(message_util, "add_new_messages");
-    helper.redirect(recent_view_data, "process_message");
     helper.redirect(stream_list, "update_streams_sidebar");
     helper.redirect(unread_ops, "process_visible");
     helper.redirect(unread_ui, "update_unread_counts");
@@ -124,7 +122,6 @@ run_test("insert_message", ({override}) => {
         [unread_ops, "process_visible"],
         [message_notifications, "received_messages"],
         [stream_list, "update_streams_sidebar"],
-        [recent_view_data, "process_message"],
     ]);
 
     // Despite all of our stubbing/mocking, the call to

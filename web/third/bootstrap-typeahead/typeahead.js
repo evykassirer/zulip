@@ -156,7 +156,7 @@ import {get_string_diff} from "../../src/util";
     this.options = $.extend({}, $.fn.typeahead.defaults, options)
     this.matcher = this.options.matcher || this.matcher
     this.sorter = this.options.sorter || this.sorter
-    this.highlighter = this.options.highlighter || this.highlighter
+    this.highlighter = this.options.highlighter
     this.updater = this.options.updater || this.updater
     this.$container = $(this.options.container).appendTo(this.options.parentElement || 'body')
     this.$menu = $(this.options.menu).appendTo(this.$container)
@@ -348,13 +348,6 @@ import {get_string_diff} from "../../src/util";
       return beginswith.concat(caseSensitive, caseInsensitive)
     }
 
-  , highlighter: function (item) {
-      var query = this.query.replace(/[\-\[\]{}()*+?.,\\\^$|#\s]/g, '\\$&')
-      return item.replace(new RegExp('(' + query + ')', 'ig'), function ($1, match) {
-        return '<strong>' + match + '</strong>'
-      })
-    }
-
   , render: function (final_items, matching_items) {
       var that = this
 
@@ -448,6 +441,14 @@ import {get_string_diff} from "../../src/util";
       }
   }
 
+  , maybeStopAdvance(e) {
+    const pseudo_keycode = get_pseudo_keycode(e);
+    if ((this.options.stopAdvance || (pseudo_keycode != 9 && pseudo_keycode != 13))
+        && $.inArray(e.keyCode, this.options.advanceKeyCodes)) {
+        e.stopPropagation();
+    }
+  }
+
   , move: function (e) {
       if (!this.shown) return
       const pseudo_keycode = get_pseudo_keycode(e);
@@ -471,10 +472,7 @@ import {get_string_diff} from "../../src/util";
           break
       }
 
-      if ((this.options.stopAdvance || (pseudo_keycode != 9 && pseudo_keycode != 13))
-          && $.inArray(e.keyCode, this.options.advanceKeyCodes)) {
-          e.stopPropagation()
-      }
+      this.maybeStopAdvance(e);
     }
 
   , mousemove: function(e) {
@@ -498,9 +496,12 @@ import {get_string_diff} from "../../src/util";
     }
 
   , keypress: function (e) {
-      if (this.suppressKeyPressRepeat) return
-      this.move(e)
+    if (!this.suppressKeyPressRepeat) {
+      this.move(e);
+      return;
     }
+    this.maybeStopAdvance(e);
+  }
 
   , keyup: function (e) {
       const pseudo_keycode = get_pseudo_keycode(e);
@@ -525,6 +526,13 @@ import {get_string_diff} from "../../src/util";
           }
           break
 
+        // to stop typeahead from showing up momentarily
+        // when shift + tabbing to the topic field
+        case 16: // shift
+          if (e.currentTarget.id === "stream_message_recipient_topic") {
+            return;
+          }
+
         default:
           var hideOnEmpty = false
           // backspace
@@ -545,10 +553,7 @@ import {get_string_diff} from "../../src/util";
           this.lookup(hideOnEmpty)
       }
 
-      if ((this.options.stopAdvance || (pseudo_keycode != 9 && pseudo_keycode != 13))
-          && $.inArray(e.keyCode, this.options.advanceKeyCodes)) {
-          e.stopPropagation()
-      }
+      this.maybeStopAdvance(e);
 
       e.preventDefault()
   }
@@ -642,18 +647,4 @@ import {get_string_diff} from "../../src/util";
   }
 
   $.fn.typeahead.Constructor = Typeahead
-
-
- /*   TYPEAHEAD DATA-API
-  * ================== */
-
-  $(function () {
-    $('body').on('focus.typeahead.data-api', '[data-provide="typeahead"]', function (e) {
-      var $this = $(this)
-      if ($this.data('typeahead')) return
-      e.preventDefault()
-      $this.typeahead($this.data())
-    })
-  })
-
 }(window.jQuery);

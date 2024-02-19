@@ -21,6 +21,7 @@ from django.utils.translation import override as override_language
 from lxml.html import builder as e
 
 from confirmation.models import one_click_unsubscribe_link
+from zerver.lib.display_recipient import get_display_recipient
 from zerver.lib.markdown.fenced_code import FENCE_RE
 from zerver.lib.message import bulk_access_messages
 from zerver.lib.notification_data import get_mentioned_user_group_name
@@ -35,18 +36,10 @@ from zerver.lib.url_encoding import (
     stream_narrow_url,
     topic_narrow_url,
 )
-from zerver.models import (
-    Message,
-    NotificationTriggers,
-    Realm,
-    Recipient,
-    Stream,
-    UserMessage,
-    UserProfile,
-    get_context_for_message,
-    get_display_recipient,
-    get_user_profile_by_id,
-)
+from zerver.models import Message, Realm, Recipient, Stream, UserMessage, UserProfile
+from zerver.models.messages import get_context_for_message
+from zerver.models.scheduled_jobs import NotificationTriggers
+from zerver.models.users import get_user_profile_by_id
 
 if sys.version_info < (3, 9):  # nocoverage
     from backports import zoneinfo
@@ -292,7 +285,7 @@ def build_message_list(
             narrow_link = topic_narrow_url(
                 realm=user.realm,
                 stream=stream,
-                topic=message.topic_name(),
+                topic_name=message.topic_name(),
             )
             header = f"{stream.name} > {message.topic_name()}"
             stream_link = stream_narrow_url(user.realm, stream)
@@ -532,7 +525,7 @@ def do_send_missedmessage_events_reply_in_zulip(
         narrow_url = topic_narrow_url(
             realm=user_profile.realm,
             stream=stream,
-            topic=message.topic_name(),
+            topic_name=message.topic_name(),
         )
         context.update(narrow_url=narrow_url)
         topic_resolved, topic_name = get_topic_resolution_and_bare_name(message.topic_name())
@@ -668,9 +661,9 @@ def handle_missedmessage_emails(
             unique_messages[m.id] = dict(
                 message=m,
                 trigger=message_info.trigger if message_info else None,
-                mentioned_user_group_id=message_info.mentioned_user_group_id
-                if message_info is not None
-                else None,
+                mentioned_user_group_id=(
+                    message_info.mentioned_user_group_id if message_info is not None else None
+                ),
             )
         do_send_missedmessage_events_reply_in_zulip(
             user_profile,

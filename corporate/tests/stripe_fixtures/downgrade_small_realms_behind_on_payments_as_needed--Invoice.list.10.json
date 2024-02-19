@@ -15,6 +15,7 @@
       "auto_advance": false,
       "automatic_tax": {
         "enabled": false,
+        "liability": null,
         "status": null
       },
       "billing_reason": "manual",
@@ -42,9 +43,12 @@
       "ending_balance": 0,
       "footer": null,
       "from_invoice": null,
-      "hosted_invoice_url": "https://invoice.stripe.com/i/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QNm1zNzN1WjB2TU4wcE00ZHdZT2pCQ0RUcm95a0FqLDkxOTg3OTA00200tPqNOv6G?s=ap",
+      "hosted_invoice_url": "https://invoice.stripe.com/i/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QV3loUTdmYWJ1aFYwWjkzOVVYMTNvUjFvWkhBTVUyLDk4MDI4NDcw0200MRYQsUfM?s=ap",
       "id": "in_NORMALIZED00000000000006",
-      "invoice_pdf": "https://pay.stripe.com/invoice/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QNm1zNzN1WjB2TU4wcE00ZHdZT2pCQ0RUcm95a0FqLDkxOTg3OTA00200tPqNOv6G/pdf?s=ap",
+      "invoice_pdf": "https://pay.stripe.com/invoice/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QV3loUTdmYWJ1aFYwWjkzOVVYMTNvUjFvWkhBTVUyLDk4MDI4NDcw0200MRYQsUfM/pdf?s=ap",
+      "issuer": {
+        "type": "self"
+      },
       "last_finalization_error": null,
       "latest_revision": null,
       "lines": {
@@ -173,6 +177,7 @@
       "auto_advance": false,
       "automatic_tax": {
         "enabled": false,
+        "liability": null,
         "status": null
       },
       "billing_reason": "manual",
@@ -200,9 +205,12 @@
       "ending_balance": 0,
       "footer": null,
       "from_invoice": null,
-      "hosted_invoice_url": "https://invoice.stripe.com/i/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QNm1zVVdNMzhmUzNQODk3WGhuV09uVmh3bXNNbHhwLDkxOTg3OTA00200Ch0wFaMl?s=ap",
+      "hosted_invoice_url": "https://invoice.stripe.com/i/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QV3loQ0ZHbVNCOTF4U1ZwOUJXTTU5bWJqN2dGM2FILDk4MDI4NDcw0200qCJVbFnS?s=ap",
       "id": "in_NORMALIZED00000000000005",
-      "invoice_pdf": "https://pay.stripe.com/invoice/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QNm1zVVdNMzhmUzNQODk3WGhuV09uVmh3bXNNbHhwLDkxOTg3OTA00200Ch0wFaMl/pdf?s=ap",
+      "invoice_pdf": "https://pay.stripe.com/invoice/acct_NORMALIZED000001/test_NORMALIZED01a3dERVFhcm9xRGpzLF9QV3loQ0ZHbVNCOTF4U1ZwOUJXTTU5bWJqN2dGM2FILDk4MDI4NDcw0200qCJVbFnS/pdf?s=ap",
+      "issuer": {
+        "type": "self"
+      },
       "last_finalization_error": null,
       "latest_revision": null,
       "lines": {

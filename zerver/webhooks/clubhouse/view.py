@@ -398,9 +398,11 @@ def get_story_create_github_entity_body(payload: WildValue, action: WildValue, e
             name=action["name"].tame(check_string),
             app_url=action["app_url"].tame(check_string),
         ),
-        "name": pull_request_action["number"].tame(check_int)
-        if entity in ("pull-request", "pull-request-comment")
-        else pull_request_action["name"].tame(check_string),
+        "name": (
+            pull_request_action["number"].tame(check_int)
+            if entity in ("pull-request", "pull-request-comment")
+            else pull_request_action["name"].tame(check_string)
+        ),
         "url": pull_request_action["url"].tame(check_string),
         "workflow_state_template": "",
     }
@@ -696,11 +698,11 @@ def send_stream_messages_for_actions(
     if body_func is None or topic_func is None:
         raise UnsupportedWebhookEventTypeError(event)
 
-    topic = topic_func(payload, action)
+    topic_name = topic_func(payload, action)
     body = body_func(payload, action)
 
-    if topic and body:
-        check_send_webhook_message(request, user_profile, topic, body, event)
+    if topic_name and body:
+        check_send_webhook_message(request, user_profile, topic_name, body, event)
 
 
 EVENT_BODY_FUNCTION_MAPPER: Dict[str, Callable[[WildValue, WildValue], Optional[str]]] = {

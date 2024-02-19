@@ -69,10 +69,9 @@ from zerver.models import (
     UserProfile,
     UserStatus,
     UserTopic,
-    get_realm,
-    get_system_bot,
-    get_user_profile_by_id,
 )
+from zerver.models.realms import get_realm
+from zerver.models.users import get_system_bot, get_user_profile_by_id
 
 # Custom mypy types follow:
 Record: TypeAlias = Dict[str, Any]
@@ -307,7 +306,7 @@ DATE_FIELDS: Dict[TableName, List[Field]] = {
 
 def sanity_check_output(data: TableData) -> None:
     # First, we verify that the export tool has a declared
-    # configuration for every table declared in the `models.py` files.
+    # configuration for every table declared in the `models` modules.
     target_models = [
         *apps.get_app_config("analytics").get_models(include_auto_created=True),
         *apps.get_app_config("django_otp").get_models(include_auto_created=True),
@@ -1716,9 +1715,8 @@ def export_files_from_s3(
 def export_uploads_from_local(
     realm: Realm, local_dir: Path, output_dir: Path, attachments: List[Attachment]
 ) -> None:
-    count = 0
     records = []
-    for attachment in attachments:
+    for count, attachment in enumerate(attachments, 1):
         # Use 'mark_sanitized' to work around false positive caused by Pysa
         # thinking that 'realm' (and thus 'attachment' and 'attachment.path_id')
         # are user controlled
@@ -1741,8 +1739,6 @@ def export_uploads_from_local(
             content_type=None,
         )
         records.append(record)
-
-        count += 1
 
         if count % 100 == 0:
             logging.info("Finished %s", count)
@@ -1832,9 +1828,8 @@ def get_emoji_path(realm_emoji: RealmEmoji) -> str:
 def export_emoji_from_local(
     realm: Realm, local_dir: Path, output_dir: Path, realm_emojis: List[RealmEmoji]
 ) -> None:
-    count = 0
     records = []
-    for realm_emoji in realm_emojis:
+    for count, realm_emoji in enumerate(realm_emojis, 1):
         emoji_path = get_emoji_path(realm_emoji)
 
         # Use 'mark_sanitized' to work around false positive caused by Pysa
@@ -1863,7 +1858,6 @@ def export_emoji_from_local(
         )
         records.append(record)
 
-        count += 1
         if count % 100 == 0:
             logging.info("Finished %s", count)
 

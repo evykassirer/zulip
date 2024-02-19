@@ -28,17 +28,17 @@ from zerver.models import (
     Recipient,
     Stream,
     Subscription,
-    SystemGroups,
     UserGroup,
     UserProfile,
-    active_non_guest_user_ids,
-    active_user_ids,
+)
+from zerver.models.groups import SystemGroups
+from zerver.models.streams import (
     bulk_get_streams,
     get_realm_stream,
     get_stream,
     get_stream_by_id_in_realm,
-    is_cross_realm_bot_email,
 )
+from zerver.models.users import active_non_guest_user_ids, active_user_ids, is_cross_realm_bot_email
 from zerver.tornado.django_api import send_event
 
 
@@ -575,7 +575,7 @@ def can_access_stream_user_ids(stream: Stream) -> Set[int]:
 
 def can_access_stream_history(user_profile: UserProfile, stream: Stream) -> bool:
     """Determine whether the provided user is allowed to access the
-    history of the target stream.  The stream is specified by name.
+    history of the target stream.
 
     This is used by the caller to determine whether this user can get
     historical messages before they joined for a narrowing search.

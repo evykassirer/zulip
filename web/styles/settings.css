@@ -329,8 +329,7 @@ td .button {
     /* Messy implementation of buttons with text and a pencil icon in them
        having spacing before the pencil icon. */
     & button.btn-link i.fa-pencil,
-    button[data-dismiss="modal"] i.fa-pencil,
-    .dropdown-toggle i.fa-pencil {
+    button[data-dismiss="modal"] i.fa-pencil {
         margin-left: 3px;
     }
 
@@ -346,8 +345,7 @@ td .button {
         color: hsl(0deg 0% 20%);
     }
 
-    .settings_select,
-    .dropdown-list-widget .dropdown-toggle {
+    .settings_select {
         height: 30px;
         min-width: 325px;
         max-width: 100%;
@@ -481,7 +479,7 @@ input[type="checkbox"] {
     }
 }
 
-.display-settings-form,
+.preferences-settings-form,
 .notification-settings-form {
     .subsection-header h3 {
         display: inline-block;
@@ -687,10 +685,6 @@ input[type="checkbox"] {
     text-align: right;
 }
 
-.add-new-export-box {
-    margin: 10px 0;
-}
-
 #add-default-stream-modal {
     .dropdown-widget-button {
         display: inline-flex;
@@ -835,12 +829,22 @@ input[type="checkbox"] {
     max-height: calc(95vh - 280px);
 }
 
-#bot-settings .add-a-new-bot {
-    margin-bottom: 2px;
+#bot-settings {
+    .add-a-new-bot {
+        margin-bottom: 2px;
+    }
+
+    hr {
+        margin: 10px 0;
+        border-color: hsl(0deg 0% 85%);
+    }
+
+    .config-download-text {
+        margin-left: 5px;
+    }
 }
 
 .bots_list {
-    display: none;
     list-style-type: none;
     margin-left: 0;
 
@@ -970,10 +974,6 @@ input[type="checkbox"] {
         font-weight: 600;
         color: hsl(0deg 0% 67%);
     }
-}
-
-#bots_lists_navbar .active a {
-    background-color: hsl(0deg 0% 98%);
 }
 
 #inactive_bots_list .bot_info .reactivate_bot {
@@ -1107,7 +1107,7 @@ input[type="checkbox"] {
     padding: 0 10px;
 }
 
-label.display-settings-radio-choice-label {
+label.preferences-radio-choice-label {
     border-bottom: 1px solid hsl(0deg 0% 0% / 20%);
     padding: 8px 0 10px;
     display: flex;
@@ -1427,7 +1427,7 @@ $option_title_width: 180px;
         }
     }
 
-    .display-settings-form select {
+    .preferences-settings-form select {
         width: 245px;
     }
 }
@@ -1534,72 +1534,6 @@ $option_title_width: 180px;
         /* Override undesired Bootstrap default. */
         margin-bottom: 0;
         margin-top: 5px;
-    }
-}
-
-.dropdown-list-widget {
-    & button.dropdown-toggle {
-        text-align: left;
-
-        .fa-chevron-down {
-            float: right;
-            position: relative;
-            top: 2px;
-            padding-left: 5px;
-            color: hsl(0deg 0% 58%);
-            font-weight: 200;
-        }
-
-        &.dropdown-toggle {
-            /* Match settings for select elements. */
-            padding: 4px 6px;
-
-            & span {
-                line-height: 20px;
-                height: 1.4em;
-            }
-        }
-
-        &:disabled i.fa-chevron-down {
-            display: none;
-        }
-    }
-
-    & button.multiselect_btn {
-        /* Matches the dropdown input margin so as to keep it aligned */
-        margin-left: 9px;
-        margin-top: 4px;
-    }
-
-    & a.dropdown_list_reset_button {
-        /* Prevent dark theme from overriding background. */
-        background: unset !important;
-        border: none;
-        margin-left: 10px;
-
-        &:disabled {
-            display: none;
-        }
-    }
-
-    .dropdown-search > input[type="text"] {
-        margin: 9px;
-        /* 100% - 2* (9px (margin) + 1px (border) + 6px (padding)) */
-        width: calc(100% - 32px);
-    }
-
-    .dropdown-menu {
-        top: -7px; /* -(margin+padding), both are set by bootstrap. */
-        bottom: auto;
-    }
-
-    .dropdown-list-wrapper {
-        position: relative;
-        height: auto;
-        max-height: 200px;
-        overflow-y: auto;
-        margin-top: 0;
-        display: block;
     }
 }
 

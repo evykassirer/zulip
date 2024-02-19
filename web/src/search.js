@@ -11,7 +11,15 @@ import * as search_suggestion from "./search_suggestion";
 // Exported for unit testing
 export let is_using_input_method = false;
 
-export function narrow_or_search_for_term(search_string, {on_narrow_search}) {
+export function set_search_bar_text(text) {
+    $("#search_query").val(text);
+}
+
+function get_search_bar_text() {
+    return $("#search_query").val();
+}
+
+function narrow_or_search_for_term(search_string, {on_narrow_search}) {
     if (search_string === "") {
         exit_search({keep_search_narrow_open: true});
         return "";
@@ -21,20 +29,20 @@ export function narrow_or_search_for_term(search_string, {on_narrow_search}) {
         // Neither narrow nor search when using input tools as
         // `updater` is also triggered when 'enter' is triggered
         // while using input tool
-        return $search_query_box.val();
+        return get_search_bar_text();
     }
 
-    const operators = Filter.parse(search_string);
-    on_narrow_search(operators, {trigger: "search"});
+    const terms = Filter.parse(search_string);
+    on_narrow_search(terms, {trigger: "search"});
 
     // It's sort of annoying that this is not in a position to
     // blur the search box, because it means that Esc won't
     // unnarrow, it'll leave the searchbox.
 
-    // Narrowing will have already put some operators in the search box,
+    // Narrowing will have already put some terms in the search box,
     // so leave the current text in.
     $search_query_box.trigger("blur");
-    return $search_query_box.val();
+    return get_search_bar_text();
 }
 
 export function initialize({on_narrow_search}) {
@@ -87,7 +95,7 @@ export function initialize({on_narrow_search}) {
             // Don't close the search bar if the user has changed
             // the text from the default, they might accidentally
             // click away and not want to lose it.
-            if (get_initial_search_string() !== $("#search_query").val()) {
+            if (get_initial_search_string() !== get_search_bar_text()) {
                 return;
             }
             const filter = narrow_state.filter();
@@ -125,12 +133,12 @@ export function initialize({on_narrow_search}) {
                 // We just pressed Enter and the box had focus, which
                 // means we didn't use the typeahead at all.  In that
                 // case, we should act as though we're searching by
-                // operators.  (The reason the other actions don't call
+                // terms.  (The reason the other actions don't call
                 // this codepath is that they first all blur the box to
                 // indicate that they've done what they need to do)
 
                 // Pill is already added during keydown event of input pills.
-                narrow_or_search_for_term($search_query_box.val(), {on_narrow_search});
+                narrow_or_search_for_term(get_search_bar_text(), {on_narrow_search});
                 $search_query_box.trigger("blur");
             }
         });
@@ -190,17 +198,12 @@ export function initiate_search() {
     $("#search_query").typeahead("lookup").trigger("select");
 }
 
-export function clear_search_form() {
-    $("#search_query").val("");
-    $("#search_query").trigger("blur");
-}
-
 // This is what the default searchbox text would be for this narrow,
 // NOT what might be currently displayed there. We can use this both
 // to set the initial text and to see if the user has changed it.
 function get_initial_search_string() {
     let search_string = narrow_state.search_string();
-    if (search_string !== "" && !narrow_state.filter().is_keyword_search()) {
+    if (search_string !== "" && !narrow_state.filter()?.is_keyword_search()) {
         // saves the user a keystroke for quick searches
         search_string = search_string + " ";
     }
@@ -210,7 +213,7 @@ function get_initial_search_string() {
 // we rely entirely on this function to ensure
 // the searchbar has the right text.
 function reset_searchbox_text() {
-    $("#search_query").val(get_initial_search_string());
+    set_search_bar_text(get_initial_search_string());
 }
 
 function exit_search(opts) {
@@ -231,9 +234,9 @@ function exit_search(opts) {
 
 export function open_search_bar_and_close_narrow_description() {
     // Preserve user input if they've already started typing, but
-    // otherwise fill the input field with the text operators for
+    // otherwise fill the input field with the text terms for
     // the current narrow.
-    if ($("#search_query").val() === "") {
+    if (get_search_bar_text() === "") {
         reset_searchbox_text();
     }
     $(".navbar-search").addClass("expanded");
@@ -247,7 +250,7 @@ export function close_search_bar_and_open_narrow_description() {
     // in width as the search bar closes, which doesn't look great.
     $("#searchbox_form .dropdown-menu").hide();
 
-    $("#search_query").val("");
+    set_search_bar_text("");
     $(".navbar-search").removeClass("expanded");
     $("#message_view_header").removeClass("hidden");
 }

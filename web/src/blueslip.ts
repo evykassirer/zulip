@@ -9,8 +9,8 @@
 import * as Sentry from "@sentry/browser";
 import $ from "jquery";
 
+import {page_params} from "./base_page_params";
 import {BlueslipError, display_stacktrace} from "./blueslip_stacktrace";
-import {page_params} from "./page_params";
 
 if (Error.stackTraceLimit !== undefined) {
     Error.stackTraceLimit = 100000;
@@ -31,7 +31,7 @@ function make_logger_func(name: "debug" | "log" | "info" | "warn" | "error") {
         }
 
         if (console[name] !== undefined) {
-            return console[name](...args);
+            console[name](...args);
         }
     };
 }
@@ -89,7 +89,7 @@ export function warn(msg: string, more_info?: unknown): void {
 export function error(msg: string, more_info?: object | undefined, original_error?: unknown): void {
     // Log the Sentry error before the console warning, so we don't
     // end up with a doubled message in the Sentry logs.
-    Sentry.setContext("more_info", more_info === undefined ? null : more_info);
+    Sentry.setContext("more_info", more_info ?? null);
 
     // Note that original_error could be of any type, because you can "raise"
     // any type -- something we do see in practice with the error

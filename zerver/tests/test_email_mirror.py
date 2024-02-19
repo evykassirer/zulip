@@ -37,15 +37,10 @@ from zerver.lib.send_email import FromAddress
 from zerver.lib.streams import ensure_stream
 from zerver.lib.test_classes import ZulipTestCase
 from zerver.lib.test_helpers import mock_queue_publish, most_recent_message, most_recent_usermessage
-from zerver.models import (
-    Attachment,
-    Recipient,
-    Stream,
-    UserProfile,
-    get_realm,
-    get_stream,
-    get_system_bot,
-)
+from zerver.models import Attachment, Recipient, Stream, UserProfile
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
+from zerver.models.users import get_system_bot
 from zerver.worker.queue_processors import MirrorWorker
 
 if TYPE_CHECKING:
@@ -495,9 +490,9 @@ and other things
         incoming_valid_message = EmailMessage()
         incoming_valid_message.set_content("TestStreamEmailMessages body")
         incoming_valid_message["Subject"] = "TestStreamEmailMessages subject"
-        incoming_valid_message[
-            "From"
-        ] = "Test =?utf-8?b?VXNlcsOzxIXEmQ==?= <=?utf-8?q?hamlet=5F=C4=99?=@zulip.com>"
+        incoming_valid_message["From"] = (
+            "Test =?utf-8?b?VXNlcsOzxIXEmQ==?= <=?utf-8?q?hamlet=5F=C4=99?=@zulip.com>"
+        )
         incoming_valid_message["To"] = stream_to_address
         incoming_valid_message["Reply-to"] = self.example_email("othello")
 
@@ -1032,7 +1027,7 @@ class TestMissedMessageEmailMessages(ZulipTestCase):
         incoming_valid_message["To"] = mm_address
         incoming_valid_message["Reply-to"] = self.example_email("othello")
 
-        with self.assert_database_query_count(17):
+        with self.assert_database_query_count(16):
             process_message(incoming_valid_message)
 
         # confirm that Hamlet got the message
@@ -1077,7 +1072,7 @@ class TestMissedMessageEmailMessages(ZulipTestCase):
         incoming_valid_message["To"] = mm_address
         incoming_valid_message["Reply-to"] = self.example_email("cordelia")
 
-        with self.assert_database_query_count(22):
+        with self.assert_database_query_count(21):
             process_message(incoming_valid_message)
 
         # Confirm Iago received the message.
@@ -1129,7 +1124,7 @@ class TestMissedMessageEmailMessages(ZulipTestCase):
         incoming_valid_message["To"] = mm_address
         incoming_valid_message["Reply-to"] = user_profile.delivery_email
 
-        with self.assert_database_query_count(18):
+        with self.assert_database_query_count(17):
             process_message(incoming_valid_message)
 
         # confirm that Hamlet got the message
@@ -1548,7 +1543,7 @@ class TestEmailMirrorTornadoView(ZulipTestCase):
 
         with mock_queue_publish("zerver.lib.email_mirror.queue_json_publish") as m:
             m.side_effect = check_queue_json_publish
-            return self.client_post("/email_mirror_message", post_data)
+            return self.client_post("/api/internal/email_mirror_message", post_data)
 
     def test_success_stream(self) -> None:
         stream = get_stream("Denmark", get_realm("zulip"))

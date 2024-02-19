@@ -73,10 +73,6 @@ from zerver.lib.validator import (
 )
 from zerver.lib.zephyr import compute_mit_user_fullname
 from zerver.models import (
-    MAX_LANGUAGE_ID_LENGTH,
-    DisposableEmailError,
-    DomainNotAllowedForRealmError,
-    EmailContainsPlusError,
     MultiuseInvite,
     PreregistrationRealm,
     PreregistrationUser,
@@ -84,13 +80,18 @@ from zerver.models import (
     RealmUserDefault,
     Stream,
     UserProfile,
-    get_default_stream_groups,
+)
+from zerver.models.constants import MAX_LANGUAGE_ID_LENGTH
+from zerver.models.realms import (
+    DisposableEmailError,
+    DomainNotAllowedForRealmError,
+    EmailContainsPlusError,
     get_org_type_display_name,
     get_realm,
-    get_source_profile,
-    get_user_by_delivery_email,
     name_changes_disabled,
 )
+from zerver.models.streams import get_default_stream_groups
+from zerver.models.users import get_source_profile, get_user_by_delivery_email
 from zerver.views.auth import (
     create_preregistration_realm,
     create_preregistration_user,
@@ -272,7 +273,10 @@ def registration_helper(
             validators.validate_email(email)
         except ValidationError:
             return TemplateResponse(
-                request, "zerver/invalid_email.html", context={"invalid_email": True}
+                request,
+                "zerver/invalid_email.html",
+                context={"invalid_email": True},
+                status=400,
             )
 
     if realm_creation:
@@ -293,18 +297,21 @@ def registration_helper(
                 request,
                 "zerver/invalid_email.html",
                 context={"realm_name": realm.name, "closed_domain": True},
+                status=400,
             )
         except DisposableEmailError:
             return TemplateResponse(
                 request,
                 "zerver/invalid_email.html",
                 context={"realm_name": realm.name, "disposable_emails_not_allowed": True},
+                status=400,
             )
         except EmailContainsPlusError:
             return TemplateResponse(
                 request,
                 "zerver/invalid_email.html",
                 context={"realm_name": realm.name, "email_contains_plus": True},
+                status=400,
             )
 
         if realm.deactivated:
@@ -629,6 +636,7 @@ def registration_helper(
         # This dummy_backend check below confirms the user is
         # authenticating to the correct subdomain.
         auth_result = authenticate(
+            request=request,
             username=user_profile.delivery_email,
             realm=realm,
             return_data=return_data,
@@ -908,6 +916,18 @@ def create_realm(request: HttpRequest, creation_key: Optional[str] = None) -> Ht
 
 @has_request_variables
 def signup_send_confirm(request: HttpRequest, email: str = REQ("email")) -> HttpResponse:
+    try:
+        # Because we interpolate the email directly into the template
+        # from the query parameter, do a simple validation that it
+        # looks a at least a bit like an email address.
+        validators.validate_email(email)
+    except ValidationError:
+        return TemplateResponse(
+            request,
+            "zerver/invalid_email.html",
+            context={"invalid_email": True},
+            status=400,
+        )
     return TemplateResponse(
         request,
         "zerver/accounts_send_confirm.html",
@@ -1047,15 +1067,16 @@ def accounts_home_from_multiuse_invite(request: HttpRequest, confirmation_key: s
 
 
 @has_request_variables
-def find_account(
-    request: HttpRequest, raw_emails: Optional[str] = REQ("emails", default=None)
-) -> HttpResponse:
+def find_account(request: HttpRequest) -> HttpResponse:
     url = reverse("find_account")
-
+    form = FindMyTeamForm()
     emails: List[str] = []
     if request.method == "POST":
         form = FindMyTeamForm(request.POST)
         if form.is_valid():
+            # Note: Show all the emails in the POST request response
+            # otherwise this feature can be used to ascertain which
+            # email addresses are associated with Zulip.
             emails = form.cleaned_data["emails"]
             for i in range(len(emails)):
                 try:
@@ -1104,29 +1125,10 @@ def find_account(
                     from_address=FromAddress.SUPPORT,
                     request=request,
                 )
-
-            # Note: Show all the emails in the result otherwise this
-            # feature can be used to ascertain which email addresses
-            # are associated with Zulip.
-            data = urlencode({"emails": ",".join(emails)})
-            return redirect(append_url_query_string(url, data))
-    else:
-        form = FindMyTeamForm()
-        # The below validation is perhaps unnecessary, in that we
-        # shouldn't get able to get here with an invalid email unless
-        # the user hand-edits the URLs.
-        if raw_emails:
-            for email in raw_emails.split(","):
-                try:
-                    validators.validate_email(email)
-                    emails.append(email)
-                except ValidationError:
-                    pass
-
     return render(
         request,
         "zerver/find_account.html",
-        context={"form": form, "current_url": lambda: url, "emails": emails},
+        context={"form": form, "current_url": url, "emails": emails},
     )
 
 

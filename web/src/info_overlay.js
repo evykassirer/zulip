@@ -73,7 +73,17 @@ const markdown_help_rows = [
     },
     {
         markdown: "@*support team*",
-        output_html: '<p><span class="user-group-mention">@support team</span></p>',
+        // Since there are no mentionable user groups that we can
+        // assume exist, we use a fake data-user-group-id of 0 in
+        // order to avoid upsetting the rendered_markdown.ts
+        // validation logic for user group elements.
+        //
+        // Similar hackery is not required for user mentions as very
+        // old mentions do not have data-user-id, so compatibility
+        // code for that case works ... but it might be better to just
+        // user your own name/user ID anyway.
+        output_html:
+            '<p><span class="user-group-mention" data-user-group-id="0">@support team</span></p>',
         effect_html: "(notifies <b>support team</b> group)",
     },
     {
@@ -236,8 +246,10 @@ Coffee`,
 export function set_up_toggler() {
     for (const row of markdown_help_rows) {
         if (row.markdown && !row.output_html) {
-            const message = {raw_content: row.markdown};
-            markdown.apply_markdown(message);
+            const message = {
+                raw_content: row.markdown,
+                ...markdown.render(row.markdown),
+            };
             row.output_html = util.clean_user_content_links(message.content);
         }
     }

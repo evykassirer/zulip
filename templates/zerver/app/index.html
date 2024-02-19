@@ -188,7 +188,7 @@
             We recommend that
             you <a class="webathena_login">give Zulip the ability to mirror the messages for you via
             Webathena</a>.  If you'd prefer, you can instead
-            <a href="/zephyr-mirror" target="_blank" rel="noopener noreferrer">run the
+            <a href="/zephyr-mirror/" target="_blank" rel="noopener noreferrer">run the
             Zephyr mirror script yourself</a> in a screen
             session.
         </span>
@@ -255,12 +255,7 @@
                         <div id="loading_older_messages_indicator"></div>
                         <div id="page_loading_indicator"></div>
                         <div id="message_feed_errors_container"></div>
-                        <div id="message-lists-container">
-                            <div class="message-list focused-message-list" id="zhome" role="list" aria-live="polite" aria-label="{{ _('Messages') }}">
-                            </div>
-                            <div class="message-list" id="zfilt" role="list" aria-live="polite" aria-label="{{ _('Messages') }}">
-                            </div>
-                        </div>
+                        <div id="message-lists-container"></div>
                         <div id="scheduled_message_indicator">
                         </div>
                         <div id="typing_notifications">
@@ -274,11 +269,11 @@
                 <div id="compose" {% if embedded %}data-embedded{% endif %}>
                     <div id="compose-container"></div>
                 </div>
-            </div><!--/tab-content-->
+            </div>
         </div>
         <div class="column-right" id="right-sidebar-container">
         </div><!--/right sidebar-->
-    </div><!--/row-->
+    </div>
 </div>
 
 <div class="hidden">

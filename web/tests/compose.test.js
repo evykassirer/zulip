@@ -8,13 +8,11 @@ const {mock_stream_header_colorblock} = require("./lib/compose");
 const {mock_banners} = require("./lib/compose_banner");
 const {$t} = require("./lib/i18n");
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {page_params, user_settings} = require("./lib/zpage_params");
+const {current_user, page_params, realm, user_settings} = require("./lib/zpage_params");
 
 const settings_config = zrequire("settings_config");
-
-const noop = () => {};
 
 set_global("document", {
     querySelector() {},
@@ -29,8 +27,8 @@ set_global(
 
 const fake_now = 555;
 
-const autosize = () => {};
-autosize.update = () => {};
+const autosize = noop;
+autosize.update = noop;
 mock_esm("autosize", {default: autosize});
 
 const channel = mock_esm("../src/channel");
@@ -123,10 +121,10 @@ function test_ui(label, f) {
 }
 
 function initialize_handlers({override}) {
-    override(page_params, "realm_available_video_chat_providers", {disabled: {id: 0}});
-    override(page_params, "realm_video_chat_provider", 0);
-    override(upload, "feature_check", () => {});
-    override(resize, "watch_manual_resize", () => {});
+    override(realm, "realm_available_video_chat_providers", {disabled: {id: 0}});
+    override(realm, "realm_video_chat_provider", 0);
+    override(upload, "feature_check", noop);
+    override(resize, "watch_manual_resize", noop);
     compose_setup.initialize();
 }
 
@@ -233,12 +231,12 @@ test_ui("send_message", ({override, override_rewire, mock_template}) => {
         stub_state = initialize_state_stub_dict();
         compose_state.topic("");
         compose_state.set_message_type("private");
-        page_params.user_id = new_user.user_id;
+        current_user.user_id = new_user.user_id;
         override(compose_pm_pill, "get_emails", () => "alice@example.com");
 
         const server_message_id = 127;
-        override(markdown, "apply_markdown", () => {});
-        override(markdown, "add_topic_links", () => {});
+        override(markdown, "render", noop);
+        override(markdown, "get_topic_links", noop);
 
         override_rewire(echo, "try_deliver_locally", (message_request) => {
             const local_id_float = 123.04;
@@ -329,6 +327,7 @@ test_ui("send_message", ({override, override_rewire, mock_template}) => {
             assert.equal(data.classname, "generic_compose_error");
             assert.equal(data.banner_text, "Error sending message: Server says 408");
             banner_rendered = true;
+            return "<banner-stub>";
         });
         stub_state = initialize_state_stub_dict();
         $("textarea#compose-textarea").val("foobarfoobar");
@@ -336,7 +335,7 @@ test_ui("send_message", ({override, override_rewire, mock_template}) => {
         $(".compose-submit-button .loader").show();
         $("textarea#compose-textarea").off("select");
         echo_error_msg_checked = false;
-        override_rewire(echo, "try_deliver_locally", () => {});
+        override_rewire(echo, "try_deliver_locally", noop);
 
         override(sent_messages, "get_new_local_id", () => "loc-55");
 
@@ -360,7 +359,7 @@ test_ui("enter_with_preview_open", ({override, override_rewire}) => {
     mock_banners();
     $("textarea#compose-textarea").toggleClass = noop;
     mock_stream_header_colorblock();
-    override_rewire(compose_banner, "clear_message_sent_banners", () => {});
+    override_rewire(compose_banner, "clear_message_sent_banners", noop);
     override(document, "to_$", () => $("document-stub"));
     let show_button_spinner_called = false;
     override(loading, "show_button_spinner", ($spinner) => {
@@ -368,7 +367,7 @@ test_ui("enter_with_preview_open", ({override, override_rewire}) => {
         show_button_spinner_called = true;
     });
 
-    page_params.user_id = new_user.user_id;
+    current_user.user_id = new_user.user_id;
 
     // Test sending a message with content.
     compose_state.set_message_type("stream");
@@ -411,7 +410,7 @@ test_ui("finish", ({override, override_rewire}) => {
     mock_banners();
     mock_stream_header_colorblock();
 
-    override_rewire(compose_banner, "clear_message_sent_banners", () => {});
+    override_rewire(compose_banner, "clear_message_sent_banners", noop);
     override(document, "to_$", () => $("document-stub"));
     let show_button_spinner_called = false;
     override(loading, "show_button_spinner", ($spinner) => {
@@ -483,8 +482,8 @@ test_ui("initialize", ({override}) => {
     // normal workflow of the function. All the tests for the on functions are
     // done in subsequent tests directly below this test.
 
-    override(page_params, "realm_available_video_chat_providers", {disabled: {id: 0}});
-    override(page_params, "realm_video_chat_provider", 0);
+    override(realm, "realm_available_video_chat_providers", {disabled: {id: 0}});
+    override(realm, "realm_video_chat_provider", 0);
 
     let resize_watch_manual_resize_checked = false;
     override(resize, "watch_manual_resize", (elem) => {
@@ -492,7 +491,7 @@ test_ui("initialize", ({override}) => {
         resize_watch_manual_resize_checked = true;
     });
 
-    page_params.max_file_upload_size_mib = 512;
+    realm.max_file_upload_size_mib = 512;
 
     let uppy_cancel_all_called = false;
     override(upload, "compose_upload_object", {
@@ -500,7 +499,7 @@ test_ui("initialize", ({override}) => {
             uppy_cancel_all_called = true;
         },
     });
-    override(upload, "feature_check", () => {});
+    override(upload, "feature_check", noop);
 
     compose_setup.initialize();
 
@@ -565,7 +564,7 @@ test_ui("update_fade", ({override, override_rewire}) => {
         update_narrow_to_recipient_visibility_called = true;
     });
 
-    compose_state.set_message_type(false);
+    compose_state.set_message_type(undefined);
     compose_recipient.update_on_recipient_change();
     assert.ok(!set_focused_recipient_checked);
     assert.ok(!update_all_called);
@@ -607,7 +606,7 @@ test_ui("on_events", ({override, override_rewire}) => {
 
     initialize_handlers({override});
 
-    override(rendered_markdown, "update_elements", () => {});
+    override(rendered_markdown, "update_elements", noop);
 
     (function test_attach_files_compose_clicked() {
         const handler = $("#compose").get_on_handler("click", ".compose_upload_file");
@@ -731,7 +730,7 @@ test_ui("on_events", ({override, override_rewire}) => {
         assert.ok(make_indicator_called);
         assert_visibilities();
 
-        let apply_markdown_called = false;
+        let render_called = false;
         $("textarea#compose-textarea").val("foobarfoobar");
         setup_visibilities();
         setup_mock_markdown_contains_backend_only_syntax("foobarfoobar", false);
@@ -739,15 +738,14 @@ test_ui("on_events", ({override, override_rewire}) => {
 
         current_message = "foobarfoobar";
 
-        override(markdown, "apply_markdown", (msg) => {
-            assert.equal(msg.raw_content, "foobarfoobar");
-            apply_markdown_called = true;
-            return msg;
+        override(markdown, "render", (raw_content) => {
+            assert.equal(raw_content, "foobarfoobar");
+            render_called = true;
         });
 
         handler(event);
 
-        assert.ok(apply_markdown_called);
+        assert.ok(render_called);
         assert_visibilities();
         assert.equal($("#compose .preview_content").html(), "Server: foobarfoobar");
     })();
@@ -809,7 +807,7 @@ test_ui("create_message_object", ({override, override_rewire}) => {
 test_ui("DM policy disabled", ({override, override_rewire}) => {
     // Disable dms in the organisation
     override(
-        page_params,
+        realm,
         "realm_private_message_policy",
         settings_config.private_message_policy_values.disabled.code,
     );

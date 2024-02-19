@@ -33,7 +33,7 @@ from zerver.actions.realm_settings import (
     do_set_realm_authentication_methods,
 )
 from zerver.actions.scheduled_messages import check_schedule_message
-from zerver.actions.user_activity import do_update_user_activity, do_update_user_activity_interval
+from zerver.actions.user_activity import do_update_user_activity_interval
 from zerver.actions.user_status import do_update_user_status
 from zerver.actions.user_topics import do_set_user_topic_visibility_policy
 from zerver.actions.users import do_deactivate_user
@@ -76,7 +76,7 @@ from zerver.models import (
     ScheduledMessage,
     Stream,
     Subscription,
-    SystemGroups,
+    UserActivity,
     UserGroup,
     UserGroupMembership,
     UserMessage,
@@ -84,14 +84,13 @@ from zerver.models import (
     UserProfile,
     UserStatus,
     UserTopic,
-    get_active_streams,
-    get_client,
-    get_huddle_hash,
-    get_realm,
-    get_stream,
-    get_system_bot,
-    get_user_by_delivery_email,
 )
+from zerver.models.clients import get_client
+from zerver.models.groups import SystemGroups
+from zerver.models.realms import get_realm
+from zerver.models.recipients import get_huddle_hash
+from zerver.models.streams import get_active_streams, get_stream
+from zerver.models.users import get_system_bot, get_user_by_delivery_email
 
 
 def make_datetime(val: float) -> datetime:
@@ -1283,8 +1282,8 @@ class RealmImportExportTest(ExportFile):
         @getter
         def get_stream_topics(r: Realm) -> Set[str]:
             messages = get_stream_messages(r)
-            topics = {m.topic_name() for m in messages}
-            return topics
+            topic_names = {m.topic_name() for m in messages}
+            return topic_names
 
         # test usermessages
         @getter
@@ -1864,9 +1863,20 @@ class SingleUserExportTest(ExportFile):
             stream_id = last_recipient.type_id
             self.assertEqual(stream_id, get_stream("Scotland", realm).id)
 
-        do_update_user_activity(cordelia.id, client.id, "/some/endpoint", 2, now)
-        do_update_user_activity(cordelia.id, client.id, "/some/endpoint", 3, now)
-        do_update_user_activity(othello.id, client.id, "/bogus", 20, now)
+        UserActivity.objects.create(
+            user_profile_id=cordelia.id,
+            client_id=client.id,
+            query="/some/endpoint",
+            count=5,
+            last_visit=now,
+        )
+        UserActivity.objects.create(
+            user_profile_id=othello.id,
+            client_id=client.id,
+            query="/bogus",
+            count=20,
+            last_visit=now,
+        )
 
         @checker
         def zerver_useractivity(records: List[Record]) -> None:

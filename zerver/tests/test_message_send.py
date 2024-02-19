@@ -33,7 +33,8 @@ from zerver.actions.user_settings import do_change_user_setting
 from zerver.actions.users import do_change_can_forge_sender, do_deactivate_user
 from zerver.lib.addressee import Addressee
 from zerver.lib.exceptions import JsonableError
-from zerver.lib.message import MessageDict, get_raw_unread_data, get_recent_private_conversations
+from zerver.lib.message import get_raw_unread_data, get_recent_private_conversations
+from zerver.lib.message_cache import MessageDict
 from zerver.lib.per_request_cache import flush_per_request_caches
 from zerver.lib.streams import create_stream_if_needed
 from zerver.lib.test_classes import ZulipTestCase
@@ -47,23 +48,22 @@ from zerver.lib.test_helpers import (
 )
 from zerver.lib.timestamp import datetime_to_timestamp
 from zerver.models import (
-    MAX_TOPIC_NAME_LENGTH,
     Message,
     Realm,
     RealmDomain,
     Recipient,
     Stream,
     Subscription,
-    SystemGroups,
     UserGroup,
     UserMessage,
     UserProfile,
-    get_or_create_huddle,
-    get_realm,
-    get_stream,
-    get_system_bot,
-    get_user,
 )
+from zerver.models.constants import MAX_TOPIC_NAME_LENGTH
+from zerver.models.groups import SystemGroups
+from zerver.models.realms import get_realm
+from zerver.models.recipients import get_or_create_huddle
+from zerver.models.streams import get_stream
+from zerver.models.users import get_system_bot, get_user
 from zerver.views.message_send import InvalidMirrorInputError
 
 
@@ -1139,12 +1139,12 @@ class MessagePOSTTest(ZulipTestCase):
         succeeds, but the topic is truncated.
         """
         self.login("hamlet")
-        long_topic = "A" * (MAX_TOPIC_NAME_LENGTH + 1)
+        long_topic_name = "A" * (MAX_TOPIC_NAME_LENGTH + 1)
         post_data = {
             "type": "stream",
             "to": orjson.dumps("Verona").decode(),
             "content": "test content",
-            "topic": long_topic,
+            "topic": long_topic_name,
         }
         result = self.client_post("/json/messages", post_data)
         self.assert_json_success(result)
@@ -1589,7 +1589,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic=topic_name,
+                topic_name=topic_name,
                 body=content,
             )
 
@@ -1609,7 +1609,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic="new topic",
+                topic_name="new topic",
                 body=content,
             )
 
@@ -1629,7 +1629,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic="topic 2",
+                topic_name="topic 2",
                 body=content,
             )
         # If the topic is already FOLLOWED, there will be an increase in the query
@@ -1640,7 +1640,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic="topic 2",
+                topic_name="topic 2",
                 body=content,
             )
 
@@ -1665,7 +1665,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic="topic 2",
+                topic_name="topic 2",
                 body="@**" + user.full_name + "**",
             )
         # If the topic is already FOLLOWED, there will be an increase in the query
@@ -1678,7 +1678,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic="topic 2",
+                topic_name="topic 2",
                 body="@**" + user.full_name + "**",
             )
 
@@ -1688,7 +1688,7 @@ class StreamMessagesTest(ZulipTestCase):
                 sender=sender,
                 client=sending_client,
                 stream_name=stream_name,
-                topic="topic 2",
+                topic_name="topic 2",
                 body="@**all**",
             )
 
@@ -1699,8 +1699,7 @@ class StreamMessagesTest(ZulipTestCase):
             self.example_user("hamlet"), "Denmark", content="whatever", topic_name="my topic"
         )
         message = most_recent_message(user_profile)
-        row = MessageDict.get_raw_db_rows([message.id])[0]
-        dct = MessageDict.build_dict_from_raw_db_row(row)
+        dct = MessageDict.ids_to_dict([message.id])[0]
         MessageDict.post_process_dicts(
             [dct],
             apply_markdown=True,
@@ -2175,6 +2174,34 @@ class StreamMessagesTest(ZulipTestCase):
         result = self.api_get(shiva, "/api/v1/messages/" + str(msg_id))
         self.assert_json_success(result)
 
+        # Test system bots.
+        content = "Test mentioning user group @*support*"
+        members_group = UserGroup.objects.get(
+            name=SystemGroups.MEMBERS, realm=iago.realm, is_system_group=True
+        )
+        support.can_mention_group = members_group
+        support.save()
+
+        internal_realm = get_realm(settings.SYSTEM_BOT_REALM)
+        system_bot = get_system_bot(settings.EMAIL_GATEWAY_BOT, internal_realm.id)
+        with self.assertRaisesRegex(
+            JsonableError,
+            f"You are not allowed to mention user group '{support.name}'. You must be a member of '{members_group.name}' to mention this group.",
+        ):
+            self.send_stream_message(system_bot, "test_stream", content, recipient_realm=iago.realm)
+
+        everyone_group = UserGroup.objects.get(
+            name=SystemGroups.EVERYONE, realm=iago.realm, is_system_group=True
+        )
+        support.can_mention_group = everyone_group
+        support.save()
+
+        msg_id = self.send_stream_message(
+            system_bot, "test_stream", content, recipient_realm=iago.realm
+        )
+        result = self.api_get(shiva, "/api/v1/messages/" + str(msg_id))
+        self.assert_json_success(result)
+
     def test_stream_message_mirroring(self) -> None:
         user = self.mit_user("starnine")
         self.subscribe(user, "Verona")
@@ -2510,7 +2537,7 @@ class InternalPrepTest(ZulipTestCase):
         with self.assertLogs(level="ERROR") as m:
             internal_send_stream_message(
                 sender=cordelia,
-                topic="whatever",
+                topic_name="whatever",
                 content=bad_content,
                 stream=stream,
             )
@@ -2527,7 +2554,7 @@ class InternalPrepTest(ZulipTestCase):
                 realm=realm,
                 sender=cordelia,
                 stream_name=stream.name,
-                topic="whatever",
+                topic_name="whatever",
                 content=bad_content,
             )
 
@@ -2571,16 +2598,87 @@ class InternalPrepTest(ZulipTestCase):
         realm = get_realm("zulip")
         sender = self.example_user("cordelia")
         stream_name = "test_stream"
-        topic = "whatever"
+        topic_name = "whatever"
         content = "hello"
 
         internal_prep_stream_message_by_name(
-            realm=realm, sender=sender, stream_name=stream_name, topic=topic, content=content
+            realm=realm,
+            sender=sender,
+            stream_name=stream_name,
+            topic_name=topic_name,
+            content=content,
         )
 
         # This would throw an error if the stream
         # wasn't automatically created.
         Stream.objects.get(name=stream_name, realm_id=realm.id)
+
+    def test_direct_message_to_self_and_bot_in_dm_disabled_org(self) -> None:
+        """
+        Test that a user can send a direct message to themselves and to a bot in a DM disabled organization
+        """
+        sender = self.example_user("hamlet")
+        sender.realm.private_message_policy = Realm.PRIVATE_MESSAGE_POLICY_DISABLED
+        sender.realm.save()
+
+        #  Create a non-bot user
+        recipient_user = self.example_user("othello")
+        recipient_user.realm = sender.realm
+
+        # Create a new bot user
+        bot = do_create_user(
+            email="test-bot@zulip.com",
+            password="",
+            realm=sender.realm,
+            full_name="Test Bot",
+            bot_type=UserProfile.DEFAULT_BOT,
+            bot_owner=sender,
+            acting_user=None,
+        )
+
+        # Test sending a message to self
+        result = self.api_post(
+            sender,
+            "/api/v1/messages",
+            {
+                "type": "private",
+                "to": orjson.dumps([sender.id]).decode(),
+                "content": "Test message to self",
+            },
+        )
+        self.assert_json_success(result)
+
+        msg = self.get_last_message()
+        expected = "Test message to self"
+        self.assertEqual(msg.content, expected)
+
+        # Test sending a message to non-bot user
+        result = self.api_post(
+            sender,
+            "/api/v1/messages",
+            {
+                "type": "private",
+                "to": orjson.dumps([recipient_user.id]).decode(),
+                "content": "Test message",
+            },
+        )
+        self.assert_json_error(result, "Direct messages are disabled in this organization.")
+
+        # Test sending a message to the bot
+        result = self.api_post(
+            sender,
+            "/api/v1/messages",
+            {
+                "type": "private",
+                "to": orjson.dumps([bot.id]).decode(),
+                "content": "Test message to bot",
+            },
+        )
+        self.assert_json_success(result)
+
+        msg = self.get_last_message()
+        expected = "Test message to bot"
+        self.assertEqual(msg.content, expected)
 
 
 class TestCrossRealmPMs(ZulipTestCase):

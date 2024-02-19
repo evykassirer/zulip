@@ -64,6 +64,53 @@ Congratulations! You've successfully set up the service. You can now test mobile
 push notifications by following [these
 instructions](https://zulip.com/help/mobile-notifications#testing-mobile-notifications).
 
+## Plan management for a Zulip organization
+
+On a self-hosted Zulip server running Zulip 8.0+, [organization
+owners](https://zulip.com/help/roles-and-permissions) and billing administrators
+can conveniently access plan management from the Zulip app. See [help center
+documentation](https://zulip.com/help/self-hosted-billing) for detailed
+instructions.
+
+You can add billing administrators using the `change_user_role` [management
+command][management-commands], passing [the organization's
+`string_id`][accessing-string-id], and the email address of the Zulip user who
+should be added as a billing administrator.
+
+```
+/home/zulip/deployments/current/manage.py change_user_role -r '' username@example.com is_billing_admin
+```
+
+You can remove a user's billing administrator permissions with the `--revoke`
+option:
+
+```
+/home/zulip/deployments/current/manage.py change_user_role --revoke -r '' username@example.com is_billing_admin
+```
+
+[management-commands]: ../production/management-commands.md
+[accessing-string-id]: https://zulip.readthedocs.io/en/stable/production/management-commands.html#accessing-an-organization-s-string-id
+
+## Plan management for an entire Zulip server
+
+Servers running Zulip releases older than Zulip 8.0 can start the plan
+management log in process at
+<https://selfhosting.zulip.com/serverlogin/>. This option is also
+available for Zulip 8.0+ servers, and makes it possible to use a
+single plan for multiple organizations on one installation. See [help
+center documentation](https://zulip.com/help/self-hosted-billing) for
+detailed log in instructions.
+
+You will use your server's `zulip_org_id` and `zulip_org_key` as the username
+and password to access plan management. You can obtain these from
+`/etc/zulip/zulip-secrets.conf` on your Zulip server, or via the following
+commands:
+
+```
+/home/zulip/deployments/current/scripts/get-django-setting ZULIP_ORG_ID
+/home/zulip/deployments/current/scripts/get-django-setting ZULIP_ORG_KEY
+```
+
 ## Why a push notification service is necessary
 
 Both Google's and Apple's push notification services have a security
@@ -136,7 +183,8 @@ and privacy in mind:
   SSL/TLS.
 - The code for the push notification forwarding service is 100% open
   source and available as part of the
-  [Zulip server project on GitHub](https://github.com/zulip/zulip).
+  [Zulip server project on GitHub](https://github.com/zulip/zulip)
+  (specifically, [here](https://github.com/zulip/zulip/tree/main/zilencer)).
 - The push notification forwarding servers are professionally managed
   by a small team of security-sensitive engineers.
 
@@ -198,6 +246,15 @@ Some of the graphs on your server's [usage statistics
 page](https://zulip.com/help/analytics) can be generated from these
 statistics.
 
+When enabled, usage statistics are submitted via an hourly cron
+job. If you'd like to access plan management immediately after
+enabling `SUBMIT_USAGE_STATISTICS=True` on a pre-8.0 Zulip server, you
+can run the analytics job manually via:
+
+```
+/home/zulip/deployments/current/manage.py update_analytics_counts
+```
+
 Our use of uploaded usage statistics is governed by the same [Terms of
 Service](https://zulip.com/policies/terms) and [Privacy
 Policy](https://zulip.com/policies/privacy) that covers the Mobile
@@ -231,10 +288,50 @@ If you'd like to rotate your server's API key for this service
 generate a new `zulip_org_key` and store that new key in
 `/etc/zulip/zulip-secrets.conf`.
 
+## Deactivating your server's registration
+
+If you are deleting your Zulip server or otherwise no longer want to
+use the Mobile Push Notification Service, you can deactivate your server's
+registration.
+
+1. [Cancel any paid
+   plans](https://zulip.com/help/self-hosted-billing#cancel-paid-plan)
+   associated with your server.
+
+1. Run the deregistration command. If you installed Zulip directly on
+   the server (without Docker), run as root:
+
+   ```
+   su zulip -c '/home/zulip/deployments/current/manage.py register_server --deactivate'
+   ```
+
+   Or if you're using Docker, run:
+
+   ```
+   docker exec -it -u zulip <container_name> /home/zulip/deployments/current/manage.py register_server --deactivate
+   ```
+
+1. Comment out the
+   `PUSH_NOTIFICATION_BOUNCER_URL = 'https://push.zulipchat.com'` line
+   in your `/etc/zulip/settings.py` file (i.e., add `# ` at the
+   start of the line), and [restart your Zulip
+   server](settings.md#making-changes).
+
+If you ever need to reactivate your server's registration, [contact Zulip
+support](https://zulip.com/help/contact-support).
+
+### Pausing use of the Mobile Push Notification Service
+
+You can temporarily stop using the Mobile Push Notification Service. Comment out
+the `PUSH_NOTIFICATION_BOUNCER_URL = 'https://push.zulipchat.com'` line in your
+`/etc/zulip/settings.py` file (i.e., add `# ` at the start of the line), and
+[restart your Zulip server](settings.md#making-changes). This approach makes it
+easy to start using the service again by uncommenting the same line.
+
 ## Sending push notifications directly from your server
 
 This section documents an alternative way to send push notifications
-that does not involve using the Mobile Push Notifications Service at
+that does not involve using the Mobile Push Notification Service at
 the cost of needing to compile and distribute modified versions of the
 Zulip mobile apps.
 

@@ -14,20 +14,15 @@ from typing_extensions import override
 from version import ZULIP_VERSION
 from zerver.actions.message_send import check_send_message
 from zerver.lib.exceptions import JsonableError, StreamDoesNotExistError
-from zerver.lib.message import MessageDict
+from zerver.lib.message_cache import MessageDict
 from zerver.lib.outgoing_http import OutgoingSession
 from zerver.lib.queue import retry_event
 from zerver.lib.topic import get_topic_from_message_info
 from zerver.lib.url_encoding import near_message_url
-from zerver.models import (
-    GENERIC_INTERFACE,
-    SLACK_INTERFACE,
-    Realm,
-    Service,
-    UserProfile,
-    get_client,
-    get_user_profile_by_id,
-)
+from zerver.models import Realm, Service, UserProfile
+from zerver.models.bots import GENERIC_INTERFACE, SLACK_INTERFACE
+from zerver.models.clients import get_client
+from zerver.models.users import get_user_profile_by_id
 
 
 class OutgoingWebhookServiceInterface(metaclass=abc.ABCMeta):
@@ -86,7 +81,7 @@ class GenericOutgoingWebhookService(OutgoingWebhookServiceInterface):
 
     @override
     def process_success(self, response_json: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        if "response_not_required" in response_json and response_json["response_not_required"]:
+        if response_json.get("response_not_required", False):
             return None
 
         if "response_string" in response_json:

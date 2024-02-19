@@ -3,9 +3,9 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {page_params} = require("./lib/zpage_params");
+const {current_user, realm} = require("./lib/zpage_params");
 
 const loading = mock_esm("../src/loading");
 
@@ -45,8 +45,6 @@ const custom_profile_field_types = {
     },
 };
 
-page_params.custom_profile_field_types = custom_profile_field_types;
-
 mock_esm("sortablejs", {Sortable: {create() {}}});
 
 const settings_profile_fields = zrequire("settings_profile_fields");
@@ -54,7 +52,8 @@ const settings_profile_fields = zrequire("settings_profile_fields");
 function test_populate(opts, template_data) {
     const fields_data = opts.fields_data;
 
-    page_params.is_admin = opts.is_admin;
+    realm.custom_profile_field_types = custom_profile_field_types;
+    current_user.is_admin = opts.is_admin;
     const $table = $("#admin_profile_fields_table");
     const $rows = $.create("rows");
     const $form = $.create("forms");
@@ -63,15 +62,15 @@ function test_populate(opts, template_data) {
 
     $table[0] = "stub";
 
-    $rows.remove = () => {};
-    $form.remove = () => {};
+    $rows.remove = noop;
+    $form.remove = noop;
 
     let num_appends = 0;
     $table.append = () => {
         num_appends += 1;
     };
 
-    loading.destroy_indicator = () => {};
+    loading.destroy_indicator = noop;
 
     settings_profile_fields.do_populate_profile_fields(fields_data);
 
@@ -80,10 +79,10 @@ function test_populate(opts, template_data) {
 }
 
 run_test("populate_profile_fields", ({mock_template}) => {
-    page_params.custom_profile_fields = {};
-    page_params.realm_default_external_accounts = JSON.stringify({});
+    realm.custom_profile_fields = {};
+    realm.realm_default_external_accounts = JSON.stringify({});
 
-    $("#admin_profile_fields_table .display_in_profile_summary_false").toggleClass = () => {};
+    $("#admin_profile_fields_table .display_in_profile_summary_false").toggleClass = noop;
 
     const template_data = [];
     mock_template("settings/admin_profile_field_list.hbs", false, (data) => {
@@ -157,7 +156,7 @@ run_test("populate_profile_fields", ({mock_template}) => {
                 valid_to_display_in_summary: true,
             },
             can_modify: true,
-            realm_default_external_accounts: page_params.realm_default_external_accounts,
+            realm_default_external_accounts: realm.realm_default_external_accounts,
         },
         {
             profile_field: {
@@ -175,7 +174,7 @@ run_test("populate_profile_fields", ({mock_template}) => {
                 valid_to_display_in_summary: true,
             },
             can_modify: true,
-            realm_default_external_accounts: page_params.realm_default_external_accounts,
+            realm_default_external_accounts: realm.realm_default_external_accounts,
         },
         {
             profile_field: {
@@ -190,7 +189,7 @@ run_test("populate_profile_fields", ({mock_template}) => {
                 valid_to_display_in_summary: true,
             },
             can_modify: true,
-            realm_default_external_accounts: page_params.realm_default_external_accounts,
+            realm_default_external_accounts: realm.realm_default_external_accounts,
         },
         {
             profile_field: {
@@ -205,7 +204,7 @@ run_test("populate_profile_fields", ({mock_template}) => {
                 valid_to_display_in_summary: true,
             },
             can_modify: true,
-            realm_default_external_accounts: page_params.realm_default_external_accounts,
+            realm_default_external_accounts: realm.realm_default_external_accounts,
         },
     ];
 

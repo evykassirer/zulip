@@ -8,19 +8,22 @@ from django.contrib.auth.views import redirect_to_login
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from pydantic import Json
 
 from corporate.lib.decorator import (
     authenticated_remote_realm_management_endpoint,
     authenticated_remote_server_management_endpoint,
 )
 from corporate.lib.stripe import (
+    RealmBillingSession,
     RemoteRealmBillingSession,
     RemoteServerBillingSession,
+    get_configured_fixed_price_plan_offer,
     get_free_trial_days,
 )
 from corporate.models import CustomerPlan, get_current_plan_by_customer, get_customer_by_realm
 from zerver.context_processors import get_realm_from_request, latest_info_context
-from zerver.decorator import add_google_analytics
+from zerver.decorator import add_google_analytics, zulip_login_required
 from zerver.lib.github import (
     InvalidPlatformError,
     get_latest_github_release_download_link_for_platform,
@@ -28,6 +31,7 @@ from zerver.lib.github import (
 from zerver.lib.realm_description import get_realm_text_description
 from zerver.lib.realm_icon import get_realm_icon_url
 from zerver.lib.subdomains import is_subdomain_root_or_alias
+from zerver.lib.typed_endpoint import typed_endpoint
 from zerver.models import Realm
 
 
@@ -80,8 +84,13 @@ class PlansPageContext:
     customer_plan: Optional[CustomerPlan] = None
     is_legacy_server_with_scheduled_upgrade: bool = False
     legacy_server_new_plan: Optional[CustomerPlan] = None
+    requested_sponsorship_plan: Optional[str] = None
 
     billing_base_url: str = ""
+
+    tier_self_hosted_basic: int = CustomerPlan.TIER_SELF_HOSTED_BASIC
+    tier_self_hosted_business: int = CustomerPlan.TIER_SELF_HOSTED_BUSINESS
+    tier_cloud_standard: int = CustomerPlan.TIER_CLOUD_STANDARD
 
 
 @add_google_analytics
@@ -130,7 +139,7 @@ def plans_view(request: HttpRequest) -> HttpResponse:
 @authenticated_remote_realm_management_endpoint
 def remote_realm_plans_page(
     request: HttpRequest, billing_session: RemoteRealmBillingSession
-) -> HttpResponse:  # nocoverage
+) -> HttpResponse:
     customer = billing_session.get_customer()
     context = PlansPageContext(
         is_self_hosted_realm=True,
@@ -140,21 +149,35 @@ def remote_realm_plans_page(
         free_trial_days=get_free_trial_days(True),
         billing_base_url=billing_session.billing_base_url,
         is_sponsored=billing_session.is_sponsored(),
+        requested_sponsorship_plan=billing_session.get_sponsorship_plan_name(customer, True),
     )
 
     context.on_free_tier = customer is None and not context.is_sponsored
-    if customer is not None:
+    if customer is not None:  # nocoverage
         context.sponsorship_pending = customer.sponsorship_pending
         context.customer_plan = get_current_plan_by_customer(customer)
+
+        if customer.required_plan_tier is not None:
+            configure_fixed_price_plan = get_configured_fixed_price_plan_offer(
+                customer, customer.required_plan_tier
+            )
+            # Free trial is disabled for customers with fixed-price plan configured.
+            if configure_fixed_price_plan is not None:
+                context.free_trial_days = None
+
         if context.customer_plan is None:
             context.on_free_tier = not context.is_sponsored
         else:
             if context.customer_plan.tier == CustomerPlan.TIER_SELF_HOSTED_LEGACY:
                 # Free trial is disabled for legacy customers.
                 context.free_trial_days = None
-            context.on_free_tier = context.customer_plan.tier in (
-                CustomerPlan.TIER_SELF_HOSTED_LEGACY,
-                CustomerPlan.TIER_SELF_HOSTED_BASE,
+            context.on_free_tier = (
+                context.customer_plan.tier
+                in (
+                    CustomerPlan.TIER_SELF_HOSTED_LEGACY,
+                    CustomerPlan.TIER_SELF_HOSTED_BASE,
+                )
+                and not context.is_sponsored
             )
             context.on_free_trial = is_customer_on_free_trial(context.customer_plan)
             context.is_legacy_server_with_scheduled_upgrade = (
@@ -182,7 +205,7 @@ def remote_realm_plans_page(
 @authenticated_remote_server_management_endpoint
 def remote_server_plans_page(
     request: HttpRequest, billing_session: RemoteServerBillingSession
-) -> HttpResponse:  # nocoverage
+) -> HttpResponse:
     customer = billing_session.get_customer()
     context = PlansPageContext(
         is_self_hosted_realm=True,
@@ -192,12 +215,22 @@ def remote_server_plans_page(
         free_trial_days=get_free_trial_days(True),
         billing_base_url=billing_session.billing_base_url,
         is_sponsored=billing_session.is_sponsored(),
+        requested_sponsorship_plan=billing_session.get_sponsorship_plan_name(customer, True),
     )
 
     context.on_free_tier = customer is None and not context.is_sponsored
-    if customer is not None:
+    if customer is not None:  # nocoverage
         context.sponsorship_pending = customer.sponsorship_pending
         context.customer_plan = get_current_plan_by_customer(customer)
+
+        if customer.required_plan_tier is not None:
+            configure_fixed_price_plan = get_configured_fixed_price_plan_offer(
+                customer, customer.required_plan_tier
+            )
+            # Free trial is disabled for customers with fixed-price plan configured.
+            if configure_fixed_price_plan is not None:
+                context.free_trial_days = None
+
         if context.customer_plan is None:
             context.on_free_tier = not context.is_sponsored
         else:
@@ -245,7 +278,9 @@ def team_view(request: HttpRequest) -> HttpResponse:
         request,
         "corporate/team.html",
         context={
+            # Sync this with team_params_schema in base_page_params.ts.
             "page_params": {
+                "page_type": "team",
                 "contributors": data["contributors"],
             },
             "date": data["date"],
@@ -255,7 +290,9 @@ def team_view(request: HttpRequest) -> HttpResponse:
 
 @add_google_analytics
 def landing_view(request: HttpRequest, template_name: str) -> HttpResponse:
-    return TemplateResponse(request, template_name, latest_info_context())
+    context = latest_info_context()
+    context["billing_base_url"] = ""
+    return TemplateResponse(request, template_name, context)
 
 
 @add_google_analytics
@@ -327,3 +364,86 @@ def communities_view(request: HttpRequest) -> HttpResponse:
             "org_types": org_types,
         },
     )
+
+
+@zulip_login_required
+def invoices_page(request: HttpRequest) -> HttpResponseRedirect:
+    user = request.user
+    assert user.is_authenticated
+
+    if not user.has_billing_access:
+        return HttpResponseRedirect(reverse("billing_page"))
+
+    billing_session = RealmBillingSession(user=user, realm=user.realm)
+    list_invoices_session_url = billing_session.get_past_invoices_session_url()
+    return HttpResponseRedirect(list_invoices_session_url)
+
+
+@authenticated_remote_realm_management_endpoint
+def remote_realm_invoices_page(
+    request: HttpRequest, billing_session: RemoteRealmBillingSession
+) -> HttpResponseRedirect:
+    list_invoices_session_url = billing_session.get_past_invoices_session_url()
+    return HttpResponseRedirect(list_invoices_session_url)
+
+
+@authenticated_remote_server_management_endpoint
+def remote_server_invoices_page(
+    request: HttpRequest, billing_session: RemoteServerBillingSession
+) -> HttpResponseRedirect:
+    list_invoices_session_url = billing_session.get_past_invoices_session_url()
+    return HttpResponseRedirect(list_invoices_session_url)
+
+
+@zulip_login_required
+@typed_endpoint
+def customer_portal(
+    request: HttpRequest,
+    *,
+    return_to_billing_page: Json[bool] = False,
+    manual_license_management: Json[bool] = False,
+    tier: Optional[Json[int]] = None,
+) -> HttpResponseRedirect:
+    user = request.user
+    assert user.is_authenticated
+
+    if not user.has_billing_access:
+        return HttpResponseRedirect(reverse("billing_page"))
+
+    billing_session = RealmBillingSession(user=user, realm=user.realm)
+    review_billing_information_url = billing_session.get_stripe_customer_portal_url(
+        return_to_billing_page, manual_license_management, tier
+    )
+    return HttpResponseRedirect(review_billing_information_url)
+
+
+@authenticated_remote_realm_management_endpoint
+@typed_endpoint
+def remote_realm_customer_portal(
+    request: HttpRequest,
+    billing_session: RemoteRealmBillingSession,
+    *,
+    return_to_billing_page: Json[bool] = False,
+    manual_license_management: Json[bool] = False,
+    tier: Optional[Json[int]] = None,
+) -> HttpResponseRedirect:
+    review_billing_information_url = billing_session.get_stripe_customer_portal_url(
+        return_to_billing_page, manual_license_management, tier
+    )
+    return HttpResponseRedirect(review_billing_information_url)
+
+
+@authenticated_remote_server_management_endpoint
+@typed_endpoint
+def remote_server_customer_portal(
+    request: HttpRequest,
+    billing_session: RemoteServerBillingSession,
+    *,
+    return_to_billing_page: Json[bool] = False,
+    manual_license_management: Json[bool] = False,
+    tier: Optional[Json[int]] = None,
+) -> HttpResponseRedirect:
+    review_billing_information_url = billing_session.get_stripe_customer_portal_url(
+        return_to_billing_page, manual_license_management, tier
+    )
+    return HttpResponseRedirect(review_billing_information_url)

@@ -6,8 +6,8 @@ const MockDate = require("mockdate");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
 const {make_stub} = require("./lib/stub");
-const {run_test} = require("./lib/test");
-const {page_params} = require("./lib/zpage_params");
+const {run_test, noop} = require("./lib/test");
+const {current_user} = require("./lib/zpage_params");
 
 const compose_notifications = mock_esm("../src/compose_notifications");
 const markdown = mock_esm("../src/markdown");
@@ -34,7 +34,6 @@ const message_store = mock_esm("../src/message_store", {
     set_message_booleans() {},
 });
 
-const noop = () => {};
 message_lists.current = {
     view: {
         rerender_messages: noop,
@@ -125,7 +124,7 @@ run_test("process_from_server for differently rendered messages", ({override}) =
 });
 
 run_test("build_display_recipient", () => {
-    page_params.user_id = 123;
+    current_user.user_id = 123;
 
     const params = {};
     params.realm_users = [
@@ -142,7 +141,7 @@ run_test("build_display_recipient", () => {
     ];
     params.realm_non_active_users = [];
     params.cross_realm_bots = [];
-    people.initialize(page_params.user_id, params);
+    people.initialize(current_user.user_id, params);
 
     let message = {
         type: "stream",
@@ -222,16 +221,16 @@ run_test("insert_local_message streams", ({override}) => {
 
     const local_id_float = 101.01;
 
-    let apply_markdown_called = false;
-    let add_topic_links_called = false;
+    let render_called = false;
+    let get_topic_links_called = false;
     let insert_message_called = false;
 
-    override(markdown, "apply_markdown", () => {
-        apply_markdown_called = true;
+    override(markdown, "render", () => {
+        render_called = true;
     });
 
-    override(markdown, "add_topic_links", () => {
-        add_topic_links_called = true;
+    override(markdown, "get_topic_links", () => {
+        get_topic_links_called = true;
     });
 
     const insert_new_messages = ([message]) => {
@@ -246,21 +245,22 @@ run_test("insert_local_message streams", ({override}) => {
     const message_request = {
         type: "stream",
         stream_id: general_sub.stream_id,
+        topic: "important note",
         sender_email: "iago@zulip.com",
         sender_full_name: "Iago",
         sender_id: 123,
     };
     echo.insert_local_message(message_request, local_id_float, insert_new_messages);
 
-    assert.ok(apply_markdown_called);
-    assert.ok(add_topic_links_called);
+    assert.ok(render_called);
+    assert.ok(get_topic_links_called);
     assert.ok(insert_message_called);
 });
 
 run_test("insert_local_message direct message", ({override}) => {
     const local_id_float = 102.01;
 
-    page_params.user_id = 123;
+    current_user.user_id = 123;
 
     const params = {};
     params.realm_users = [
@@ -272,10 +272,9 @@ run_test("insert_local_message direct message", ({override}) => {
     ];
     params.realm_non_active_users = [];
     params.cross_realm_bots = [];
-    people.initialize(page_params.user_id, params);
+    people.initialize(current_user.user_id, params);
 
-    let add_topic_links_called = false;
-    let apply_markdown_called = false;
+    let render_called = false;
     let insert_message_called = false;
 
     const insert_new_messages = ([message]) => {
@@ -283,12 +282,8 @@ run_test("insert_local_message direct message", ({override}) => {
         insert_message_called = true;
     };
 
-    override(markdown, "apply_markdown", () => {
-        apply_markdown_called = true;
-    });
-
-    override(markdown, "add_topic_links", () => {
-        add_topic_links_called = true;
+    override(markdown, "render", () => {
+        render_called = true;
     });
 
     const message_request = {
@@ -299,16 +294,14 @@ run_test("insert_local_message direct message", ({override}) => {
         sender_id: 123,
     };
     echo.insert_local_message(message_request, local_id_float, insert_new_messages);
-    assert.ok(add_topic_links_called);
-    assert.ok(apply_markdown_called);
+    assert.ok(render_called);
     assert.ok(insert_message_called);
 });
 
 run_test("test reify_message_id", ({override}) => {
     const local_id_float = 103.01;
 
-    override(markdown, "apply_markdown", () => {});
-    override(markdown, "add_topic_links", () => {});
+    override(markdown, "render", noop);
 
     const message_request = {
         type: "stream",
@@ -318,7 +311,7 @@ run_test("test reify_message_id", ({override}) => {
         sender_id: 123,
         draft_id: 100,
     };
-    echo.insert_local_message(message_request, local_id_float, () => {});
+    echo.insert_local_message(message_request, local_id_float, noop);
 
     let message_store_reify_called = false;
     let notifications_reify_called = false;

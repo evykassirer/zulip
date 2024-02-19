@@ -52,8 +52,8 @@ as well as those mentioned in the
 [install](install.md#installer-options) documentation:
 
 - `--postgresql-version`: Sets the version of PostgreSQL that will be
-  installed. We currently support PostgreSQL 12, 13, 14, and 15, with 15 being
-  the default.
+  installed. We currently support PostgreSQL 12, 13, 14, 15, and 16, with 16
+  being the default.
 
 - `--postgresql-database-name=exampledbname`: With this option, you
   can customize the default database name. If you do not set this. The
@@ -193,7 +193,7 @@ want to choose in the list of includes in [the main manifest for the
 default all-in-one Zulip server][standalone.pp], though it's also
 possible to subclass some of the lower-level manifests defined in that
 directory if you want to customize. A good example of doing this is
-in the [zulip_ops Puppet configuration][zulipchat-puppet] that we use
+in the [kandra Puppet configuration][zulipchat-puppet] that we use
 as part of managing chat.zulip.org and zulip.com.
 
 ### Using Zulip with Amazon RDS as the database
@@ -498,7 +498,7 @@ that your Zulip server sits at `https://10.10.10.10:443`; see
 
 [nginx-proxy-longpolling-config]: https://github.com/zulip/zulip/blob/main/puppet/zulip/files/nginx/zulip-include-common/proxy_longpolling
 [standalone.pp]: https://github.com/zulip/zulip/blob/main/puppet/zulip/manifests/profile/standalone.pp
-[zulipchat-puppet]: https://github.com/zulip/zulip/tree/main/puppet/zulip_ops/manifests
+[zulipchat-puppet]: https://github.com/zulip/zulip/tree/main/puppet/kandra/manifests
 
 ### Apache2 configuration
 
@@ -568,7 +568,7 @@ Apache requires you use the hostname, not the IP address; see
 ### HAProxy configuration
 
 Below is a working example of a HAProxy configuration. It assumes that
-your Zulip server sits at `https://10.10.10.10:443`see
+your Zulip server sits at `https://10.10.10.10:443`; see
 [above](#configuring-zulip-to-allow-http) to switch to HTTP.
 
 1. Follow the instructions to [configure Zulip to trust

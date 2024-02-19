@@ -51,6 +51,7 @@ import * as settings_data from "./settings_data";
 import * as sidebar_ui from "./sidebar_ui";
 import * as spectators from "./spectators";
 import * as starred_messages_ui from "./starred_messages_ui";
+import {realm} from "./state_data";
 import * as stream_data from "./stream_data";
 import * as stream_list from "./stream_list";
 import * as stream_popover from "./stream_popover";
@@ -120,6 +121,10 @@ const keydown_cmd_or_ctrl_mappings = {
     190: {name: "narrow_to_compose_target", message_view_only: true}, // '.'
 };
 
+const keydown_alt_mappings = {
+    80: {name: "toggle_compose_preview", message_view_only: true}, // 'P'
+};
+
 const keydown_either_mappings = {
     // these can be triggered by key or Shift + key
     // Note that codes for letters are still case sensitive!
@@ -185,11 +190,15 @@ const keypress_mappings = {
 };
 
 export function get_keydown_hotkey(e) {
+    let hotkey;
+
     if (e.altKey) {
+        hotkey = keydown_alt_mappings[e.which];
+        if (hotkey) {
+            return hotkey;
+        }
         return undefined;
     }
-
-    let hotkey;
 
     if (e.ctrlKey && !e.shiftKey) {
         hotkey = keydown_ctrl_mappings[e.which];
@@ -779,6 +788,15 @@ export function process_hotkey(e, hotkey) {
         return true;
     }
 
+    if (event_name === "toggle_compose_preview" && compose_state.composing()) {
+        if ($("#compose .markdown_preview").is(":visible")) {
+            compose.show_preview_area();
+        } else {
+            compose.clear_preview_area();
+        }
+        return true;
+    }
+
     if (menu_dropdown_hotkeys.has(event_name) && handle_popover_events(event_name)) {
         return true;
     }
@@ -1113,7 +1131,7 @@ export function process_hotkey(e, hotkey) {
             return true;
         }
         case "view_edit_history": {
-            if (page_params.realm_allow_edit_history) {
+            if (realm.realm_allow_edit_history) {
                 message_edit_history.show_history(msg);
                 $("#message-history-cancel").trigger("focus");
                 return true;

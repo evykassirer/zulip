@@ -74,13 +74,9 @@ from zerver.lib.timezone import common_timezones
 from zerver.lib.types import LinkifierDict
 from zerver.lib.url_encoding import encode_stream, hash_util_encode
 from zerver.lib.url_preview.types import UrlEmbedData, UrlOEmbedData
-from zerver.models import (
-    EmojiInfo,
-    Message,
-    Realm,
-    get_name_keyed_dict_for_active_realm_emoji,
-    linkifiers_for_realm,
-)
+from zerver.models import Message, Realm
+from zerver.models.linkifiers import linkifiers_for_realm
+from zerver.models.realm_emoji import EmojiInfo, get_name_keyed_dict_for_active_realm_emoji
 
 ReturnT = TypeVar("ReturnT")
 
@@ -574,13 +570,14 @@ class BacktickInlineProcessor(markdown.inlinepatterns.BacktickInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         # Let upstream's implementation do its job as it is, we'll
         # just replace the text to not strip the group because it
         # makes it impossible to put leading/trailing whitespace in
         # an inline code span.
         el, start, end = ret = super().handleMatch(m, data)
         if el is not None and m.group(3):
+            assert isinstance(el, Element)
             # upstream's code here is: m.group(3).strip() rather than m.group(3).
             el.text = markdown.util.AtomicString(markdown.util.code_escape(m.group(3)))
         return ret
@@ -1399,7 +1396,7 @@ class Timestamp(markdown.inlinepatterns.Pattern):
         time_input_string = match.group("time")
         try:
             timestamp = dateutil.parser.parse(time_input_string, tzinfos=common_timezones)
-        except ValueError:
+        except (ValueError, OverflowError):
             try:
                 timestamp = datetime.fromtimestamp(float(time_input_string), tz=timezone.utc)
             except ValueError:
@@ -1496,7 +1493,7 @@ class UnicodeEmoji(CompiledInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, match: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         orig_syntax = match.group("syntax")
 
         # We want to avoid turning things like arrows (↔) and keycaps (numbers
@@ -1844,7 +1841,7 @@ class LinkifierPattern(CompiledInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[Element, int, int], Tuple[None, None, None]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         db_data: Optional[DbData] = self.zmd.zulip_db_data
         url = url_to_a(
             db_data,
@@ -1865,7 +1862,7 @@ class UserMentionPattern(CompiledInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         name = m.group("match")
         silent = m.group("silent") == "_"
         db_data: Optional[DbData] = self.zmd.zulip_db_data
@@ -1931,7 +1928,7 @@ class UserGroupMentionPattern(CompiledInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         name = m.group("match")
         silent = m.group("silent") == "_"
         db_data: Optional[DbData] = self.zmd.zulip_db_data
@@ -1972,7 +1969,7 @@ class StreamPattern(CompiledInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         name = m.group("stream_name")
 
         stream_id = self.find_stream_id(name)
@@ -2004,7 +2001,7 @@ class StreamTopicPattern(CompiledInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         stream_name = m.group("stream_name")
         topic_name = m.group("topic_name")
 
@@ -2125,11 +2122,11 @@ class LinkInlineProcessor(markdown.inlinepatterns.LinkInlineProcessor):
     @override
     def handleMatch(  # type: ignore[override] # https://github.com/python/mypy/issues/10197
         self, m: Match[str], data: str
-    ) -> Union[Tuple[None, None, None], Tuple[Element, int, int]]:
+    ) -> Tuple[Union[Element, str, None], Optional[int], Optional[int]]:
         ret = super().handleMatch(m, data)
         if ret[0] is not None:
-            el: Optional[Element]
             el, match_start, index = ret
+            assert isinstance(el, Element)
             el = self.zulip_specific_link_changes(el)
             if el is not None:
                 return el, match_start, index
@@ -2747,3 +2744,38 @@ def markdown_convert(
     )
     markdown_stats_finish()
     return ret
+
+
+def render_message_markdown(
+    message: Message,
+    content: str,
+    realm: Optional[Realm] = None,
+    realm_alert_words_automaton: Optional[ahocorasick.Automaton] = None,
+    url_embed_data: Optional[Dict[str, Optional[UrlEmbedData]]] = None,
+    mention_data: Optional[MentionData] = None,
+    email_gateway: bool = False,
+) -> MessageRenderingResult:
+    """
+    This is basically just a wrapper for do_render_markdown.
+    """
+
+    if realm is None:
+        realm = message.get_realm()
+
+    sender = message.sender
+    sent_by_bot = sender.is_bot
+    translate_emoticons = sender.translate_emoticons
+
+    rendering_result = markdown_convert(
+        content,
+        realm_alert_words_automaton=realm_alert_words_automaton,
+        message=message,
+        message_realm=realm,
+        sent_by_bot=sent_by_bot,
+        translate_emoticons=translate_emoticons,
+        url_embed_data=url_embed_data,
+        mention_data=mention_data,
+        email_gateway=email_gateway,
+    )
+
+    return rendering_result

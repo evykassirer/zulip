@@ -14,6 +14,7 @@ from zerver.actions.message_send import (
     internal_send_private_message,
     internal_send_stream_message,
 )
+from zerver.lib.display_recipient import get_display_recipient
 from zerver.lib.email_mirror_helpers import (
     ZulipEmailForwardError,
     ZulipEmailForwardUserError,
@@ -28,19 +29,10 @@ from zerver.lib.rate_limiter import RateLimitedObject
 from zerver.lib.send_email import FromAddress
 from zerver.lib.string_validation import is_character_printable
 from zerver.lib.upload import upload_message_attachment
-from zerver.models import (
-    Message,
-    MissedMessageEmailAddress,
-    Realm,
-    Recipient,
-    Stream,
-    UserProfile,
-    get_client,
-    get_display_recipient,
-    get_stream_by_id_in_realm,
-    get_system_bot,
-    get_user_profile_by_id,
-)
+from zerver.models import Message, MissedMessageEmailAddress, Realm, Recipient, Stream, UserProfile
+from zerver.models.clients import get_client
+from zerver.models.streams import get_stream_by_id_in_realm
+from zerver.models.users import get_system_bot, get_user_profile_by_id
 from zproject.backends import is_user_active
 
 logger = logging.getLogger(__name__)
@@ -190,18 +182,18 @@ def construct_zulip_body(
 ## Sending the Zulip ##
 
 
-def send_zulip(sender: UserProfile, stream: Stream, topic: str, content: str) -> None:
+def send_zulip(sender: UserProfile, stream: Stream, topic_name: str, content: str) -> None:
     internal_send_stream_message(
         sender,
         stream,
-        truncate_topic(topic),
+        truncate_topic(topic_name),
         normalize_body(content),
         email_gateway=True,
     )
 
 
 def send_mm_reply_to_stream(
-    user_profile: UserProfile, stream: Stream, topic: str, body: str
+    user_profile: UserProfile, stream: Stream, topic_name: str, body: str
 ) -> None:
     try:
         check_send_message(
@@ -209,7 +201,7 @@ def send_mm_reply_to_stream(
             client=get_client("Internal"),
             recipient_type_name="stream",
             message_to=[stream.id],
-            topic_name=topic,
+            topic_name=topic_name,
             message_content=body,
         )
     except JsonableError as error:
@@ -436,7 +428,7 @@ def process_missed_message(to: str, message: EmailMessage) -> None:
     mm_address.increment_times_used()
 
     user_profile = mm_address.user_profile
-    topic = mm_address.message.topic_name()
+    topic_name = mm_address.message.topic_name()
 
     if mm_address.message.recipient.type == Recipient.PERSONAL:
         # We need to reply to the sender so look up their personal recipient_id
@@ -453,7 +445,7 @@ def process_missed_message(to: str, message: EmailMessage) -> None:
     assert recipient is not None
     if recipient.type == Recipient.STREAM:
         stream = get_stream_by_id_in_realm(recipient.type_id, user_profile.realm)
-        send_mm_reply_to_stream(user_profile, stream, topic, body)
+        send_mm_reply_to_stream(user_profile, stream, topic_name, body)
         recipient_str = stream.name
     elif recipient.type == Recipient.PERSONAL:
         recipient_user_id = recipient.type_id

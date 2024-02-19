@@ -3,11 +3,10 @@
 const {strict: assert} = require("assert");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
 const {page_params} = require("./lib/zpage_params");
 
-const noop = () => {};
 const test_url = () => "https://www.example.com";
 
 // We assign this in our test() wrapper.
@@ -191,8 +190,8 @@ const {all_messages_data} = zrequire("all_messages_data");
 const people = zrequire("people");
 const rt = zrequire("recent_view_ui");
 const recent_view_util = zrequire("recent_view_util");
-const rt_data = zrequire("recent_view_data");
 const muted_users = zrequire("muted_users");
+const {RecentViewData} = zrequire("recent_view_data");
 const sub_store = zrequire("sub_store");
 
 for (const stream_id of [stream1, stream2, stream3, stream4, stream6]) {
@@ -435,13 +434,15 @@ function stub_out_filter_buttons() {
 
 function test(label, f) {
     run_test(label, (helpers) => {
-        $(".header").css = () => {};
+        $(".header").css = noop;
         page_params.development_environment = true;
 
         messages = sample_messages.map((message) => ({...message}));
         f(helpers);
     });
 }
+
+all_messages_data.recent_view_data = new RecentViewData();
 
 test("test_recent_view_show", ({mock_template}) => {
     // Note: unread count and urls are fake,
@@ -462,11 +463,11 @@ test("test_recent_view_show", ({mock_template}) => {
         return "<recent_view table stub>";
     });
 
-    mock_template("recent_view_row.hbs", false, () => {});
+    mock_template("recent_view_row.hbs", false, noop);
 
     stub_out_filter_buttons();
     // We don't test the css calls; we just skip over them.
-    $("#mark_read_on_scroll_state_banner").toggleClass = () => {};
+    $("#mark_read_on_scroll_state_banner").toggleClass = noop;
 
     rt.clear_for_tests();
     rt.process_messages(messages);
@@ -817,7 +818,7 @@ test("basic assertions", ({mock_template, override_rewire}) => {
     override_rewire(rt, "inplace_rerender", noop);
     rt.clear_for_tests();
 
-    mock_template("recent_view_table.hbs", false, () => {});
+    mock_template("recent_view_table.hbs", false, noop);
     mock_template("recent_view_row.hbs", true, (_data, html) => {
         assert.ok(html.startsWith('<tr id="recent_conversation'));
     });
@@ -826,7 +827,7 @@ test("basic assertions", ({mock_template, override_rewire}) => {
     recent_view_util.set_visible(true);
     rt.set_default_focus();
     rt.process_messages(messages);
-    let all_topics = rt_data.get_conversations();
+    let all_topics = all_messages_data.recent_view_data.get_conversations();
 
     // update a message
     generate_topic_data([[1, "topic-7", 1, all_visibility_policies.INHERIT]]);
@@ -884,11 +885,11 @@ test("basic assertions", ({mock_template, override_rewire}) => {
     );
 
     // Process direct message
-    rt_data.process_message({
+    all_messages_data.recent_view_data.process_message({
         type: "private",
         to_user_ids: "6,7,8",
     });
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(all_topics.size, 12);
     assert.equal(
         [...all_topics.keys()].toString(),
@@ -905,7 +906,7 @@ test("basic assertions", ({mock_template, override_rewire}) => {
     verify_topic_data(all_topics, stream1, topic4, messages[4].id, false);
 
     // topic3 now participated
-    rt_data.process_message({
+    all_messages_data.recent_view_data.process_message({
         stream_id: stream1,
         id: (id += 1),
         topic: topic3,
@@ -913,7 +914,7 @@ test("basic assertions", ({mock_template, override_rewire}) => {
         type: "stream",
     });
 
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(
         [...all_topics.keys()].toString(),
         "1:topic-3,6:topic-12,6:topic-11,6:topic-8,4:topic-10,1:topic-7,1:topic-6,1:topic-5,1:topic-4,1:topic-2,1:topic-1,6,7,8",
@@ -922,7 +923,7 @@ test("basic assertions", ({mock_template, override_rewire}) => {
 
     // Send new message to topic7 (muted)
     // The topic will be hidden when displayed
-    rt_data.process_message({
+    all_messages_data.recent_view_data.process_message({
         stream_id: stream1,
         id: (id += 1),
         topic: topic7,
@@ -930,7 +931,7 @@ test("basic assertions", ({mock_template, override_rewire}) => {
         type: "stream",
     });
 
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(
         [...all_topics.keys()].toString(),
         "1:topic-7,1:topic-3,6:topic-12,6:topic-11,6:topic-8,4:topic-10,1:topic-6,1:topic-5,1:topic-4,1:topic-2,1:topic-1,6,7,8",
@@ -946,15 +947,15 @@ test("basic assertions", ({mock_template, override_rewire}) => {
 });
 
 test("test_reify_local_echo_message", ({mock_template}) => {
-    mock_template("recent_view_table.hbs", false, () => {});
-    mock_template("recent_view_row.hbs", false, () => {});
+    mock_template("recent_view_table.hbs", false, noop);
+    mock_template("recent_view_row.hbs", false, noop);
 
     rt.clear_for_tests();
     stub_out_filter_buttons();
     recent_view_util.set_visible(true);
     rt.process_messages(messages);
 
-    rt_data.process_message({
+    all_messages_data.recent_view_data.process_message({
         stream_id: stream1,
         id: 1000.01,
         topic: topic7,
@@ -963,14 +964,14 @@ test("test_reify_local_echo_message", ({mock_template}) => {
     });
 
     assert.equal(
-        rt_data.reify_message_id_if_available({
+        all_messages_data.recent_view_data.reify_message_id_if_available({
             old_id: 1000.01,
             new_id: 1001,
         }),
         true,
     );
 
-    rt_data.process_message({
+    all_messages_data.recent_view_data.process_message({
         stream_id: stream1,
         id: 1001.01,
         topic: topic7,
@@ -979,7 +980,7 @@ test("test_reify_local_echo_message", ({mock_template}) => {
     });
 
     // A new message arrived in the same topic before we could reify the message_id
-    rt_data.process_message({
+    all_messages_data.recent_view_data.process_message({
         stream_id: stream1,
         id: 1003,
         topic: topic7,
@@ -988,7 +989,7 @@ test("test_reify_local_echo_message", ({mock_template}) => {
     });
 
     assert.equal(
-        rt_data.reify_message_id_if_available({
+        all_messages_data.recent_view_data.reify_message_id_if_available({
             old_id: 1000.01,
             new_id: 1001,
         }),
@@ -1006,14 +1007,14 @@ test("test_delete_messages", ({override}) => {
     let reduced_msgs = messages.slice(1);
     override(all_messages_data, "all_messages", () => reduced_msgs);
 
-    let all_topics = rt_data.get_conversations();
+    let all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(
         [...all_topics.keys()].toString(),
         "6:topic-12,6:topic-11,6:topic-8,4:topic-10,1:topic-7,1:topic-6,1:topic-5,1:topic-4,1:topic-3,1:topic-2,1:topic-1",
     );
     rt.update_topics_of_deleted_message_ids([messages[0].id]);
 
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(
         [...all_topics.keys()].toString(),
         "6:topic-12,6:topic-11,6:topic-8,4:topic-10,1:topic-7,1:topic-6,1:topic-5,1:topic-4,1:topic-3,1:topic-2",
@@ -1024,7 +1025,7 @@ test("test_delete_messages", ({override}) => {
 
     rt.update_topics_of_deleted_message_ids([messages[1].id, messages[2].id]);
 
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(
         [...all_topics.keys()].toString(),
         "6:topic-12,6:topic-11,6:topic-8,4:topic-10,1:topic-7,1:topic-6,1:topic-5,1:topic-4,1:topic-3",
@@ -1043,7 +1044,7 @@ test("test_topic_edit", ({override}) => {
     stub_out_filter_buttons();
     rt.process_messages(messages);
 
-    let all_topics = rt_data.get_conversations();
+    let all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(
         [...all_topics.keys()].toString(),
         "6:topic-12,6:topic-11,6:topic-8,4:topic-10,1:topic-7,1:topic-6,1:topic-5,1:topic-4,1:topic-3,1:topic-2,1:topic-1",
@@ -1057,7 +1058,7 @@ test("test_topic_edit", ({override}) => {
     messages[7].topic = topic8;
     messages[8].topic = topic8;
     rt.process_topic_edit(stream1, topic6, topic8);
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
 
     verify_topic_data(all_topics, stream1, topic8, messages[8].id, true);
     assert.equal(all_topics.get(get_topic_key(stream1, topic6)), undefined);
@@ -1068,7 +1069,7 @@ test("test_topic_edit", ({override}) => {
 
     messages[0].stream_id = stream2;
     rt.process_topic_edit(stream1, topic1, topic1, stream2);
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
 
     assert.equal(all_topics.get(get_topic_key(stream1, topic1)), undefined);
     verify_topic_data(all_topics, stream2, topic1, messages[0].id, true);
@@ -1080,7 +1081,7 @@ test("test_topic_edit", ({override}) => {
     messages[0].stream_id = stream3;
     messages[0].topic = topic9;
     rt.process_topic_edit(stream2, topic1, topic9, stream3);
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
 
     assert.equal(all_topics.get(get_topic_key(stream2, topic1)), undefined);
     verify_topic_data(all_topics, stream3, topic9, messages[0].id, true);
@@ -1089,7 +1090,7 @@ test("test_topic_edit", ({override}) => {
     messages[0].stream_id = stream5;
     messages[0].topic = topic8;
     rt.process_topic_edit(stream3, topic9, topic8, stream5);
-    all_topics = rt_data.get_conversations();
+    all_topics = all_messages_data.recent_view_data.get_conversations();
     assert.equal(rt.filters_should_hide_topic(all_topics.get("5:topic-8")), true);
 });
 

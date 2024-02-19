@@ -76,12 +76,10 @@ from zerver.models import (
     Subscription,
     UserMessage,
     UserProfile,
-    get_realm,
-    get_stream,
-    get_system_bot,
-    get_user,
-    get_user_by_delivery_email,
 )
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
+from zerver.models.users import get_system_bot, get_user, get_user_by_delivery_email
 from zerver.views.auth import redirect_and_log_into_subdomain, start_two_factor_auth
 from zerver.views.development.registration import confirmation_key
 from zproject.backends import ExternalAuthDataDict, ExternalAuthResult, email_auth_enabled
@@ -2935,6 +2933,24 @@ class UserSignUpTest(ZulipTestCase):
             form.errors["email"][0],
         )
 
+    def test_signup_confirm_injection(self) -> None:
+        result = self.client_get("/accounts/send_confirm/?email=bogus@example.com")
+        self.assert_in_success_response(
+            [
+                'check your email account (<span class="user_email semi-bold">bogus@example.com</span>)'
+            ],
+            result,
+        )
+
+        result = self.client_get(
+            "/accounts/send_confirm/?email={quote(email)}",
+            {"email": "bogus@example.com for example"},
+        )
+        self.assertEqual(result.status_code, 400)
+        self.assert_in_response(
+            "The email address you are trying to sign up with is not valid", result
+        )
+
     def test_access_signup_page_in_root_domain_without_realm(self) -> None:
         result = self.client_get("/register", subdomain="", follow=True)
         self.assert_in_success_response(["Find your Zulip accounts"], result)
@@ -3746,6 +3762,7 @@ class UserSignUpTest(ZulipTestCase):
         AUTHENTICATION_BACKENDS=(
             "zproject.backends.ZulipLDAPAuthBackend",
             "zproject.backends.EmailAuthBackend",
+            "zproject.backends.ZulipDummyBackend",
         )
     )
     def test_ldap_invite_user_as_admin(self) -> None:
@@ -3757,6 +3774,7 @@ class UserSignUpTest(ZulipTestCase):
         AUTHENTICATION_BACKENDS=(
             "zproject.backends.ZulipLDAPAuthBackend",
             "zproject.backends.EmailAuthBackend",
+            "zproject.backends.ZulipDummyBackend",
         )
     )
     def test_ldap_invite_user_as_guest(self) -> None:
@@ -3768,6 +3786,7 @@ class UserSignUpTest(ZulipTestCase):
         AUTHENTICATION_BACKENDS=(
             "zproject.backends.ZulipLDAPAuthBackend",
             "zproject.backends.EmailAuthBackend",
+            "zproject.backends.ZulipDummyBackend",
         )
     )
     def test_ldap_invite_streams(self) -> None:
@@ -4232,11 +4251,7 @@ class TestFindMyTeam(ZulipTestCase):
         result = self.client_post(
             "/accounts/find/", dict(emails="iago@zulip.com,cordeliA@zulip.com")
         )
-        self.assertEqual(result.status_code, 302)
-        self.assertEqual(
-            result["Location"], "/accounts/find/?emails=iago%40zulip.com%2CcordeliA%40zulip.com"
-        )
-        result = self.client_get(result["Location"])
+        self.assertEqual(result.status_code, 200)
         content = result.content.decode()
         self.assertIn("Emails sent! You will only receive emails", content)
         self.assertIn("iago@zulip.com", content)
@@ -4255,12 +4270,7 @@ class TestFindMyTeam(ZulipTestCase):
         result = self.client_post(
             "/accounts/find/", dict(emails="iago@zulip.com,invalid_email@zulip.com")
         )
-        self.assertEqual(result.status_code, 302)
-        self.assertEqual(
-            result["Location"],
-            "/accounts/find/?emails=iago%40zulip.com%2Cinvalid_email%40zulip.com",
-        )
-        result = self.client_get(result["Location"])
+        self.assertEqual(result.status_code, 200)
         content = result.content.decode()
         self.assertIn("Emails sent! You will only receive emails", content)
         self.assertIn(self.example_email("iago"), content)
@@ -4293,8 +4303,7 @@ class TestFindMyTeam(ZulipTestCase):
     def test_find_team_one_email(self) -> None:
         data = {"emails": self.example_email("hamlet")}
         result = self.client_post("/accounts/find/", data)
-        self.assertEqual(result.status_code, 302)
-        self.assertEqual(result["Location"], "/accounts/find/?emails=hamlet%40zulip.com")
+        self.assertEqual(result.status_code, 200)
         from django.core.mail import outbox
 
         self.assert_length(outbox, 1)
@@ -4303,8 +4312,7 @@ class TestFindMyTeam(ZulipTestCase):
         do_deactivate_user(self.example_user("hamlet"), acting_user=None)
         data = {"emails": self.example_email("hamlet")}
         result = self.client_post("/accounts/find/", data)
-        self.assertEqual(result.status_code, 302)
-        self.assertEqual(result["Location"], "/accounts/find/?emails=hamlet%40zulip.com")
+        self.assertEqual(result.status_code, 200)
         from django.core.mail import outbox
 
         self.assert_length(outbox, 0)
@@ -4313,8 +4321,7 @@ class TestFindMyTeam(ZulipTestCase):
         do_deactivate_realm(get_realm("zulip"), acting_user=None)
         data = {"emails": self.example_email("hamlet")}
         result = self.client_post("/accounts/find/", data)
-        self.assertEqual(result.status_code, 302)
-        self.assertEqual(result["Location"], "/accounts/find/?emails=hamlet%40zulip.com")
+        self.assertEqual(result.status_code, 200)
         from django.core.mail import outbox
 
         self.assert_length(outbox, 0)
@@ -4322,8 +4329,7 @@ class TestFindMyTeam(ZulipTestCase):
     def test_find_team_bot_email(self) -> None:
         data = {"emails": self.example_email("webhook_bot")}
         result = self.client_post("/accounts/find/", data)
-        self.assertEqual(result.status_code, 302)
-        self.assertEqual(result["Location"], "/accounts/find/?emails=webhook-bot%40zulip.com")
+        self.assertEqual(result.status_code, 200)
         from django.core.mail import outbox
 
         self.assert_length(outbox, 0)

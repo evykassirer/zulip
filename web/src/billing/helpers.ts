@@ -22,13 +22,37 @@ export const stripe_session_url_schema = z.object({
     stripe_session_url: z.string(),
 });
 
+const cloud_discount_details: DiscountDetails = {
+    opensource: "Zulip Cloud Standard is free for open-source projects.",
+    research: "Zulip Cloud Standard is free for academic research.",
+    nonprofit: "Zulip Cloud Standard is discounted 85%+ for registered non-profits.",
+    event: "Zulip Cloud Standard is free for academic conferences and most non-profit events.",
+    education: "Zulip Cloud Standard is discounted 85% for education.",
+    education_nonprofit:
+        "Zulip Cloud Standard is discounted 90% for education non-profits with online purchase.",
+};
+
+const remote_discount_details: DiscountDetails = {
+    opensource: "The Community plan is free for open-source projects.",
+    research: "The Community plan is free for academic research.",
+    nonprofit:
+        "The Community plan is free for registered non-profits with up to 100 users. For larger organizations, paid plans are discounted by 85+%.",
+    event: "The Community plan is free for academic conferences and most non-profit events.",
+    education:
+        "The Community plan is free for education organizations with up to 100 users. For larger organizations, paid plans are discounted by 85%.",
+    education_nonprofit:
+        "The Community plan is free for education non-profits with up to 100 users. For larger organizations, paid plans are discounted by 90% with online purchase.",
+};
+
 export function create_ajax_request(
     url: string,
     form_name: string,
     ignored_inputs: string[] = [],
     type = "POST",
     success_callback: (response: unknown) => void,
-    error_callback: (xhr: JQuery.jqXHR) => void = () => {},
+    error_callback: (xhr: JQuery.jqXHR) => void = () => {
+        // Ignore errors by default
+    },
 ): void {
     const $form = $(`#${CSS.escape(form_name)}-form`);
     const form_loading_indicator = `#${CSS.escape(form_name)}_loading_indicator`;
@@ -78,6 +102,14 @@ export function create_ajax_request(
             }
             $(form_input_section).show();
             error_callback(xhr);
+
+            if (xhr.status === 401) {
+                // User session timed out, we need to login again.
+                const login_url = JSON.parse(xhr.responseText)?.login_url;
+                if (login_url !== undefined) {
+                    window.location.href = login_url;
+                }
+            }
         },
     });
 }
@@ -98,22 +130,19 @@ export function format_money(cents: number): string {
     }).format(Number.parseFloat((cents / 100).toFixed(precision)));
 }
 
-export function update_discount_details(organization_type: string): void {
-    let discount_notice =
-        "Your organization may be eligible for a discount on Zulip Cloud Standard. Organizations whose members are not employees are generally eligible.";
-    const discount_details: DiscountDetails = {
-        opensource: "Zulip Cloud Standard is free for open-source projects.",
-        research: "Zulip Cloud Standard is free for academic research.",
-        nonprofit: "Zulip Cloud Standard is discounted 85%+ for registered non-profits.",
-        event: "Zulip Cloud Standard is free for academic conferences and most non-profit events.",
-        education: "Zulip Cloud Standard is discounted 85% for education.",
-        education_nonprofit:
-            "Zulip Cloud Standard is discounted 90% for education non-profits with online purchase.",
-    };
+export function update_discount_details(
+    organization_type: string,
+    is_remotely_hosted: boolean,
+): void {
+    let discount_notice = is_remotely_hosted
+        ? "Your organization may be eligible for a free Community plan, or a discounted Business plan."
+        : "Your organization may be eligible for a discount on Zulip Cloud Standard. Organizations whose members are not employees are generally eligible.";
 
     try {
         const parsed_organization_type = organization_type_schema.parse(organization_type);
-        discount_notice = discount_details[parsed_organization_type];
+        discount_notice = is_remotely_hosted
+            ? remote_discount_details[parsed_organization_type]
+            : cloud_discount_details[parsed_organization_type];
     } catch {
         // This will likely fail if organization_type is not in organization_type_schema or
         // parsed_organization_type is not preset in discount_details. In either case, we will
@@ -125,28 +154,6 @@ export function update_discount_details(organization_type: string): void {
     }
 
     $("#sponsorship-discount-details").text(discount_notice);
-}
-
-let current_page: string;
-
-function handle_hashchange(): void {
-    $(`#${CSS.escape(current_page)}-tabs.nav a[href="${CSS.escape(location.hash)}"]`).tab("show");
-    $("html").scrollTop(0);
-}
-
-export function set_tab(page: string): void {
-    const hash = location.hash;
-    if (hash) {
-        $(`#${CSS.escape(page)}-tabs.nav a[href="${CSS.escape(hash)}"]`).tab("show");
-        $("html").scrollTop(0);
-    }
-
-    $<HTMLAnchorElement>(`#${CSS.escape(page)}-tabs.nav-tabs a`).on("click", function () {
-        location.hash = this.hash;
-    });
-
-    current_page = page;
-    window.addEventListener("hashchange", handle_hashchange);
 }
 
 export function is_valid_input(elem: JQuery<HTMLFormElement>): boolean {
@@ -163,11 +170,15 @@ export function redirect_to_billing_with_successful_upgrade(billing_base_url: st
 
 export function get_upgrade_page_url(
     is_manual_license_management_upgrade_session: boolean | undefined,
+    tier: number,
     billing_base_url: string,
 ): string {
-    let redirect_to = "/upgrade";
-    if (is_manual_license_management_upgrade_session) {
-        redirect_to += "/?manual_license_management=true";
+    const base_url = billing_base_url + "/upgrade/";
+    let params = `tier=${String(tier)}`;
+    if (is_manual_license_management_upgrade_session !== undefined) {
+        params += `&manual_license_management=${String(
+            is_manual_license_management_upgrade_session,
+        )}`;
     }
-    return billing_base_url + redirect_to;
+    return base_url + "?" + params;
 }

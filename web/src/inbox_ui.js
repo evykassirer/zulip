@@ -152,8 +152,7 @@ function format_dm(user_ids_string, unread_count, latest_msg_id) {
                 status_emoji_info: user_status.get_status_emoji(recipient_id),
             }),
         )
-        .sort()
-        .join(", ");
+        .sort();
 
     let user_circle_class;
     let is_bot = false;
@@ -165,7 +164,7 @@ function format_dm(user_ids_string, unread_count, latest_msg_id) {
     const context = {
         conversation_key: user_ids_string,
         is_direct: true,
-        rendered_dm_with,
+        rendered_dm_with: util.format_array_as_list(rendered_dm_with, "long", "conjunction"),
         is_group: recipient_ids.length > 1,
         user_circle_class,
         is_bot,
@@ -453,7 +452,7 @@ function reset_data() {
     let has_topics_post_filter = false;
     if (unread_stream_msg_count) {
         for (const [stream_id, topic_dict] of unread_streams_dict) {
-            const stream_unread = unread.num_unread_for_stream(stream_id);
+            const stream_unread = unread.unread_count_info_for_stream(stream_id);
             const stream_unread_count = stream_unread.unmuted_count + stream_unread.muted_count;
             const stream_key = get_stream_key(stream_id);
             if (stream_unread_count > 0) {
@@ -1019,7 +1018,7 @@ export function update() {
 
     let has_topics_post_filter = false;
     for (const [stream_id, topic_dict] of unread_streams_dict) {
-        const stream_unread = unread.num_unread_for_stream(stream_id);
+        const stream_unread = unread.unread_count_info_for_stream(stream_id);
         const stream_unread_count = stream_unread.unmuted_count + stream_unread.muted_count;
         const stream_key = get_stream_key(stream_id);
         let stream_post_filter_unread_count = 0;

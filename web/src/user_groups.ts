@@ -1,9 +1,10 @@
 import * as blueslip from "./blueslip";
 import {FoldDict} from "./fold_dict";
 import * as group_permission_settings from "./group_permission_settings";
-import {page_params} from "./page_params";
 import * as settings_config from "./settings_config";
-import type {User, UserGroupUpdateEvent} from "./types";
+import {current_user} from "./state_data";
+import type {UserOrMention} from "./typeahead_helper";
+import type {UserGroupUpdateEvent} from "./types";
 
 export type UserGroup = {
     description: string;
@@ -96,17 +97,10 @@ export function get_realm_user_groups(): UserGroup[] {
 }
 
 export function get_user_groups_allowed_to_mention(): UserGroup[] {
-    if (page_params.user_id === undefined) {
-        return [];
-    }
-
     const user_groups = get_realm_user_groups();
     return user_groups.filter((group) => {
         const can_mention_group_id = group.can_mention_group;
-        return (
-            page_params.user_id !== undefined &&
-            is_user_in_group(can_mention_group_id, page_params.user_id)
-        );
+        return is_user_in_group(can_mention_group_id, current_user.user_id);
     });
 }
 
@@ -173,7 +167,9 @@ export function initialize(params: {realm_user_groups: UserGroupRaw[]}): void {
     }
 }
 
-export function is_user_group(item: User | UserGroup): item is UserGroup {
+export function is_user_group(
+    item: (UserOrMention & {members: undefined}) | UserGroup,
+): item is UserGroup {
     return item.members !== undefined;
 }
 

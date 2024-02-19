@@ -11,12 +11,14 @@ import {$t_html} from "./i18n";
 import * as inbox_ui from "./inbox_ui";
 import * as inbox_util from "./inbox_util";
 import * as info_overlay from "./info_overlay";
+import * as message_fetch from "./message_fetch";
 import * as message_lists from "./message_lists";
 import * as message_viewport from "./message_viewport";
 import * as modals from "./modals";
 import * as narrow from "./narrow";
 import * as overlays from "./overlays";
 import {page_params} from "./page_params";
+import * as people from "./people";
 import * as popovers from "./popovers";
 import * as recent_view_ui from "./recent_view_ui";
 import * as recent_view_util from "./recent_view_util";
@@ -26,9 +28,11 @@ import * as settings_panel_menu from "./settings_panel_menu";
 import * as settings_toggle from "./settings_toggle";
 import * as sidebar_ui from "./sidebar_ui";
 import * as spectators from "./spectators";
+import {current_user} from "./state_data";
 import * as stream_settings_ui from "./stream_settings_ui";
 import * as ui_report from "./ui_report";
 import * as user_group_edit from "./user_group_edit";
+import * as user_profile from "./user_profile";
 import {user_settings} from "./user_settings";
 
 // Read https://zulip.readthedocs.io/en/latest/subsystems/hashchange-system.html
@@ -116,10 +120,10 @@ function do_hashchange_normal(from_reload) {
 
     switch (hash[0]) {
         case "#narrow": {
-            let operators;
+            let terms;
             try {
                 // TODO: Show possible valid URLs to the user.
-                operators = hash_util.parse_narrow(hash);
+                terms = hash_util.parse_narrow(hash);
             } catch {
                 ui_report.error(
                     $t_html({defaultMessage: "Invalid URL"}),
@@ -128,7 +132,7 @@ function do_hashchange_normal(from_reload) {
                     2000,
                 );
             }
-            if (operators === undefined) {
+            if (terms === undefined) {
                 // If the narrow URL didn't parse,
                 // send them to web_home_view.
                 // We cannot clear hash here since
@@ -143,10 +147,10 @@ function do_hashchange_normal(from_reload) {
             };
             if (from_reload) {
                 blueslip.debug("We are narrowing as part of a reload.");
-                if (page_params.initial_narrow_pointer !== undefined) {
-                    message_lists.home.pre_narrow_offset = page_params.initial_offset;
-                    narrow_opts.then_select_id = page_params.initial_narrow_pointer;
-                    narrow_opts.then_select_offset = page_params.initial_narrow_offset;
+                if (message_fetch.initial_narrow_pointer !== undefined) {
+                    message_lists.home.pre_narrow_offset = message_fetch.initial_offset;
+                    narrow_opts.then_select_id = message_fetch.initial_narrow_pointer;
+                    narrow_opts.then_select_offset = message_fetch.initial_narrow_offset;
                 }
             }
 
@@ -155,7 +159,7 @@ function do_hashchange_normal(from_reload) {
                 narrow_opts.then_select_id = location_data_for_hash.narrow_pointer;
                 narrow_opts.then_select_offset = location_data_for_hash.narrow_offset;
             }
-            narrow.activate(operators, narrow_opts);
+            narrow.activate(terms, narrow_opts);
             return true;
         }
         case "":
@@ -212,7 +216,7 @@ function do_hashchange_overlay(old_hash) {
     const old_base = hash_parser.get_hash_category(old_hash);
     let section = hash_parser.get_current_hash_section();
 
-    if (base === "groups" && page_params.is_guest) {
+    if (base === "groups" && current_user.is_guest) {
         // The #groups settings page is unfinished, and disabled in production.
         show_home_view();
         return;
@@ -240,6 +244,10 @@ function do_hashchange_overlay(old_hash) {
         history.replaceState(null, "", browser_history.get_full_url("streams/subscribed"));
     }
 
+    if (base === "groups" && !section) {
+        history.replaceState(null, "", browser_history.get_full_url("groups/your"));
+    }
+
     // Start by handling the specific case of going
     // from something like streams/all to streams_subscribed.
     //
@@ -248,7 +256,7 @@ function do_hashchange_overlay(old_hash) {
     if (coming_from_overlay && base === old_base) {
         if (base === "streams") {
             // e.g. #streams/29/social/subscribers
-            const right_side_tab = hash_parser.get_current_nth_hash_section(4);
+            const right_side_tab = hash_parser.get_current_nth_hash_section(3);
             stream_settings_ui.change_state(section, right_side_tab);
             return;
         }
@@ -315,7 +323,7 @@ function do_hashchange_overlay(old_hash) {
 
     if (base === "streams") {
         // e.g. #streams/29/social/subscribers
-        const right_side_tab = hash_parser.get_current_nth_hash_section(4);
+        const right_side_tab = hash_parser.get_current_nth_hash_section(3);
         stream_settings_ui.launch(section, right_side_tab);
         return;
     }
@@ -365,6 +373,15 @@ function do_hashchange_overlay(old_hash) {
 
     if (base === "scheduled") {
         scheduled_messages_overlay_ui.launch();
+    }
+    if (base === "user") {
+        const user_id = Number.parseInt(hash_parser.get_current_hash_section(), 10);
+        if (!people.is_known_user_id(user_id)) {
+            user_profile.show_user_profile_access_error_modal();
+        } else {
+            const user = people.get_by_user_id(user_id);
+            user_profile.show_user_profile(user);
+        }
     }
 }
 

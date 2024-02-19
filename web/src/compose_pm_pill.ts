@@ -1,5 +1,6 @@
 import $ from "jquery";
 
+import type {InputPillConfig} from "./input_pill";
 import * as input_pill from "./input_pill";
 import type {User} from "./people";
 import * as people from "./people";
@@ -9,8 +10,9 @@ import * as util from "./util";
 
 export let widget: UserPillWidget;
 
-const pill_config = {
+const pill_config: InputPillConfig = {
     show_user_status_emoji: true,
+    exclude_inaccessible_users: true,
 };
 
 export function initialize_pill(): UserPillWidget {
@@ -26,7 +28,11 @@ export function initialize_pill(): UserPillWidget {
     return pill;
 }
 
-export function initialize({on_pill_create_or_remove}: {on_pill_create_or_remove(): void}): void {
+export function initialize({
+    on_pill_create_or_remove,
+}: {
+    on_pill_create_or_remove: () => void;
+}): void {
     widget = initialize_pill();
 
     widget.onPillCreate(() => {

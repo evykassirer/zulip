@@ -365,7 +365,7 @@ You can look at the [full list of fields][models-py] in the Zulip user
 model; search for `class UserProfile`, but the above should cover all
 the fields that would be useful to sync from your LDAP databases.
 
-[models-py]: https://github.com/zulip/zulip/blob/main/zerver/models.py
+[models-py]: https://github.com/zulip/zulip/blob/main/zerver/models/users.py
 [django-auth-booleans]: https://django-auth-ldap.readthedocs.io/en/latest/users.html#easy-attributes
 
 ### Multiple LDAP searches
@@ -690,7 +690,8 @@ integration](../production/scim.md).
    (Alternatively, open the URL in your browser
    `https://keycloak.example.com/auth/realms/master/protocol/saml/descriptor`.
    Replace the domain (`keycloak.example.com`) as well as the realm
-   name (`master`) in the url. The certificate is the content inside
+   name (`master`) in the url. Note that depending on your version of Keycloak,
+   `/auth/` may or may not be present in the URL. The certificate is the content inside
    `<ds:X509Certificate>[...]</ds:X509Certificate>`).
 
    Save the certificate in a new `{idp_name}.crt` file constructed as follows:
@@ -747,7 +748,7 @@ integration](../production/scim.md).
    `https://authentik.company/application/saml/<application slug>/sso/binding/redirect/` where `<application slug>`
    is the application slug you've assigned to this application in Authentik settings (e.g `zulip`).
 1. Update the attribute mapping in your new entry in `SOCIAL_AUTH_SAML_ENABLED_IDPS` to match how
-   Authentik specifies attributes in its`SAMLResponse`:
+   Authentik specifies attributes in its `SAMLResponse`:
 
    ```
    "attr_user_permanent_id": "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
@@ -791,7 +792,7 @@ this with another IdP.
    Disable `Force POST Binding`, as Zulip only supports the Redirect binding.
 1. In `Fine Grain SAML Endpoint Configuration`, set `Logout Service Redirect Binding URL`
    to the same value you provided for `SSO URL` above.
-1. Add the IdP's `Redirect Binding URL`for `SingleLogoutService` to
+1. Add the IdP's `Redirect Binding URL` for `SingleLogoutService` to
    your IdP configuration dict in `SOCIAL_AUTH_SAML_ENABLED_IDPS` in
    `/etc/zulip/settings.py` as `slo_url`. For example it may look like
    this:
@@ -1067,6 +1068,99 @@ In order to use JWT authentication with Zulip, one must first
 configure the JWT secret and algorithm via `JWT_AUTH_KEYS` in
 `/etc/zulip/settings.py`; see the inline comment documentation in that
 file for details.
+
+## Configuring a custom Python wrapper around the `authenticate` mechanism
+
+Zulip supports configuring a custom authentication function that will
+work as a wrapper around every login attempt to Zulip, enabling custom
+logging, additional authentication checks, and more.
+
+This mechanism protects the web login and the mobile login process
+used to obtain an API key, but **will not be called** when processing
+API requests by the Zulip mobile apps or other API clients that have
+already obtained an API key (a step that typically happens once per
+device during first-time login).
+
+:::{note}
+Knowledge of [how authentication backends work in Django][django-authenticate-details]
+as well as some familiarity with Zulip's authentication implementation in
+`zproject/backends.py` are required.
+
+This feature is beta and has some rough edges as well as requiring
+significantly more expertise than other authentication features; we do
+not recommend using it without specific advice from Zulip support, but
+we document it here for completeness.
+:::
+
+You can write custom Python logic that will wrap such `authenticate()`
+calls by specifying in `/etc/zulip/settings.py`:
+
+```python3
+def custom_auth_wrapper(
+    auth_func, *args, **kwargs
+):
+    from zerver.lib.exceptions import JsonableError
+
+    backend = args[0]
+    backend_name = backend.name
+    request = args[1]
+    ip_address = request.META["REMOTE_ADDR"]
+    backend.logger.info("%s backend. ip is %s", backend_name, ip_address)
+
+    user_profile = auth_func(*args, **kwargs)
+    if user_profile is not None and user_profile.delivery_email == "protecteduser@example.com":
+        if backend_name == "email" and ip_address != "x.x.x.x":
+            raise JsonableError("Your IP address is not allowed to log in as this user.")
+
+    return user_profile
+
+# We need to actually specify to use this function defined above as the
+# custom authentication wrapper:
+CUSTOM_AUTHENTICATION_WRAPPER_FUNCTION = custom_auth_wrapper
+```
+
+`auth_func` is the underlying `authenticate` function belonging to the
+authentication backend class currently being processed. If you have
+more than one backend enabled, this will be executed multiple times -
+each time with `auth_func` being the `authenticate` function of the
+backend class currently being processed.
+
+Therefore, your `custom_auth_wrapper` can inspect the received
+arguments, process them as desired and eventually call the original
+`auth_func` to obtain the underlying authentication result, to analyze
+and potentially return it. The simple code demonstrated above checks
+whether `auth_func` succeeds, and if so, whether the resulting user
+account belongs to `protecteduser@example.com`. Such authentication,
+if it's using the `EmailAuthBackend` should only be allowed if made
+from a pre-defined IP address `x.x.x.x`, so if these restrictions are
+violated, a JSON error response will be generated.
+
+The example demonstrates the possibility of making the logic dependent
+on the specific authentication backend being used, but unless you're
+very familiar with the various backends used by Zulip, a safer
+approach is to keep things general.
+
+:::{important}
+
+Using `CUSTOM_AUTHENTICATION_WRAPPER_FUNCTION` with social
+authentication backends (Google, GitHub, and anything else that
+subclasses `SocialAuthMixin` in `zproject/backends.py`) is not
+recommended.
+
+Due to the different way that social authentication backends process
+authentication attempts using a 3rd party site that provides the
+user's identity, it is **not** a good approach to modify their own
+`authenticate` calls directly.
+
+If you need to use this feature in combination with those backends,
+you should make your logic be applied when processing the
+`ZulipDummyBackend` - which is the final layer of the authentication
+checks for whether authentication should succeed. If you want to
+reject authentication requests e.g. based on IP address of the
+request, this is where it should happen.
+:::
+
+[django-authenticate-details]: https://docs.djangoproject.com/en/dev/topics/auth/customizing/#writing-an-authentication-backend
 
 ## Adding more authentication backends
 

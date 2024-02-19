@@ -5,7 +5,8 @@ from django.utils.translation import gettext as _
 
 from zerver.lib.exceptions import JsonableError
 from zerver.lib.stream_subscription import get_active_subscriptions_for_stream_id
-from zerver.models import Realm, Stream, UserProfile, get_user_by_id_in_realm_including_cross_realm
+from zerver.models import Realm, Stream, UserProfile
+from zerver.models.users import get_user_by_id_in_realm_including_cross_realm
 from zerver.tornado.django_api import send_event
 
 
@@ -65,7 +66,7 @@ def check_send_typing_notification(sender: UserProfile, user_ids: List[int], ope
 
 
 def do_send_stream_typing_notification(
-    sender: UserProfile, operator: str, stream: Stream, topic: str
+    sender: UserProfile, operator: str, stream: Stream, topic_name: str
 ) -> None:
     sender_dict = {"user_id": sender.id, "email": sender.email}
 
@@ -75,7 +76,7 @@ def do_send_stream_typing_notification(
         op=operator,
         sender=sender_dict,
         stream_id=stream.id,
-        topic=topic,
+        topic=topic_name,
     )
 
     # We don't notify long_term_idle subscribers.

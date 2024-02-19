@@ -20,7 +20,8 @@ from zerver.lib.realm_icon import get_realm_icon_url
 from zerver.lib.request import RequestNotes
 from zerver.lib.send_email import FromAddress
 from zerver.lib.subdomains import get_subdomain, is_root_domain_available
-from zerver.models import Realm, UserProfile, get_realm
+from zerver.models import Realm, UserProfile
+from zerver.models.realms import get_realm
 from zproject.backends import (
     AUTH_BACKEND_NAME_MAP,
     auth_enabled_helper,
@@ -31,6 +32,7 @@ from zproject.backends import (
 from zproject.config import get_config
 
 DEFAULT_PAGE_PARAMS: Mapping[str, Any] = {
+    "page_type": "default",
     "development_environment": settings.DEVELOPMENT,
 }
 
@@ -164,6 +166,7 @@ def zulip_default_context(request: HttpRequest) -> Dict[str, Any]:
         f'<a href="mailto:{escape(support_email)}">{escape(support_email)}</a>'
     )
 
+    # Sync this with default_params_schema in base_page_params.ts.
     default_page_params: Dict[str, Any] = {
         **DEFAULT_PAGE_PARAMS,
         "server_sentry_dsn": settings.SENTRY_FRONTEND_DSN,
@@ -261,15 +264,6 @@ def login_context(request: HttpRequest) -> Dict[str, Any]:
 
     context["external_authentication_methods"] = get_external_method_dicts(realm)
     context["no_auth_enabled"] = no_auth_enabled
-
-    # Include another copy of external_authentication_methods in page_params for use
-    # by the desktop client. We expand it with IDs of the <button> elements corresponding
-    # to the authentication methods.
-    context["page_params"] = dict(
-        external_authentication_methods=get_external_method_dicts(realm),
-    )
-    for auth_dict in context["page_params"]["external_authentication_methods"]:
-        auth_dict["button_id_suffix"] = "auth_button_{}".format(auth_dict["name"])
 
     return context
 

@@ -37,7 +37,7 @@ from django.http.request import QueryDict
 from django.http.response import HttpResponseBase
 from django.test import override_settings
 from django.urls import URLResolver
-from moto.s3 import mock_s3
+from moto.core.decorator import mock_aws
 from mypy_boto3_s3.service_resource import Bucket
 from typing_extensions import ParamSpec, override
 
@@ -52,17 +52,10 @@ from zerver.lib.per_request_cache import flush_per_request_caches
 from zerver.lib.rate_limiter import RateLimitedIPAddr, rules
 from zerver.lib.request import RequestNotes
 from zerver.lib.upload.s3 import S3UploadBackend
-from zerver.models import (
-    Client,
-    Message,
-    RealmUserDefault,
-    Subscription,
-    UserMessage,
-    UserProfile,
-    get_client,
-    get_realm,
-    get_stream,
-)
+from zerver.models import Client, Message, RealmUserDefault, Subscription, UserMessage, UserProfile
+from zerver.models.clients import clear_client_cache, get_client
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
 from zerver.tornado.handlers import AsyncDjangoHandler, allocate_handler_id
 from zilencer.models import RemoteZulipServer
 from zproject.backends import ExternalAuthDataDict, ExternalAuthResult
@@ -188,6 +181,7 @@ def queries_captured(
         cache = get_cache_backend(None)
         cache.clear()
         flush_per_request_caches()
+        clear_client_cache()
     with mock.patch.multiple(
         TimeTrackingCursor, execute=cursor_execute, executemany=cursor_executemany
     ):
@@ -558,7 +552,9 @@ def write_instrumentation_reports(full_suite: bool, include_webhooks: bool) -> N
 def load_subdomain_token(response: Union["TestHttpResponse", HttpResponse]) -> ExternalAuthDataDict:
     assert isinstance(response, HttpResponseRedirect)
     token = response.url.rsplit("/", 1)[1]
-    data = ExternalAuthResult(login_token=token, delete_stored_data=False).data_dict
+    data = ExternalAuthResult(
+        request=mock.MagicMock(), login_token=token, delete_stored_data=False
+    ).data_dict
     assert data is not None
     return data
 
@@ -567,7 +563,7 @@ P = ParamSpec("P")
 
 
 def use_s3_backend(method: Callable[P, None]) -> Callable[P, None]:
-    @mock_s3
+    @mock_aws
     @override_settings(LOCAL_UPLOADS_DIR=None)
     @override_settings(LOCAL_AVATARS_DIR=None)
     @override_settings(LOCAL_FILES_DIR=None)

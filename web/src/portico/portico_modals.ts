@@ -25,10 +25,10 @@ export function close_active(): void {
     }
 
     const $micromodal = $(".micromodal.modal--open");
-    Micromodal.close(`${CSS.escape($micromodal.attr("id") ?? "")}`);
+    Micromodal.close(CSS.escape($micromodal.attr("id") ?? ""));
 }
 
-export function open(modal_id: string, recursive_call_count: number = 0): void {
+export function open(modal_id: string, recursive_call_count = 0): void {
     if (modal_id === undefined) {
         blueslip.error("Undefined id was passed into open");
         return;

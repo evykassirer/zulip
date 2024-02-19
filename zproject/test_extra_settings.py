@@ -15,7 +15,6 @@ from .settings import (
     EXTERNAL_HOST,
     LOCAL_DATABASE_PASSWORD,
     LOGGING,
-    MIDDLEWARE,
 )
 
 FULL_STACK_ZULIP_TEST = "FULL_STACK_ZULIP_TEST" in os.environ
@@ -256,9 +255,11 @@ RATE_LIMITING_RULES: Dict[str, List[Tuple[int, int]]] = {
     "sends_email_by_ip": [],
     "email_change_by_user": [],
     "password_reset_form_by_email": [],
+    "sends_email_by_remote_server": [],
 }
 
 CLOUD_FREE_TRIAL_DAYS: Optional[int] = None
+SELF_HOSTING_FREE_TRIAL_DAYS: Optional[int] = None
 
 SCIM_CONFIG: Dict[str, SCIMConfigDict] = {
     "zulip": {
@@ -267,13 +268,3 @@ SCIM_CONFIG: Dict[str, SCIMConfigDict] = {
         "name_formatted_included": True,
     }
 }
-
-
-while len(MIDDLEWARE) < 19:
-    # The following middleware serves to skip having exactly 17 or 18
-    # middlewares, which can segfault Python 3.11 when running with
-    # coverage enabled; see
-    # https://github.com/python/cpython/issues/106092
-    MIDDLEWARE += [
-        "zerver.middleware.ZulipNoopMiddleware",
-    ]

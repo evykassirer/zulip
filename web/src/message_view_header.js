@@ -10,9 +10,9 @@ import * as peer_data from "./peer_data";
 import * as recent_view_util from "./recent_view_util";
 import * as rendered_markdown from "./rendered_markdown";
 import * as search from "./search";
+import {current_user} from "./state_data";
 
 function get_message_view_header_context(filter) {
-    const context = {};
     if (recent_view_util.is_visible()) {
         return {
             title: $t({defaultMessage: "Recent conversations"}),
@@ -31,9 +31,10 @@ function get_message_view_header_context(filter) {
             zulip_icon: "all-messages",
         };
     }
-    context.title = filter.get_title();
-    context.is_spectator = page_params.is_spectator;
-    filter.add_icon_data(context);
+    const context = filter.add_icon_data({
+        title: filter.get_title(),
+        is_spectator: page_params.is_spectator,
+    });
     if (filter.has_operator("stream") && !filter._sub) {
         context.sub_count = "0";
         context.formatted_sub_count = "0";
@@ -47,8 +48,9 @@ function get_message_view_header_context(filter) {
         // involves a stream which exists and
         // the current user can access.
         const current_stream = filter._sub;
-        context.rendered_narrow_description = current_stream.rendered_description;
         const sub_count = peer_data.get_subscriber_count(current_stream.stream_id);
+        context.is_admin = current_user.is_admin;
+        context.rendered_narrow_description = current_stream.rendered_description;
         context.sub_count = sub_count;
         context.stream = current_stream;
         context.stream_settings_link =
@@ -87,7 +89,7 @@ function build_message_view_header(filter) {
     // message_view_header on a template where it's never used
     if (filter && !filter.is_common_narrow()) {
         search.open_search_bar_and_close_narrow_description();
-        $("#search_query").val(narrow_state.search_string());
+        search.set_search_bar_text(narrow_state.search_string());
     } else {
         const context = get_message_view_header_context(filter);
         append_and_display_title_area(context);

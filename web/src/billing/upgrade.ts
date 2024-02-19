@@ -21,13 +21,24 @@ let remote_server_plan_start_date: string =
     typeof ls_remote_server_plan_start_date === "string"
         ? ls_remote_server_plan_start_date
         : "billing_cycle_end_date";
+
 let selected_schedule: string =
     typeof ls_selected_schedule === "string" ? ls_selected_schedule : "monthly";
+if ($("input[type=hidden][name=schedule]").length === 1) {
+    // If we want to force a particular schedule, like "monthly" for free trials,
+    // we need to override schedule from localstorage if it was set.
+    selected_schedule = $<HTMLInputElement>("input[type=hidden][name=schedule]").val()!;
+}
+if (page_params.fixed_price !== null) {
+    // By default, we show annual schedule (and price) for a fixed-price plan.
+    selected_schedule = "annual";
+}
+
 let current_license_count = page_params.seat_count;
 
 const upgrade_response_schema = z.object({
     // Returned if we charged the user and need to verify.
-    stripe_payment_intent_id: z.string().optional(),
+    stripe_invoice_id: z.string().optional(),
     // Returned if we directly upgraded the org (for free trial or invoice payments).
     organization_upgrade_successful: z.boolean().optional(),
 });
@@ -37,11 +48,26 @@ function update_due_today(schedule: string): void {
     if (schedule === "monthly") {
         num_months = 1;
     }
+
+    if (page_params.fixed_price !== null) {
+        let due_today = page_params.fixed_price;
+        if (schedule === "monthly") {
+            due_today = page_params.fixed_price / 12;
+        }
+        $(".due-today-price").text(helpers.format_money(due_today));
+        return;
+    }
+
     $("#due-today .due-today-duration").text(num_months === 1 ? "1 month" : "12 months");
     const schedule_typed = helpers.schedule_schema.parse(schedule);
-    $(".due-today-price").text(
-        helpers.format_money(current_license_count * prices[schedule_typed]),
-    );
+    const pre_flat_discount_price = prices[schedule_typed] * current_license_count;
+    $("#pre-discount-renewal-cents").text(helpers.format_money(pre_flat_discount_price));
+    const flat_discounted_months = Math.min(num_months, page_params.flat_discounted_months);
+    const total_flat_discount = page_params.flat_discount * flat_discounted_months;
+    const due_today = Math.max(0, pre_flat_discount_price - total_flat_discount);
+    $(".flat-discounted-price").text(helpers.format_money(page_params.flat_discount));
+    $(".due-today-price").text(helpers.format_money(due_today));
+
     const unit_price = prices[schedule_typed] / num_months;
     $("#due-today .due-today-unit-price").text(helpers.format_money(unit_price));
 }
@@ -120,9 +146,9 @@ export const initialize = (): void => {
             "POST",
             (response) => {
                 const response_data = upgrade_response_schema.parse(response);
-                if (response_data.stripe_payment_intent_id) {
+                if (response_data.stripe_invoice_id) {
                     window.location.replace(
-                        `${page_params.billing_base_url}/billing/event_status?stripe_payment_intent_id=${response_data.stripe_payment_intent_id}`,
+                        `${page_params.billing_base_url}/billing/event_status?stripe_invoice_id=${response_data.stripe_invoice_id}`,
                     );
                 } else if (response_data.organization_upgrade_successful) {
                     helpers.redirect_to_billing_with_successful_upgrade(

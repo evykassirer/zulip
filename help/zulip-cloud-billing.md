@@ -55,7 +55,39 @@ Free** at the end of the current billing period.
 
 {end_tabs}
 
-## Apply for sponsorship
+## Free and discounted Zulip Cloud Standard
+
+Zulip sponsors free plans for over 1000 worthy organizations. The following
+types of organizations are generally eligible for a free Zulip Cloud Standard plan.
+
+- Open-source projects, including projects with a small paid team.
+- Research in an academic setting, such as research groups, cross-institutional
+  collaborations, etc.
+- Academic conferences and other non-profit events.
+- Non-profits with no paid staff.
+- Most communities that need features beyond the Free plan in order to use Zulip.
+
+The following types of organizations are generally eligible for significant
+discounts on Zulip Cloud Standard.
+
+- Education organizations are eligible for [education
+  pricing](https://zulip.com/for/education/#feature-pricing).
+
+- Discounts are available for organizations based in the **developing world**.
+
+- Non-profits and other organizations where many users are **not paid staff**
+  are generally eligible for a discount.
+
+If there are any circumstances that make regular pricing unaffordable for your
+organization, contact [sales@zulip.com](mailto:sales@zulip.com) to discuss your
+situation.
+
+### Apply for sponsorship
+
+Submit a sponsorship request to apply for a free or discounted Zulip Cloud
+Standard plan. If you do not have a Zulip organization yet, contact
+[sales@zulip.com](mailto:sales@zulip.com) to inquire about sponsorship
+eligibility.
 
 {start_tabs}
 
@@ -101,23 +133,17 @@ tool.
 You can always use a credit card to pay. If you would like to pay by invoice,
 you will need to sign up for an annual plan.
 
-### What is the difference between automatic and manual billing?
+### How does automatic billing work?
 
-With automatic billing, you automatically purchase a Zulip license for each user
-in your organization at the start of each billing period (month or year).
-[Deactivating a user][deactivate-user] frees up their license for reuse.
-Additional licenses are purchased automatically as needed.
+{!automatic-billing.md!}
 
-With manual billing, you choose and pay for a preset user limit. If
-he limit is reached, no more users can join until licenses are manually
-added.
+### How does manual billing work?
 
-In general, selecting automatic billing is highly recommended unless you
-have a specific reason to do otherwise.
+{!manual-billing-intro.md!}
 
 #### Manually manage licenses
 
-If you organization is on a manual billing plan, you can manage the number of
+If your organization is on a manual billing plan, you can manage the number of
 licenses on your organization's billing page.
 
 {start_tabs}
@@ -139,8 +165,8 @@ licenses on your organization's billing page.
 
 ### How will I be charged for temporary users (e.g. limited-time clients)?
 
-Users [can be deactivated][deactivate-user] any time. Deactivating a user frees
-up their license for reuse.
+Users [can be deactivated](/help/deactivate-or-reactivate-a-user) any time.
+Deactivating a user frees up their license for reuse.
 
 ### How are guest accounts billed? Is there special pricing?
 
@@ -152,7 +178,6 @@ your regular per-user pricing for each additional guest.
 
 * [Trying out Zulip](/help/trying-out-zulip)
 * [Zulip Cloud or self-hosting?](/help/zulip-cloud-or-self-hosting)
+* [Self-hosted billing](/help/self-hosted-billing)
 * [Migrating from other chat tools](/help/migrating-from-other-chat-tools)
 * [Contact support](/help/contact-support)
-
-[deactivate-user]: /help/deactivate-or-reactivate-a-user#deactivate-a-user

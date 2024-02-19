@@ -52,12 +52,8 @@ from zerver.lib.validator import (
     check_string_in,
     check_timezone,
 )
-from zerver.models import (
-    EmailChangeStatus,
-    UserProfile,
-    avatar_changes_disabled,
-    name_changes_disabled,
-)
+from zerver.models import EmailChangeStatus, UserProfile
+from zerver.models.realms import avatar_changes_disabled, name_changes_disabled
 from zerver.views.auth import redirect_to_deactivation_notice
 from zproject.backends import check_password_strength, email_belongs_to_ldap
 
@@ -414,7 +410,7 @@ def set_avatar_backend(request: HttpRequest, user_profile: UserProfile) -> HttpR
     [user_file] = request.FILES.values()
     assert isinstance(user_file, UploadedFile)
     assert user_file.size is not None
-    if (settings.MAX_AVATAR_FILE_SIZE_MIB * 1024 * 1024) < user_file.size:
+    if user_file.size > settings.MAX_AVATAR_FILE_SIZE_MIB * 1024 * 1024:
         raise JsonableError(
             _("Uploaded file is larger than the allowed limit of {max_size} MiB").format(
                 max_size=settings.MAX_AVATAR_FILE_SIZE_MIB,

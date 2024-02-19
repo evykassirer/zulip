@@ -54,6 +54,7 @@ from zerver.lib.exceptions import (
     ResourceNotFoundError,
 )
 from zerver.lib.mention import MentionBackend, silent_mention_syntax_for_user
+from zerver.lib.message import bulk_access_stream_messages_query
 from zerver.lib.request import REQ, has_request_variables
 from zerver.lib.response import json_success
 from zerver.lib.retention import STREAM_MESSAGE_BATCH_SIZE as RETENTION_STREAM_MESSAGE_BATCH_SIZE
@@ -99,7 +100,8 @@ from zerver.lib.validator import (
     check_union,
     to_non_negative_int,
 )
-from zerver.models import Realm, Stream, UserGroup, UserMessage, UserProfile, get_system_bot
+from zerver.models import Realm, Stream, UserGroup, UserProfile
+from zerver.models.users import get_system_bot
 
 
 def principal_to_user_profile(agent: UserProfile, principal: Union[str, int]) -> UserProfile:
@@ -772,7 +774,7 @@ def send_messages_for_new_subscribers(
                     content = _("{user_name} created the following streams: {stream_str}.")
                 else:
                     content = _("{user_name} created a new stream {stream_str}.")
-                topic = _("new streams")
+                topic_name = _("new streams")
 
             content = content.format(
                 user_name=silent_mention_syntax_for_user(user_profile),
@@ -785,7 +787,7 @@ def send_messages_for_new_subscribers(
                 internal_prep_stream_message(
                     sender=sender,
                     stream=notifications_stream,
-                    topic=topic,
+                    topic_name=topic_name,
                     content=content,
                 ),
             )
@@ -802,7 +804,7 @@ def send_messages_for_new_subscribers(
                     internal_prep_stream_message(
                         sender=sender,
                         stream=stream,
-                        topic=str(Realm.STREAM_EVENTS_NOTIFICATION_TOPIC),
+                        topic_name=str(Realm.STREAM_EVENTS_NOTIFICATION_TOPIC_NAME),
                         content=_(
                             "**{policy}** stream created by {user_name}. **Description:**"
                         ).format(
@@ -924,22 +926,9 @@ def delete_in_topic(
     messages = messages_for_topic(
         user_profile.realm_id, assert_is_not_none(stream.recipient_id), topic_name
     )
-    # Note: It would be better to use bulk_access_messages here, which is our core function
-    # for obtaining the accessible messages - and it's good to use it wherever we can,
-    # so that we have a central place to keep up to date with our security model for
-    # message access.
-    # However, it fetches the full Message objects, which would be bad here for very large
-    # topics.
-    # The access_stream_by_id call above ensures that the acting user currently has access to the
-    # stream (which entails having an active Subscription in case of private streams), meaning
-    # that combined with the UserMessage check below, this is a sufficient replacement for
-    # bulk_access_messages.
-    if not stream.is_history_public_to_subscribers():
-        # Don't allow the user to delete messages that they don't have access to.
-        deletable_message_ids = UserMessage.objects.filter(
-            user_profile=user_profile, message_id__in=messages
-        ).values_list("message_id", flat=True)
-        messages = messages.filter(id__in=deletable_message_ids)
+    # This handles applying access control, such that only messages
+    # the user can see are returned in the query.
+    messages = bulk_access_stream_messages_query(user_profile, messages, stream)
 
     def delete_in_batches() -> Literal[True]:
         # Topics can be large enough that this request will inevitably time out.

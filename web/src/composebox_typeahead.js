@@ -20,6 +20,7 @@ import * as people from "./people";
 import * as realm_playground from "./realm_playground";
 import * as rows from "./rows";
 import * as settings_data from "./settings_data";
+import {realm} from "./state_data";
 import * as stream_data from "./stream_data";
 import * as stream_topic_history from "./stream_topic_history";
 import * as stream_topic_history_util from "./stream_topic_history_util";
@@ -455,19 +456,19 @@ export const dev_only_slash_commands = [
 
 export const slash_commands = [
     {
-        text: $t({defaultMessage: "/me is excited (Display action text)"}),
+        text: $t({defaultMessage: "/me (Action message)"}),
         name: "me",
         aliases: "",
         placeholder: $t({defaultMessage: "is …"}),
     },
     {
-        text: $t({defaultMessage: "/poll Where should we go to lunch today? (Create a poll)"}),
+        text: $t({defaultMessage: "/poll (Create a poll)"}),
         name: "poll",
         aliases: "",
         placeholder: $t({defaultMessage: "Question"}),
     },
     {
-        text: $t({defaultMessage: "/todo (Create a todo list)"}),
+        text: $t({defaultMessage: "/todo (Create a collaborative to-do list)"}),
         name: "todo",
         aliases: "",
     },
@@ -1105,10 +1106,10 @@ function get_header_html() {
             tip_text = $t({defaultMessage: "Silent mentions do not trigger notifications."});
             break;
         case "syntax":
-            if (page_params.realm_default_code_block_language !== "") {
+            if (realm.realm_default_code_block_language !== "") {
                 tip_text = $t(
                     {defaultMessage: "Default is {language}. Use 'text' to disable highlighting."},
-                    {language: page_params.realm_default_code_block_language},
+                    {language: realm.realm_default_code_block_language},
                 );
                 break;
             }

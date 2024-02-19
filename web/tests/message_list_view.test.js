@@ -5,12 +5,10 @@ const {strict: assert} = require("assert");
 const _ = require("lodash");
 
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
 
 set_global("document", "document-stub");
-
-const noop = () => {};
 
 // timerender calls setInterval when imported
 mock_esm("../src/timerender", {
@@ -19,18 +17,6 @@ mock_esm("../src/timerender", {
     },
     stringify_time(time) {
         return time.toString("h:mm TT");
-    },
-});
-
-mock_esm("../src/rows", {
-    get_table() {
-        return {
-            children() {
-                return {
-                    detach: noop,
-                };
-            },
-        };
     },
 });
 
@@ -49,9 +35,10 @@ const muted_users = zrequire("muted_users");
 let next_timestamp = 1500000000;
 
 function test(label, f) {
-    run_test(label, ({override}) => {
+    run_test(label, ({override, mock_template}) => {
         muted_users.set_muted_users([]);
-        f({override});
+        mock_template("message_list.hbs", false, noop);
+        f({override, mock_template});
     });
 }
 
@@ -82,7 +69,13 @@ test("msg_moved_var", () => {
     }
 
     function build_list(message_groups) {
-        const list = new MessageListView(undefined, undefined, true);
+        const list = new MessageListView(
+            {
+                id: 1,
+            },
+            true,
+            true,
+        );
         list._message_groups = message_groups;
         return list;
     }
@@ -206,8 +199,9 @@ test("msg_moved_var", () => {
 
 test("msg_edited_vars", () => {
     // This is a test to verify that only one of the three bools,
-    // `edited_in_left_col`, `edited_alongside_sender`, `edited_status_msg`
-    // is not false; Tests for three different kinds of messages:
+    // `message_edit_notices_in_left_col`, `message_edit_notices_alongside_sender`,
+    // `message_edit_notices_for_status_message` is not false; Tests for three
+    // different kinds of messages:
     //   * "/me" message
     //   * message that includes sender
     //   * message without sender
@@ -231,27 +225,46 @@ test("msg_edited_vars", () => {
     }
 
     function build_list(message_groups) {
-        const list = new MessageListView(undefined, undefined, true);
+        const list = new MessageListView(
+            {
+                id: 1,
+            },
+            true,
+            true,
+        );
         list._message_groups = message_groups;
         return list;
     }
 
     function assert_left_col(message_container) {
-        assert.equal(message_container.edited_in_left_col, true);
-        assert.equal(message_container.edited_alongside_sender, false);
-        assert.equal(message_container.edited_status_msg, false);
+        assert.equal(message_container.modified, true);
+        assert.equal(message_container.message_edit_notices_in_left_col, true);
+        assert.equal(message_container.message_edit_notices_alongside_sender, false);
+        assert.equal(message_container.message_edit_notices_for_status_message, false);
     }
 
     function assert_alongside_sender(message_container) {
-        assert.equal(message_container.edited_in_left_col, false);
-        assert.equal(message_container.edited_alongside_sender, true);
-        assert.equal(message_container.edited_status_msg, false);
+        assert.equal(message_container.modified, true);
+        assert.equal(message_container.message_edit_notices_in_left_col, false);
+        assert.equal(message_container.message_edit_notices_alongside_sender, true);
+        assert.equal(message_container.message_edit_notices_for_status_message, false);
     }
 
     function assert_status_msg(message_container) {
-        assert.equal(message_container.edited_in_left_col, false);
-        assert.equal(message_container.edited_alongside_sender, false);
-        assert.equal(message_container.edited_status_msg, true);
+        assert.equal(message_container.modified, true);
+        assert.equal(message_container.message_edit_notices_in_left_col, false);
+        assert.equal(message_container.message_edit_notices_alongside_sender, false);
+        assert.equal(message_container.message_edit_notices_for_status_message, true);
+    }
+
+    function set_edited_notice_locations(message_container) {
+        const include_sender = message_container.include_sender;
+        const is_hidden = message_container.is_hidden;
+        const status_message = Boolean(message_container.status_message);
+        message_container.message_edit_notices_in_left_col = !include_sender && !is_hidden;
+        message_container.message_edit_notices_alongside_sender = include_sender && !status_message;
+        message_container.message_edit_notices_for_status_message =
+            include_sender && status_message;
     }
 
     (function test_msg_edited_vars() {
@@ -270,8 +283,13 @@ test("msg_edited_vars", () => {
 
         const result = list._message_groups[0].message_containers;
 
+        set_edited_notice_locations(result[0]);
         assert_alongside_sender(result[0]);
+
+        set_edited_notice_locations(result[1]);
         assert_left_col(result[1]);
+
+        set_edited_notice_locations(result[2]);
         assert_status_msg(result[2]);
     })();
 });
@@ -295,7 +313,13 @@ test("muted_message_vars", () => {
     }
 
     function build_list(message_groups) {
-        const list = new MessageListView(undefined, undefined, true);
+        const list = new MessageListView(
+            {
+                id: 1,
+            },
+            true,
+            true,
+        );
         list._message_groups = message_groups;
         return list;
     }
@@ -405,7 +429,8 @@ test("muted_message_vars", () => {
     })();
 });
 
-test("merge_message_groups", () => {
+test("merge_message_groups", ({mock_template}) => {
+    mock_template("message_list.hbs", false, noop);
     // MessageListView has lots of DOM code, so we are going to test the message
     // group merging logic on its own.
 
@@ -435,18 +460,17 @@ test("merge_message_groups", () => {
     }
 
     function build_list(message_groups) {
-        const table_name = "zfilt";
         const filter = new Filter([{operator: "stream", operand: "foo"}]);
 
         const list = new message_list.MessageList({
-            table_name,
             filter,
+            is_node_test: true,
         });
 
-        const view = new MessageListView(list, table_name, true);
+        const view = new MessageListView(list, true, true);
         view._message_groups = message_groups;
-        view.list.unsubscribed_bookend_content = () => {};
-        view.list.subscribed_bookend_content = () => {};
+        view.list.unsubscribed_bookend_content = noop;
+        view.list.subscribed_bookend_content = noop;
         return view;
     }
 
@@ -689,19 +713,19 @@ test("merge_message_groups", () => {
     })();
 });
 
-test("render_windows", () => {
+test("render_windows", ({mock_template}) => {
+    mock_template("message_list.hbs", false, noop);
     // We only render up to 400 messages at a time in our message list,
     // and we only change the window (which is a range, really, with
     // start/end) when the pointer moves outside of the window or close
     // to the edges.
 
     const view = (function make_view() {
-        const table_name = "zfilt";
-        const filter = new Filter();
+        const filter = new Filter([]);
 
         const list = new message_list.MessageList({
-            table_name,
             filter,
+            is_node_test: true,
         });
 
         const view = list.view;
@@ -733,6 +757,7 @@ test("render_windows", () => {
             id: i,
         }));
         list.selected_idx = () => 0;
+        list.view.clear_table = noop;
         list.clear();
 
         list.add_messages(messages, {});

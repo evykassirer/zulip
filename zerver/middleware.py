@@ -19,7 +19,6 @@ from django.utils.crypto import constant_time_compare
 from django.utils.deprecation import MiddlewareMixin
 from django.utils.log import log_response
 from django.utils.translation import gettext as _
-from django.views.csrf import csrf_failure as html_csrf_failure
 from django_scim.middleware import SCIMAuthCheckMiddleware
 from django_scim.settings import scim_settings
 from sentry_sdk import set_tag
@@ -42,7 +41,8 @@ from zerver.lib.response import (
 )
 from zerver.lib.subdomains import get_subdomain
 from zerver.lib.user_agent import parse_user_agent
-from zerver.models import Realm, get_realm
+from zerver.models import Realm
+from zerver.models.realms import get_realm
 
 ParamT = ParamSpec("ParamT")
 logger = logging.getLogger("zulip.requests")
@@ -453,7 +453,7 @@ def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
     if RequestNotes.get_notes(request).error_format == "JSON":
         return json_response_from_error(CsrfFailureError(reason))
     else:
-        return html_csrf_failure(request, reason)
+        return render(request, "4xx.html", context={"csrf_failure": True}, status=403)
 
 
 class LocaleMiddleware(DjangoLocaleMiddleware):
@@ -754,7 +754,3 @@ class ZulipSCIMAuthCheckMiddleware(SCIMAuthCheckMiddleware):
             return response
 
         return None
-
-
-class ZulipNoopMiddleware(MiddlewareMixin):
-    pass

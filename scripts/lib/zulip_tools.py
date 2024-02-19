@@ -341,7 +341,7 @@ def get_caches_to_be_purged(
     # and threshold days, this function return a list of caches
     # which can be purged. Remove the cache only if it is:
     # 1: Not in use by the current installation(in dev as well as in prod).
-    # 2: Not in use by a deployment not older than `threshold_days`(in prod).
+    # 2: Not in use by a deployment not older than `threshold_days` (in prod).
     # 3: Not in use by '/root/zulip'.
     # 4: Not older than `threshold_days`.
     caches_to_purge = set()
@@ -682,16 +682,16 @@ def start_arg_parser(action: str, add_help: bool = False) -> argparse.ArgumentPa
     parser.add_argument(
         "--skip-checks", action="store_true", help="Skip syntax and database checks"
     )
+    parser.add_argument(
+        "--skip-client-reloads",
+        action="store_true",
+        help="Do not send reload events to web clients",
+    )
     if action == "restart":
         parser.add_argument(
             "--less-graceful",
             action="store_true",
             help="Restart with more concern for expediency than minimizing availability interruption",
-        )
-        parser.add_argument(
-            "--skip-tornado",
-            action="store_true",
-            help="Do not restart Tornado processes",
         )
     return parser
 

@@ -77,14 +77,50 @@ run_test("test_get_hash_section", () => {
 
 run_test("get_current_nth_hash_section", () => {
     window.location.hash = "#settings/profile";
-    assert.equal(hash_parser.get_current_nth_hash_section(1), "#settings");
-    assert.equal(hash_parser.get_current_nth_hash_section(2), "profile");
+    assert.equal(hash_parser.get_current_nth_hash_section(0), "#settings");
+    assert.equal(hash_parser.get_current_nth_hash_section(1), "profile");
 
     window.location.hash = "#settings/10/general";
-    assert.equal(hash_parser.get_current_nth_hash_section(1), "#settings");
-    assert.equal(hash_parser.get_current_nth_hash_section(2), "10");
-    assert.equal(hash_parser.get_current_nth_hash_section(3), "general");
-    assert.equal(hash_parser.get_current_nth_hash_section(4), "");
+    assert.equal(hash_parser.get_current_nth_hash_section(0), "#settings");
+    assert.equal(hash_parser.get_current_nth_hash_section(1), "10");
+    assert.equal(hash_parser.get_current_nth_hash_section(2), "general");
+    assert.equal(hash_parser.get_current_nth_hash_section(3), "");
+});
+
+run_test("test_is_same_server_message_link", () => {
+    const dm_message_link = "#narrow/dm/9,15-dm/near/43";
+    assert.equal(hash_parser.is_same_server_message_link(dm_message_link), true);
+
+    const group_message_link = "#narrow/dm/9,16,15-group/near/68";
+    assert.equal(hash_parser.is_same_server_message_link(group_message_link), true);
+
+    const stream_message_link = "#narrow/stream/8-design/topic/desktop/near/82";
+    assert.equal(hash_parser.is_same_server_message_link(stream_message_link), true);
+
+    const stream_link = "#narrow/stream/8-design";
+    assert.equal(hash_parser.is_same_server_message_link(stream_link), false);
+
+    const topic_link = "#narrow/stream/8-design/topic/desktop";
+    assert.equal(hash_parser.is_same_server_message_link(topic_link), false);
+
+    const dm_link = "#narrow/dm/15-John";
+    assert.equal(hash_parser.is_same_server_message_link(dm_link), false);
+
+    const search_link = "#narrow/search/database";
+    assert.equal(hash_parser.is_same_server_message_link(search_link), false);
+
+    const different_server_message_link =
+        "https://fakechat.zulip.org/#narrow/dm/8,1848,2369-group/near/1717378";
+    assert.equal(hash_parser.is_same_server_message_link(different_server_message_link), false);
+
+    const drafts_link = "#drafts";
+    assert.equal(hash_parser.is_same_server_message_link(drafts_link), false);
+
+    const empty_link = "#";
+    assert.equal(hash_parser.is_same_server_message_link(empty_link), false);
+
+    const non_zulip_link = "https://www.google.com";
+    assert.equal(hash_parser.is_same_server_message_link(non_zulip_link), false);
 });
 
 run_test("build_reload_url", () => {
@@ -184,24 +220,24 @@ run_test("test_by_conversation_and_time_url", () => {
 });
 
 run_test("test_search_public_streams_notice_url", () => {
-    function get_operators(url) {
+    function get_terms(url) {
         return hash_util.parse_narrow(url.split("/"));
     }
 
     assert.equal(
-        hash_util.search_public_streams_notice_url(get_operators("#narrow/search/abc")),
+        hash_util.search_public_streams_notice_url(get_terms("#narrow/search/abc")),
         "#narrow/streams/public/search/abc",
     );
 
     assert.equal(
         hash_util.search_public_streams_notice_url(
-            get_operators("#narrow/has/link/has/image/has/attachment"),
+            get_terms("#narrow/has/link/has/image/has/attachment"),
         ),
         "#narrow/streams/public/has/link/has/image/has/attachment",
     );
 
     assert.equal(
-        hash_util.search_public_streams_notice_url(get_operators("#narrow/sender/15")),
+        hash_util.search_public_streams_notice_url(get_terms("#narrow/sender/15")),
         "#narrow/streams/public/sender/15-Hamlet",
     );
 });

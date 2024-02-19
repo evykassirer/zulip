@@ -21,7 +21,9 @@ from zerver.lib.webhooks.common import (
     standardize_headers,
     validate_extract_webhook_http_header,
 )
-from zerver.models import UserProfile, get_realm, get_user
+from zerver.models import UserProfile
+from zerver.models.realms import get_realm
+from zerver.models.users import get_user
 
 
 class WebhooksCommonTestCase(ZulipTestCase):
@@ -167,14 +169,14 @@ class WebhookURLConfigurationTestCase(WebhookTestCase):
             self.test_user, self.url, payload, content_type="application/json"
         )
 
-        expected_topic = "Hello World"
+        expected_topic_name = "Hello World"
         expected_message = "Hello! I am happy to be here! :smile:\nThe Wikipedia featured article for today is **[Marilyn Monroe](https://en.wikipedia.org/wiki/Marilyn_Monroe)**"
 
         msg = self.get_last_message()
         self.assert_stream_message(
             message=msg,
             stream_name="helloworld_renamed",
-            topic_name=expected_topic,
+            topic_name=expected_topic_name,
             content=expected_message,
         )
 

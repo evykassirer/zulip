@@ -39,6 +39,7 @@ from zerver.actions.realm_settings import (
     do_set_realm_property,
 )
 from zerver.lib.avatar import absolute_avatar_url, get_avatar_for_inaccessible_user
+from zerver.lib.display_recipient import get_display_recipient
 from zerver.lib.emoji_utils import hex_codepoint_to_emoji
 from zerver.lib.exceptions import ErrorCode, JsonableError
 from zerver.lib.message import access_message, huddle_users
@@ -56,7 +57,6 @@ from zerver.models import (
     AbstractPushDeviceToken,
     ArchivedMessage,
     Message,
-    NotificationTriggers,
     PushDeviceToken,
     Realm,
     Recipient,
@@ -64,10 +64,10 @@ from zerver.models import (
     UserGroup,
     UserMessage,
     UserProfile,
-    get_display_recipient,
-    get_fake_email_domain,
-    get_user_profile_by_id,
 )
+from zerver.models.realms import get_fake_email_domain
+from zerver.models.scheduled_jobs import NotificationTriggers
+from zerver.models.users import get_user_profile_by_id
 
 if TYPE_CHECKING:
     import aioapns
@@ -291,9 +291,9 @@ def send_apple_push_notification(
     if have_missing_app_id:
         devices = [device for device in devices if device.ios_app_id is not None]
 
-    async def send_all_notifications() -> Iterable[
-        Tuple[DeviceToken, Union[aioapns.common.NotificationResult, BaseException]]
-    ]:
+    async def send_all_notifications() -> (
+        Iterable[Tuple[DeviceToken, Union[aioapns.common.NotificationResult, BaseException]]]
+    ):
         requests = [
             aioapns.NotificationRequest(
                 apns_topic=device.ios_app_id,
@@ -588,11 +588,14 @@ def send_notifications_to_bouncer(
     gcm_options: Dict[str, Any],
     android_devices: Sequence[DeviceToken],
     apple_devices: Sequence[DeviceToken],
-) -> Tuple[int, int]:
-    if not android_devices and not apple_devices:
-        # Avoid making a useless API request to the bouncer if there
-        # are no mobile devices registered for this user.
-        return 0, 0
+) -> None:
+    if len(android_devices) + len(apple_devices) == 0:
+        logger.info(
+            "Skipping contacting the bouncer for user %s because there are no registered devices",
+            user_profile.id,
+        )
+
+        return
 
     post_data = {
         "user_uuid": str(user_profile.uuid),
@@ -607,7 +610,20 @@ def send_notifications_to_bouncer(
         "apple_devices": [device.token for device in apple_devices],
     }
     # Calls zilencer.views.remote_server_notify_push
-    response_data = send_json_to_push_bouncer("POST", "push/notify", post_data)
+
+    try:
+        response_data = send_json_to_push_bouncer("POST", "push/notify", post_data)
+    except PushNotificationsDisallowedByBouncerError as e:
+        logger.warning("Bouncer refused to send push notification: %s", e.reason)
+        do_set_realm_property(
+            user_profile.realm,
+            "push_notifications_enabled",
+            False,
+            acting_user=None,
+        )
+        do_set_push_notifications_enabled_end_timestamp(user_profile.realm, None, acting_user=None)
+        return
+
     assert isinstance(response_data["total_android_devices"], int)
     assert isinstance(response_data["total_apple_devices"], int)
 
@@ -656,7 +672,12 @@ def send_notifications_to_bouncer(
             user_profile.realm, remote_realm_dict["expected_end_timestamp"], acting_user=None
         )
 
-    return total_android_devices, total_apple_devices
+    logger.info(
+        "Sent mobile push notifications for user %s through bouncer: %s via FCM devices, %s via APNs devices",
+        user_profile.id,
+        total_android_devices,
+        total_apple_devices,
+    )
 
 
 #
@@ -736,6 +757,7 @@ def remove_push_device_token(user_profile: UserProfile, token_str: str, kind: in
         # TODO: Make this a remove item
         post_data = {
             "server_uuid": settings.ZULIP_ORG_ID,
+            "realm_uuid": str(user_profile.realm.uuid),
             # We don't know here if the token was registered with uuid
             # or using the legacy id format, so we need to send both.
             "user_uuid": str(user_profile.uuid),
@@ -750,9 +772,11 @@ def remove_push_device_token(user_profile: UserProfile, token_str: str, kind: in
 def clear_push_device_tokens(user_profile_id: int) -> None:
     # Deletes all of a user's PushDeviceTokens.
     if uses_notification_bouncer():
-        user_uuid = str(get_user_profile_by_id(user_profile_id).uuid)
+        user_profile = get_user_profile_by_id(user_profile_id)
+        user_uuid = str(user_profile.uuid)
         post_data = {
             "server_uuid": settings.ZULIP_ORG_ID,
+            "realm_uuid": str(user_profile.realm.uuid),
             # We want to clear all registered token, and they may have
             # been registered with either uuid or id.
             "user_uuid": user_uuid,
@@ -1378,14 +1402,8 @@ def handle_push_notification(user_profile_id: int, missed_message: Dict[str, Any
         PushDeviceToken.objects.filter(user=user_profile, kind=PushDeviceToken.APNS).order_by("id")
     )
     if uses_notification_bouncer():
-        total_android_devices, total_apple_devices = send_notifications_to_bouncer(
+        send_notifications_to_bouncer(
             user_profile, apns_payload, gcm_payload, gcm_options, android_devices, apple_devices
-        )
-        logger.info(
-            "Sent mobile push notifications for user %s through bouncer: %s via FCM devices, %s via APNs devices",
-            user_profile_id,
-            total_android_devices,
-            total_apple_devices,
         )
         return
 
@@ -1455,6 +1473,7 @@ def send_test_push_notification(user_profile: UserProfile, devices: List[PushDev
     if uses_notification_bouncer():
         for device in devices:
             post_data = {
+                "realm_uuid": str(user_profile.realm.uuid),
                 "user_uuid": str(user_profile.uuid),
                 "user_id": user_profile.id,
                 "token": device.token,
@@ -1498,3 +1517,8 @@ class InvalidRemotePushDeviceTokenError(JsonableError):
     @override
     def msg_format() -> str:
         return _("Device not recognized by the push bouncer")
+
+
+class PushNotificationsDisallowedByBouncerError(Exception):
+    def __init__(self, reason: str) -> None:
+        self.reason = reason

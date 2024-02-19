@@ -73,10 +73,10 @@ in the Zulip app to add more to your repertoire as needed.
 * **Scroll down**: <kbd>PgDn</kbd>, <kbd>Shift</kbd> + <kbd>J</kbd>, or
   <kbd>Spacebar</kbd>
 
-* **Go back through viewing history**: <kbd>Alt</kbd> +
+* **Go back through viewing history**: <kbd data-mac-key="⌘">Alt</kbd> +
   <kbd class="arrow-key">←</kbd>
 
-* **Go forward through viewing history**: <kbd>Alt</kbd> +
+* **Go forward through viewing history**: <kbd data-mac-key="⌘">Alt</kbd> +
   <kbd class="arrow-key">→</kbd>
 
 ## Narrowing
@@ -133,6 +133,8 @@ in the Zulip app to add more to your repertoire as needed.
 
 * **Insert link**: `[Zulip website](https://zulip.org)` or <kbd>Ctrl</kbd> +
   <kbd>Shift</kbd> + <kbd>L</kbd>
+
+* **Toggle preview mode**: <kbd>Alt</kbd> + <kbd>P</kbd>
 
 * **Cancel compose and save draft**: <kbd>Esc</kbd> or <kbd>Ctrl</kbd> +
   <kbd>[</kbd> — Close the compose box and save the unsent message as a draft.

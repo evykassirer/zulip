@@ -1,19 +1,18 @@
 {
     "activity": [
+        "./third/bootstrap/css/bootstrap.portico.css",
         "./src/bundles/common",
         "sorttable",
         "./src/analytics/activity",
         "./styles/portico/activity.css"
     ],
     "billing": [
-        "./src/billing/page_params",
         "./src/bundles/portico",
         "./src/billing/helpers",
         "./src/billing/billing",
         "./styles/portico/billing.css"
     ],
     "sponsorship": [
-        "./src/billing/page_params",
         "./src/bundles/portico",
         "jquery-validation",
         "./src/portico/signup",
@@ -21,7 +20,6 @@
         "./styles/portico/billing.css"
     ],
     "upgrade": [
-        "./src/billing/page_params",
         "./src/bundles/portico",
         "./src/portico/tippyjs",
         "./src/billing/helpers",
@@ -32,7 +30,6 @@
         "./styles/portico/billing.css"
     ],
     "billing-event-status": [
-        "./src/billing/page_params",
         "./src/bundles/portico",
         "./styles/portico/landing_page.css",
         "./src/billing/event_status",
@@ -40,7 +37,10 @@
         "./styles/portico/billing.css"
     ],
     "portico": ["./src/bundles/portico"],
-    "error-styles": ["./third/bootstrap/css/bootstrap.css", "./styles/portico/portico_styles.css"],
+    "error-styles": [
+        "./third/bootstrap/css/bootstrap.portico.css",
+        "./styles/portico/portico_styles.css"
+    ],
     "common": ["./src/bundles/common"],
     "help": [
         "./src/bundles/portico",
@@ -50,6 +50,11 @@
         "./src/portico/tabbed-instructions"
     ],
     "landing-page": [
+        "./src/bundles/portico",
+        "./src/portico/landing-page",
+        "./styles/portico/landing_page.css"
+    ],
+    "landing-page-with-pricing": [
         "./src/bundles/portico",
         "./src/portico/landing-page",
         "./styles/portico/landing_page.css",
@@ -72,7 +77,9 @@
         "./styles/portico/hello.css",
         "./styles/portico/navbar.css",
         "./styles/portico/footer.css",
-        "./styles/portico/pricing_plans.css"
+        "./styles/portico/plans_pages.css",
+        "./styles/portico/pricing_plans.css",
+        "./styles/portico/comparison_table.css"
     ],
     "integrations": [
         "./src/bundles/portico",
@@ -89,10 +96,12 @@
     "signup": ["./src/bundles/portico", "jquery-validation", "./src/portico/signup"],
     "register": ["./src/bundles/portico", "jquery-validation", "./src/portico/signup"],
     "confirm-preregistrationuser": [
+        "./third/bootstrap/css/bootstrap.portico.css",
         "./src/bundles/common",
         "./src/portico/confirm-preregistrationuser"
     ],
     "support": [
+        "./third/bootstrap/css/bootstrap.portico.css",
         "./src/bundles/common",
         "sorttable",
         "./src/analytics/activity",
@@ -102,7 +111,6 @@
     "desktop-login": ["./src/bundles/portico", "./src/portico/desktop-login"],
     "desktop-redirect": ["./src/bundles/portico", "./src/portico/desktop-redirect"],
     "stats": [
-        "./src/stats/page_params",
         "./src/bundles/portico",
         "./styles/portico/stats.css",
         "./src/stats/stats",

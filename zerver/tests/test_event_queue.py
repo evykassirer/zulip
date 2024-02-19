@@ -15,7 +15,8 @@ from zerver.actions.user_topics import do_set_user_topic_visibility_policy
 from zerver.lib.cache import cache_delete, get_muting_users_cache_key
 from zerver.lib.test_classes import ZulipTestCase
 from zerver.lib.test_helpers import HostRequestMock, dummy_handler, mock_queue_publish
-from zerver.models import Recipient, Subscription, UserProfile, UserTopic, get_stream
+from zerver.models import Recipient, Subscription, UserProfile, UserTopic
+from zerver.models.streams import get_stream
 from zerver.tornado.event_queue import (
     ClientDescriptor,
     access_client_descriptor,
@@ -1311,9 +1312,7 @@ class EventQueueTest(ZulipTestCase):
             umfe(timestamp=1, messages=[101]),
             umfe(timestamp=2, messages=[201, 202]),
             dict(type="unknown"),
-            dict(type="restart", server_generation="1"),
             umfe(timestamp=3, messages=[301, 302, 303]),
-            dict(type="restart", server_generation="2"),
             umfe(timestamp=4, messages=[401, 402, 403, 404]),
         ]
 
@@ -1326,9 +1325,8 @@ class EventQueueTest(ZulipTestCase):
             queue.contents(),
             [
                 dict(id=2, type="unknown"),
-                dict(id=5, type="restart", server_generation="2"),
                 dict(
-                    id=6,
+                    id=4,
                     type="update_message_flags",
                     operation="add",
                     flag="read",
@@ -1352,9 +1350,8 @@ class EventQueueTest(ZulipTestCase):
             queue.contents(),
             [
                 dict(id=2, type="unknown"),
-                dict(id=5, type="restart", server_generation="2"),
                 dict(
-                    id=6,
+                    id=4,
                     type="update_message_flags",
                     operation="add",
                     flag="read",
@@ -1363,7 +1360,7 @@ class EventQueueTest(ZulipTestCase):
                     messages=[101, 201, 202, 301, 302, 303, 401, 402, 403, 404],
                 ),
                 dict(
-                    id=7,
+                    id=5,
                     type="update_message_flags",
                     operation="add",
                     flag="read",
@@ -1464,23 +1461,28 @@ class EventQueueTest(ZulipTestCase):
         of the same form.  See the code in
         EventQueue.push for more context.
         """
+
+        event = dict(
+            id=0,
+            type="update_message_flags",
+            operation="add",
+            flag="read",
+            all=False,
+            timestamp=1,
+            messages=[101],
+        )
+
         client = self.get_client_descriptor()
         queue = client.event_queue
-        queue.push({"type": "restart", "server_generation": 1, "timestamp": "1"})
-        # Verify the server_generation event is stored as a virtual event
-        self.assertEqual(
-            queue.virtual_events,
-            {"restart": {"id": 0, "type": "restart", "server_generation": 1, "timestamp": "1"}},
-        )
+        queue.push(event)
+        # Verify the event is stored as a virtual event
+        self.assertEqual(queue.virtual_events, {"flags/add/read": event})
         # And we can reconstruct newest_pruned_id etc.
         self.verify_to_dict_end_to_end(client)
 
         queue.push({"type": "unknown", "timestamp": "1"})
         self.assertEqual(list(queue.queue), [{"id": 1, "type": "unknown", "timestamp": "1"}])
-        self.assertEqual(
-            queue.virtual_events,
-            {"restart": {"id": 0, "type": "restart", "server_generation": 1, "timestamp": "1"}},
-        )
+        self.assertEqual(queue.virtual_events, {"flags/add/read": event})
         # And we can still reconstruct newest_pruned_id etc. correctly
         self.verify_to_dict_end_to_end(client)
 
@@ -1488,7 +1490,7 @@ class EventQueueTest(ZulipTestCase):
         self.assertEqual(
             queue.contents(),
             [
-                {"id": 0, "type": "restart", "server_generation": 1, "timestamp": "1"},
+                event,
                 {"id": 1, "type": "unknown", "timestamp": "1"},
             ],
         )

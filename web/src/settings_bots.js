@@ -8,6 +8,7 @@ import render_bot_settings_tip from "../templates/settings/bot_settings_tip.hbs"
 import * as avatar from "./avatar";
 import * as bot_data from "./bot_data";
 import * as channel from "./channel";
+import * as components from "./components";
 import {show_copied_confirmation} from "./copied_tooltip";
 import {csrf_token} from "./csrf";
 import * as dialog_widget from "./dialog_widget";
@@ -17,28 +18,15 @@ import * as list_widget from "./list_widget";
 import {page_params} from "./page_params";
 import * as people from "./people";
 import * as settings_data from "./settings_data";
+import {current_user, realm} from "./state_data";
 import * as ui_report from "./ui_report";
 import * as user_deactivation_ui from "./user_deactivation_ui";
 import * as user_profile from "./user_profile";
 
 const INCOMING_WEBHOOK_BOT_TYPE = 2;
 const OUTGOING_WEBHOOK_BOT_TYPE = "3";
+const OUTGOING_WEBHOOK_BOT_TYPE_INT = 3;
 const EMBEDDED_BOT_TYPE = "4";
-
-const focus_tab = {
-    active_bots_tab() {
-        $("#bots_lists_navbar .active").removeClass("active");
-        $("#bots_lists_navbar .active-bots-tab").addClass("active");
-        $("#active_bots_list").show();
-        $("#inactive_bots_list").hide();
-    },
-    inactive_bots_tab() {
-        $("#bots_lists_navbar .active").removeClass("active");
-        $("#bots_lists_navbar .inactive-bots-tab").addClass("active");
-        $("#active_bots_list").hide();
-        $("#inactive_bots_list").show();
-    },
-};
 
 function add_bot_row(info) {
     const $row = $(render_bot_avatar_row(info));
@@ -59,7 +47,7 @@ export function render_bots() {
     $("#inactive_bots_list").empty();
 
     const all_bots_for_current_user = bot_data.get_all_bots_for_current_user();
-    let user_owns_an_active_bot = false;
+    let user_owns_an_active_outgoing_webhook_bot = false;
 
     for (const elem of all_bots_for_current_user) {
         add_bot_row({
@@ -73,7 +61,15 @@ export function render_bots() {
             is_incoming_webhook_bot: elem.bot_type === INCOMING_WEBHOOK_BOT_TYPE,
             zuliprc: "zuliprc", // Most browsers do not allow filename starting with `.`
         });
-        user_owns_an_active_bot = user_owns_an_active_bot || elem.is_active;
+        user_owns_an_active_outgoing_webhook_bot =
+            user_owns_an_active_outgoing_webhook_bot ||
+            (elem.is_active && elem.bot_type === OUTGOING_WEBHOOK_BOT_TYPE_INT);
+    }
+
+    if (user_owns_an_active_outgoing_webhook_bot) {
+        $("#active_bots_list_container .config-download-text").show();
+    } else {
+        $("#active_bots_list_container .config-download-text").hide();
     }
 
     list_widget.render_empty_list_message_if_needed($("#active_bots_list"));
@@ -104,7 +100,7 @@ export function generate_zuliprc_content(bot) {
         "\nkey=" +
         bot.api_key +
         "\nsite=" +
-        page_params.realm_uri +
+        realm.realm_uri +
         (token === undefined ? "" : "\ntoken=" + token) +
         // Some tools would not work in files without a trailing new line.
         "\n"
@@ -119,7 +115,7 @@ export function generate_botserverrc_content(email, api_key, token) {
         "\nkey=" +
         api_key +
         "\nsite=" +
-        page_params.realm_uri +
+        realm.realm_uri +
         "\ntoken=" +
         token +
         "\n"
@@ -144,33 +140,33 @@ export const bot_creation_policy_values = {
 };
 
 export function can_create_new_bots() {
-    if (page_params.is_admin) {
+    if (current_user.is_admin) {
         return true;
     }
 
-    if (page_params.is_guest) {
+    if (current_user.is_guest) {
         return false;
     }
 
-    return page_params.realm_bot_creation_policy !== bot_creation_policy_values.admins_only.code;
+    return realm.realm_bot_creation_policy !== bot_creation_policy_values.admins_only.code;
 }
 
 export function update_bot_settings_tip($tip_container, for_org_settings) {
     if (
-        !page_params.is_admin &&
-        page_params.realm_bot_creation_policy === bot_creation_policy_values.everyone.code
+        !current_user.is_admin &&
+        realm.realm_bot_creation_policy === bot_creation_policy_values.everyone.code
     ) {
         $tip_container.hide();
         return;
     }
 
-    if (page_params.is_admin && !for_org_settings) {
+    if (current_user.is_admin && !for_org_settings) {
         $tip_container.hide();
         return;
     }
 
     const rendered_tip = render_bot_settings_tip({
-        realm_bot_creation_policy: page_params.realm_bot_creation_policy,
+        realm_bot_creation_policy: realm.realm_bot_creation_policy,
         permission_type: bot_creation_policy_values,
     });
     $tip_container.show();
@@ -198,14 +194,14 @@ export function update_bot_permissions_ui() {
     update_bot_settings_tip($("#admin-bot-settings-tip"), true);
     update_bot_settings_tip($("#personal-bot-settings-tip"), false);
     update_add_bot_button();
-    $("#id_realm_bot_creation_policy").val(page_params.realm_bot_creation_policy);
+    $("#id_realm_bot_creation_policy").val(realm.realm_bot_creation_policy);
 }
 
 export function add_a_new_bot() {
     const html_body = render_add_new_bot_form({
         bot_types: page_params.bot_types,
-        realm_embedded_bots: page_params.realm_embedded_bots,
-        realm_bot_domain: page_params.realm_bot_domain,
+        realm_embedded_bots: realm.realm_embedded_bots,
+        realm_bot_domain: realm.realm_bot_domain,
     });
 
     let create_avatar_widget;
@@ -330,7 +326,6 @@ export function add_a_new_bot() {
 
 export function set_up() {
     $("#download_botserverrc").on("click", function () {
-        const OUTGOING_WEBHOOK_BOT_TYPE_INT = 3;
         let content = "";
 
         for (const bot of bot_data.get_all_bots_for_current_user()) {
@@ -346,9 +341,21 @@ export function set_up() {
         );
     });
 
-    // This needs to come before render_bots() in case the user
-    // has no active bots
-    focus_tab.active_bots_tab();
+    const toggler = components.toggle({
+        child_wants_focus: true,
+        values: [
+            {label: $t({defaultMessage: "Active bots"}), key: "active-bots"},
+            {label: $t({defaultMessage: "Inactive bots"}), key: "inactive-bots"},
+        ],
+        callback(_name, key) {
+            $(".bots_section").hide();
+            $(`[data-bot-settings-section="${CSS.escape(key)}"]`).show();
+        },
+    });
+
+    $("#bot-settings .tab-container").prepend(toggler.get());
+    toggler.goto("active-bots");
+
     render_bots();
 
     $("#active_bots_list").on("click", "button.deactivate_bot", (e) => {
@@ -451,18 +458,6 @@ export function set_up() {
     // Show a tippy tooltip when the bot zuliprc is copied
     clipboard.on("success", (e) => {
         show_copied_confirmation(e.trigger);
-    });
-
-    $("#bots_lists_navbar .active-bots-tab").on("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        focus_tab.active_bots_tab();
-    });
-
-    $("#bots_lists_navbar .inactive-bots-tab").on("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        focus_tab.inactive_bots_tab();
     });
 
     $("#bot-settings .add-a-new-bot").on("click", (e) => {

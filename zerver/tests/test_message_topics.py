@@ -6,7 +6,10 @@ from zerver.actions.streams import do_change_stream_permission
 from zerver.lib.test_classes import ZulipTestCase
 from zerver.lib.test_helpers import timeout_mock
 from zerver.lib.timeout import TimeoutExpiredError
-from zerver.models import Message, UserMessage, get_client, get_realm, get_stream
+from zerver.models import Message, UserMessage
+from zerver.models.clients import get_client
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
 
 
 class TopicHistoryTest(ZulipTestCase):
@@ -37,7 +40,7 @@ class TopicHistoryTest(ZulipTestCase):
         stream = get_stream(stream_name, user_profile.realm)
         recipient = stream.recipient
 
-        def create_test_message(topic: str) -> int:
+        def create_test_message(topic_name: str) -> int:
             # TODO: Clean this up to send messages the normal way.
 
             hamlet = self.example_user("hamlet")
@@ -49,7 +52,7 @@ class TopicHistoryTest(ZulipTestCase):
                 date_sent=timezone_now(),
                 sending_client=get_client("whatever"),
             )
-            message.set_topic_name(topic)
+            message.set_topic_name(topic_name)
             message.save()
 
             UserMessage.objects.create(

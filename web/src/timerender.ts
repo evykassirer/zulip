@@ -213,15 +213,8 @@ export function render_now(time: Date, today = new Date()): TimeRender {
 }
 
 // Relative time rendering for use in most screens like Recent conversations.
-//
-// Current date is passed as an argument for unit testing
-export function relative_time_string_from_date({
-    date,
-    current_date = new Date(),
-}: {
-    date: Date;
-    current_date?: Date;
-}): string {
+export function relative_time_string_from_date(date: Date): string {
+    const current_date = new Date();
     const minutes = differenceInMinutes(current_date, date);
     if (minutes <= 2) {
         return $t({defaultMessage: "Just now"});
@@ -263,10 +256,8 @@ export function relative_time_string_from_date({
 // word order.
 //
 // Current date is passed as an argument for unit testing
-export function last_seen_status_from_date(
-    last_active_date: Date,
-    current_date = new Date(),
-): string {
+export function last_seen_status_from_date(last_active_date: Date): string {
+    const current_date = new Date();
     const minutes = differenceInMinutes(current_date, last_active_date);
     if (minutes < 60) {
         return $t({defaultMessage: "Active {minutes} minutes ago"}, {minutes});
@@ -364,10 +355,10 @@ function render_date_span($elem: JQuery, rendered_time: TimeRender): JQuery {
 // (What's actually spliced into the message template is the contents
 // of this DOM node as HTML, so effectively a copy of the node. That's
 // okay since to update the time later we look up the node by its id.)
-export function render_date(time: Date, today: Date): JQuery {
+export function render_date(time: Date): JQuery {
     const className = `timerender${next_timerender_id}`;
     next_timerender_id += 1;
-    const rendered_time = render_now(time, today);
+    const rendered_time = render_now(time);
     let $node = $("<span>").attr("class", className);
     $node = render_date_span($node, rendered_time);
     maybe_add_update_list_entry({
@@ -404,8 +395,8 @@ export function update_timestamps(): void {
             const className = entry.className;
             const $elements = $(`.${CSS.escape(className)}`);
             // The element might not exist any more (because it
-            // was in the zfilt table, or because we added
-            // messages above it and re-collapsed).
+            // was in the narrowed message list which was removed,
+            // or because we added messages above it and re-collapsed).
             if ($elements.length > 0) {
                 const time = entry.time;
                 const rendered_time = render_now(time, today);
@@ -432,8 +423,21 @@ export function get_full_time(timestamp: number): string {
     return formatISO(timestamp * 1000);
 }
 
-export function get_timestamp_for_flatpickr(timestring: string): Date {
+function get_current_time_to_hour(): Date {
+    const timestamp = new Date();
+    timestamp.setMinutes(0, 0);
+    return timestamp;
+}
+
+export function get_timestamp_for_flatpickr(timestring?: string): Date {
     let timestamp;
+
+    // timestring is undefined when first opening the picker from the
+    // compose box button.
+    if (timestring === undefined) {
+        return get_current_time_to_hour();
+    }
+
     try {
         // If there's already a valid time in the compose box,
         // we use it to initialize the flatpickr instance.
@@ -441,8 +445,7 @@ export function get_timestamp_for_flatpickr(timestring: string): Date {
     } finally {
         // Otherwise, default to showing the current time to the hour.
         if (!timestamp || !isValid(timestamp)) {
-            timestamp = new Date();
-            timestamp.setMinutes(0, 0);
+            timestamp = get_current_time_to_hour();
         }
     }
     return timestamp;
@@ -474,7 +477,8 @@ export function format_time_modern(time: number | Date, today = new Date()): str
 
 // this is for rendering absolute time based off the preferences for twenty-four
 // hour time in the format of "%mmm %d, %h:%m %p".
-export function absolute_time(timestamp: number, today = new Date()): string {
+export function absolute_time(timestamp: number): string {
+    const today = new Date();
     const date = new Date(timestamp);
     const is_older_year = today.getFullYear() - date.getFullYear() > 0;
 

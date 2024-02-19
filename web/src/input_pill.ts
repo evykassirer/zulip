@@ -21,14 +21,18 @@ export type InputPillItem<T> = {
     should_add_guest_user_indicator?: boolean;
 } & T;
 
+export type InputPillConfig = {
+    show_user_status_emoji?: boolean;
+    exclude_inaccessible_users?: boolean;
+};
+
 type InputPillCreateOptions<T> = {
     $container: JQuery;
-    pill_config?: {
-        show_user_status_emoji?: boolean;
-    };
+    pill_config?: InputPillConfig | undefined;
     create_item_from_text: (
         text: string,
         existing_items: InputPillItem<T>[],
+        pill_config?: InputPillConfig | undefined,
     ) => InputPillItem<T> | undefined;
     get_text_from_item: (item: InputPillItem<T>) => string;
 };
@@ -115,7 +119,7 @@ export function create<T>(opts: InputPillCreateOptions<T>): InputPillContainer<T
 
         create_item(text: string) {
             const existing_items = funcs.items();
-            const item = store.create_item_from_text(text, existing_items);
+            const item = store.create_item_from_text(text, existing_items, store.pill_config);
 
             if (!item?.display_value) {
                 store.$input.addClass("shake");
@@ -290,7 +294,8 @@ export function create<T>(opts: InputPillCreateOptions<T>): InputPillContainer<T
 
         createPillonPaste() {
             if (store.createPillonPaste !== undefined) {
-                return store.createPillonPaste();
+                store.createPillonPaste();
+                return undefined;
             }
             return true;
         },

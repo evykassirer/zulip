@@ -5,13 +5,11 @@ const {strict: assert} = require("assert");
 const _ = require("lodash");
 
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
-const {run_test} = require("./lib/test");
+const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
 const {page_params} = require("./lib/zpage_params");
 
 set_global("document", "document-stub");
-
-const noop = () => {};
 
 function MessageListView() {
     return {
@@ -67,11 +65,9 @@ const alice = {
 people.add_active_user(alice);
 
 function make_home_msg_list() {
-    const table_name = "whatever";
-    const filter = new Filter();
+    const filter = new Filter([]);
 
     const list = new message_list.MessageList({
-        table_name,
         filter,
     });
     return list;
@@ -226,6 +222,12 @@ function forward_fill_step() {
     let fetch;
 
     self.prep = () => {
+        /* Don't wait for the timeout before recursively calling `load_messages`. */
+        const expected_delay = 150;
+        set_global("setTimeout", (f, delay) => {
+            assert.equal(delay, expected_delay);
+            f();
+        });
         fetch = config_fake_channel({
             expected_opts_data: initialize_data.forward_fill.req,
         });
@@ -299,7 +301,6 @@ function simulate_narrow() {
     const filter = new Filter([{operator: "dm", operand: alice.email}]);
 
     const msg_list = new message_list.MessageList({
-        table_name: "zfilt",
         filter,
     });
     message_lists.current = msg_list;
@@ -365,7 +366,7 @@ run_test("loading_newer", () => {
         });
 
         msg_list = simulate_narrow();
-        msg_list.append_to_view = () => {};
+        msg_list.append_to_view = noop;
         // Instead of using 444 as page_param.pointer, we
         // should have a message with that id in the message_list.
         msg_list.append(message_range(444, 445), false);

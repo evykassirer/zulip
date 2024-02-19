@@ -36,7 +36,8 @@ from zerver.lib.response import json_success
 from zerver.lib.streams import access_stream_by_id
 from zerver.lib.timestamp import convert_to_UTC
 from zerver.lib.validator import to_non_negative_int
-from zerver.models import Client, Realm, Stream, UserProfile, get_realm
+from zerver.models import Client, Realm, Stream, UserProfile
+from zerver.models.realms import get_realm
 
 if settings.ZILENCER_ENABLED:
     from zilencer.models import RemoteInstallationCount, RemoteRealmCount, RemoteZulipServer
@@ -54,8 +55,6 @@ def render_stats(
     realm: Optional[Realm],
     *,
     title: Optional[str] = None,
-    for_installation: bool = False,
-    remote: bool = False,
     analytics_ready: bool = True,
 ) -> HttpResponse:
     assert request.user.is_authenticated
@@ -75,21 +74,20 @@ def render_stats(
         guest_users = None
         space_used = None
 
-    page_params = dict(
-        data_url_suffix=data_url_suffix,
-        for_installation=for_installation,
-        remote=remote,
-        upload_space_used=space_used,
-        guest_users=guest_users,
-    )
-
     request_language = get_and_set_request_language(
         request,
         request.user.default_language,
         translation.get_language_from_path(request.path_info),
     )
 
-    page_params["translation_data"] = get_language_translation_data(request_language)
+    # Sync this with stats_params_schema in base_page_params.ts.
+    page_params = dict(
+        page_type="stats",
+        data_url_suffix=data_url_suffix,
+        upload_space_used=space_used,
+        guest_users=guest_users,
+        translation_data=get_language_translation_data(request_language),
+    )
 
     return render(
         request,
@@ -197,7 +195,7 @@ def get_chart_data_for_remote_realm(
 @require_server_admin
 def stats_for_installation(request: HttpRequest) -> HttpResponse:
     assert request.user.is_authenticated
-    return render_stats(request, "/installation", None, title="installation", for_installation=True)
+    return render_stats(request, "/installation", None, title="installation")
 
 
 @require_server_admin
@@ -209,8 +207,6 @@ def stats_for_remote_installation(request: HttpRequest, remote_server_id: int) -
         f"/remote/{server.id}/installation",
         None,
         title=f"remote installation {server.hostname}",
-        for_installation=True,
-        remote=True,
     )
 
 
@@ -383,11 +379,13 @@ def get_chart_data(
                 _("No analytics data available. Please contact your server administrator.")
             )
         if start is None:
-            first = aggregate_table_remote.objects.filter(server=server).first()
+            first = (
+                aggregate_table_remote.objects.filter(server=server).order_by("remote_id").first()
+            )
             assert first is not None
             start = first.end_time
         if end is None:
-            last = aggregate_table_remote.objects.filter(server=server).last()
+            last = aggregate_table_remote.objects.filter(server=server).order_by("remote_id").last()
             assert last is not None
             end = last.end_time
     else:

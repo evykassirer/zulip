@@ -228,7 +228,8 @@
 * [Configure multi-language search](/help/configure-multi-language-search)
 
 ## Bots & integrations
-* [Bots and integrations](/help/bots-and-integrations)
+* [Bots overview](/help/bots-overview)
+* [Integrations overview](/help/integrations-overview)
 * [Add a bot or integration](/help/add-a-bot-or-integration)
 * [Generate integration URL](/help/generate-integration-url)
 * [Edit a bot](/help/edit-a-bot)
@@ -241,6 +242,7 @@
 ## Support
 * [View Zulip version](/help/view-zulip-version)
 * [Zulip Cloud billing](/help/zulip-cloud-billing)
+* [Self-hosted billing](/help/self-hosted-billing)
 * [Support the Zulip project](/help/support-zulip-project)
 * [Linking to the Zulip website](/help/linking-to-zulip-website)
 * [Contact support](/help/contact-support)

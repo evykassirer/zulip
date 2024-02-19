@@ -6,7 +6,8 @@ from django.core.exceptions import ValidationError
 from typing_extensions import override
 
 from zerver.lib.test_classes import ZulipTestCase
-from zerver.models import RealmAuditLog, RealmFilter, url_template_validator
+from zerver.models import RealmAuditLog, RealmFilter
+from zerver.models.linkifiers import url_template_validator
 
 
 class RealmFilterTest(ZulipTestCase):
@@ -77,9 +78,9 @@ class RealmFilterTest(ZulipTestCase):
         self.assertIsNotNone(re.match(data["pattern"], "_code=123abcdZ"))
 
         data["pattern"] = r"PR (?P<id>[0-9]+)"
-        data[
-            "url_template"
-        ] = "https://example.com/~user/web#view_type=type&model=model&action=12345&id={id}"
+        data["url_template"] = (
+            "https://example.com/~user/web#view_type=type&model=model&action=12345&id={id}"
+        )
         result = self.client_post("/json/realm/filters", info=data)
         self.assert_json_success(result)
         self.assertIsNotNone(re.match(data["pattern"], "PR 123"))
@@ -140,12 +141,12 @@ class RealmFilterTest(ZulipTestCase):
         self.assert_json_success(result)
         self.assertIsNotNone(re.match(data["pattern"], "zulip/zulip#123"))
 
-        data[
-            "pattern"
-        ] = r"FOO_(?P<id>[a-f]{5});(?P<zone>[a-f]);(?P<domain>[a-z]+);(?P<location>[a-z]+);(?P<name>[a-z]{2,8});(?P<chapter>[0-9]{2,3});(?P<fragment>[a-z]{2,8})"
-        data[
-            "url_template"
-        ] = "https://zone_{zone}{.domain}.net/ticket{/location}{/id}{?name,chapter}{#fragment:5}"
+        data["pattern"] = (
+            r"FOO_(?P<id>[a-f]{5});(?P<zone>[a-f]);(?P<domain>[a-z]+);(?P<location>[a-z]+);(?P<name>[a-z]{2,8});(?P<chapter>[0-9]{2,3});(?P<fragment>[a-z]{2,8})"
+        )
+        data["url_template"] = (
+            "https://zone_{zone}{.domain}.net/ticket{/location}{/id}{?name,chapter}{#fragment:5}"
+        )
         result = self.client_post("/json/realm/filters", info=data)
         self.assert_json_success(result)
 

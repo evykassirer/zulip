@@ -12,6 +12,7 @@ from django.contrib.sessions.models import Session
 from django.core.files.base import File
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandParser
+from django.core.validators import validate_email
 from django.db import connection
 from django.db.models import F
 from django.db.models.signals import post_delete
@@ -64,16 +65,14 @@ from zerver.models import (
     UserMessage,
     UserPresence,
     UserProfile,
-    flush_alert_word,
-    get_client,
-    get_or_create_huddle,
-    get_realm,
-    get_stream,
-    get_user,
-    get_user_by_delivery_email,
-    get_user_profile_by_id,
 )
-from zilencer.models import RemoteRealm, RemoteZulipServer
+from zerver.models.alert_words import flush_alert_word
+from zerver.models.clients import get_client
+from zerver.models.realms import get_realm
+from zerver.models.recipients import get_or_create_huddle
+from zerver.models.streams import get_stream
+from zerver.models.users import get_user, get_user_by_delivery_email, get_user_profile_by_id
+from zilencer.models import RemoteRealm, RemoteZulipServer, RemoteZulipServerAuditLog
 from zilencer.views import update_remote_realm_data_for_server
 
 settings.USING_TORNADO = False
@@ -392,6 +391,11 @@ class Command(BaseCommand):
                 last_updated=timezone_now(),
                 contact_email="remotezulipserver@zulip.com",
             )
+            RemoteZulipServerAuditLog.objects.create(
+                event_type=RemoteZulipServerAuditLog.REMOTE_SERVER_CREATED,
+                server=server,
+                event_time=server.last_updated,
+            )
             update_remote_realm_data_for_server(server, get_realms_info_for_push_bouncer())
 
             # Create test Users (UserProfiles are automatically created,
@@ -508,7 +512,8 @@ class Command(BaseCommand):
                         full_name += f" {random.choice(raw_emojis)} "
                     else:
                         full_name += " " + random.choice(lnames)
-                email = fname.lower() + "@zulip.com"
+                email = fname.lower().encode("ascii", "ignore").decode("ascii") + "@zulip.com"
+                validate_email(email)
                 names.append((full_name, email))
 
             create_users(zulip_realm, names, tos_version=settings.TERMS_OF_SERVICE_VERSION)
@@ -961,7 +966,9 @@ class Command(BaseCommand):
                 zulip_stream_dict: Dict[str, Dict[str, Any]] = {
                     "devel": {"description": "For developing"},
                     # ビデオゲーム - VideoGames (japanese)
-                    "ビデオゲーム": {"description": f"Share your favorite video games!  {raw_emojis[2]}"},
+                    "ビデオゲーム": {
+                        "description": f"Share your favorite video games!  {raw_emojis[2]}"
+                    },
                     "announce": {
                         "description": "For announcements",
                         "stream_post_policy": Stream.STREAM_POST_POLICY_ADMINS,
@@ -1135,7 +1142,7 @@ def generate_and_send_messages(
         huddle_members[h] = [s.user_profile.id for s in Subscription.objects.filter(recipient_id=h)]
 
     # Generate different topics for each stream
-    possible_topics = {}
+    possible_topic_names = {}
     for stream_id in recipient_streams:
         # We want the test suite to have a predictable database state,
         # since some tests depend on it; but for actual development,
@@ -1146,7 +1153,7 @@ def generate_and_send_messages(
         else:
             num_topics = options["max_topics"]
 
-        possible_topics[stream_id] = generate_topics(num_topics)
+        possible_topic_names[stream_id] = generate_topics(num_topics)
 
     message_batch_size = options["batch_size"]
     num_messages = 0
@@ -1203,7 +1210,7 @@ def generate_and_send_messages(
             message.sender = random.choice(
                 list(Subscription.objects.filter(recipient=message.recipient))
             ).user_profile
-            message.subject = random.choice(possible_topics[message.recipient.id])
+            message.subject = random.choice(possible_topic_names[message.recipient.id])
             saved_data["subject"] = message.subject
 
         message.date_sent = choose_date_sent(

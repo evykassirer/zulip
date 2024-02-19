@@ -26,12 +26,20 @@ from zerver.actions.streams import bulk_add_subscriptions
 from zerver.apps import flush_cache
 from zerver.lib.remote_server import get_realms_info_for_push_bouncer
 from zerver.lib.streams import create_stream_if_needed
-from zerver.models import Realm, UserProfile, get_realm
-from zilencer.models import RemoteRealm, RemoteZulipServer
+from zerver.models import Realm, UserProfile
+from zerver.models.realms import get_realm
+from zilencer.models import (
+    RemoteRealm,
+    RemoteRealmBillingUser,
+    RemoteServerBillingUser,
+    RemoteZulipServer,
+    RemoteZulipServerAuditLog,
+)
 from zilencer.views import update_remote_realm_data_for_server
 from zproject.config import get_secret
 
 current_time = timezone_now().strftime(TIMESTAMP_FORMAT)
+communicate_with_stripe = get_secret("stripe_secret_key") is not None
 
 
 @dataclass
@@ -158,7 +166,7 @@ class Command(BaseCommand):
                 unique_id="legacy-server-upgrade-scheduled",
                 tier=CustomerPlan.TIER_SELF_HOSTED_LEGACY,
                 status=CustomerPlan.SWITCH_PLAN_TIER_AT_PLAN_END,
-                new_plan_tier=CustomerPlan.TIER_SELF_HOSTED_PLUS,
+                new_plan_tier=CustomerPlan.TIER_SELF_HOSTED_BASIC,
                 is_remote_server=True,
             ),
             CustomerProfile(
@@ -189,6 +197,11 @@ class Command(BaseCommand):
                 tier=CustomerPlan.TIER_SELF_HOSTED_COMMUNITY,
                 is_sponsored=True,
                 is_remote_server=True,
+            ),
+            CustomerProfile(
+                unique_id="legacy-remote-realm",
+                tier=CustomerPlan.TIER_SELF_HOSTED_LEGACY,
+                is_remote_realm=True,
             ),
             CustomerProfile(
                 unique_id="free-tier-remote-realm",
@@ -222,6 +235,17 @@ class Command(BaseCommand):
                 is_sponsored=True,
                 is_remote_realm=True,
             ),
+            CustomerProfile(
+                unique_id="basic-remote-realm",
+                tier=CustomerPlan.TIER_SELF_HOSTED_BASIC,
+                is_remote_realm=True,
+            ),
+            CustomerProfile(
+                unique_id="basic-remote-free-trial",
+                tier=CustomerPlan.TIER_SELF_HOSTED_BASIC,
+                status=CustomerPlan.FREE_TRIAL,
+                is_remote_realm=True,
+            ),
         ]
 
         servers = []
@@ -249,6 +273,9 @@ class Command(BaseCommand):
 
 
 def add_card_to_customer(customer: Customer) -> None:
+    if not communicate_with_stripe:
+        return
+
     assert customer.stripe_customer_id is not None
     # Set the Stripe API key
     stripe.api_key = get_secret("stripe_secret_key")
@@ -293,8 +320,8 @@ def create_plan_for_customer(customer: Customer, customer_profile: CustomerProfi
     )
 
     LicenseLedger.objects.create(
-        licenses=10,
-        licenses_at_next_renewal=10,
+        licenses=25,
+        licenses_at_next_renewal=25,
         event_time=timezone_now(),
         is_renewal=True,
         plan=customer_plan,
@@ -359,7 +386,8 @@ def populate_realm(customer_profile: CustomerProfile) -> Optional[Realm]:
         # Remote realm billing data on their local server is irrelevant.
         return realm
 
-    if customer_profile.sponsorship_pending:
+    if customer_profile.sponsorship_pending or customer_profile.is_sponsored:
+        # plan_type is already set correctly above for sponsored realms.
         customer = Customer.objects.create(
             realm=realm,
             sponsorship_pending=customer_profile.sponsorship_pending,
@@ -370,8 +398,13 @@ def populate_realm(customer_profile: CustomerProfile) -> Optional[Realm]:
         return realm
 
     billing_session = RealmBillingSession(user)
-    customer = billing_session.update_or_create_stripe_customer()
-    assert customer.stripe_customer_id is not None
+    if communicate_with_stripe:
+        # This attaches stripe_customer_id to customer.
+        customer = billing_session.update_or_create_stripe_customer()
+        assert customer.stripe_customer_id is not None
+    else:
+        customer = billing_session.update_or_create_customer()
+
     if customer_profile.card:
         add_card_to_customer(customer)
 
@@ -388,11 +421,11 @@ def populate_remote_server(customer_profile: CustomerProfile) -> Dict[str, str]:
     ):
         plan_type = RemoteZulipServer.PLAN_TYPE_COMMUNITY
     elif customer_profile.tier == CustomerPlan.TIER_SELF_HOSTED_LEGACY:
-        plan_type = RemoteZulipServer.PLAN_TYPE_SELF_HOSTED
+        plan_type = RemoteZulipServer.PLAN_TYPE_SELF_MANAGED_LEGACY
     elif customer_profile.tier == CustomerPlan.TIER_SELF_HOSTED_BUSINESS:
         plan_type = RemoteZulipServer.PLAN_TYPE_BUSINESS
     elif customer_profile.tier is CustomerPlan.TIER_SELF_HOSTED_BASE:
-        plan_type = RemoteZulipServer.PLAN_TYPE_SELF_HOSTED
+        plan_type = RemoteZulipServer.PLAN_TYPE_SELF_MANAGED
     else:
         raise AssertionError("Unexpected tier!")
 
@@ -414,10 +447,20 @@ def populate_remote_server(customer_profile: CustomerProfile) -> Dict[str, str]:
         last_audit_log_update=timezone_now(),
     )
 
-    billing_session = RemoteServerBillingSession(remote_server)
+    RemoteZulipServerAuditLog.objects.create(
+        event_type=RemoteZulipServerAuditLog.REMOTE_SERVER_CREATED,
+        server=remote_server,
+        event_time=remote_server.last_updated,
+    )
+
+    billing_user = RemoteServerBillingUser.objects.create(
+        full_name="Server user",
+        remote_server=remote_server,
+        email=f"{unique_id}@example.com",
+    )
+    billing_session = RemoteServerBillingSession(remote_server, billing_user)
     if customer_profile.tier == CustomerPlan.TIER_SELF_HOSTED_LEGACY:
         # Create customer plan for these servers for temporary period.
-        billing_session = RemoteServerBillingSession(remote_server)
         renewal_date = datetime.strptime(customer_profile.renewal_date, TIMESTAMP_FORMAT).replace(
             tzinfo=timezone.utc
         )
@@ -425,12 +468,22 @@ def populate_remote_server(customer_profile: CustomerProfile) -> Dict[str, str]:
             tzinfo=timezone.utc
         )
         billing_session.migrate_customer_to_legacy_plan(renewal_date, end_date)
+
+        if not communicate_with_stripe:
+            # We need to communicate with stripe to upgrade here.
+            return {
+                "unique_id": unique_id,
+                "server_uuid": server_uuid,
+                "api_key": api_key,
+                "ERROR": "Need to communicate with stripe to populate this profile.",
+            }
+
         # Scheduled server to upgrade to business plan.
         if customer_profile.status == CustomerPlan.SWITCH_PLAN_TIER_AT_PLAN_END:
             # This attaches stripe_customer_id to customer.
             customer = billing_session.update_or_create_stripe_customer()
             add_card_to_customer(customer)
-            seat_count = 10
+            seat_count = 30
             signed_seat_count, salt = sign_string(str(seat_count))
             upgrade_request = UpgradeRequest(
                 billing_modality="charge_automatically",
@@ -445,8 +498,12 @@ def populate_remote_server(customer_profile: CustomerProfile) -> Dict[str, str]:
             billing_session.do_upgrade(upgrade_request)
 
     elif customer_profile.tier == CustomerPlan.TIER_SELF_HOSTED_BUSINESS:
-        customer = billing_session.update_or_create_stripe_customer()
-        assert customer.stripe_customer_id is not None
+        if communicate_with_stripe:
+            # This attaches stripe_customer_id to customer.
+            customer = billing_session.update_or_create_stripe_customer()
+            assert customer.stripe_customer_id is not None
+        else:
+            customer = billing_session.update_or_create_customer()
         add_card_to_customer(customer)
         create_plan_for_customer(customer, customer_profile)
 
@@ -479,23 +536,42 @@ def populate_remote_realms(customer_profile: CustomerProfile) -> Dict[str, str]:
     if remote_server is None:
         raise AssertionError("Remote server not found! Please run manage.py register_server")
 
-    update_remote_realm_data_for_server(
-        remote_server, get_realms_info_for_push_bouncer(local_realm.id)
-    )
+    update_remote_realm_data_for_server(remote_server, get_realms_info_for_push_bouncer())
 
     remote_realm = RemoteRealm.objects.get(uuid=local_realm.uuid)
-    billing_session = RemoteRealmBillingSession(remote_realm)
+    user = UserProfile.objects.filter(realm=local_realm).first()
+    assert user is not None
+    billing_user = RemoteRealmBillingUser.objects.create(
+        full_name=user.full_name,
+        remote_realm=remote_realm,
+        user_uuid=user.uuid,
+        email=user.email,
+    )
+    billing_session = RemoteRealmBillingSession(remote_realm, billing_user)
     # TODO: Save property audit log  data for server.
     remote_realm.server.last_audit_log_update = timezone_now()
     remote_realm.server.save(update_fields=["last_audit_log_update"])
-    customer = billing_session.update_or_create_stripe_customer()
-    assert customer.stripe_customer_id is not None
+    if communicate_with_stripe:
+        # This attaches stripe_customer_id to customer.
+        customer = billing_session.update_or_create_stripe_customer()
+        assert customer.stripe_customer_id is not None
+    else:
+        customer = billing_session.update_or_create_customer()
     add_card_to_customer(customer)
-    if customer_profile.tier is not None:
+    if customer_profile.tier == CustomerPlan.TIER_SELF_HOSTED_LEGACY:
+        renewal_date = datetime.strptime(customer_profile.renewal_date, TIMESTAMP_FORMAT).replace(
+            tzinfo=timezone.utc
+        )
+        end_date = datetime.strptime(customer_profile.end_date, TIMESTAMP_FORMAT).replace(
+            tzinfo=timezone.utc
+        )
+        billing_session.migrate_customer_to_legacy_plan(renewal_date, end_date)
+    elif customer_profile.tier is not None:
         billing_session.do_change_plan_type(
             tier=customer_profile.tier, is_sponsored=customer_profile.is_sponsored
         )
-        create_plan_for_customer(customer, customer_profile)
+        if not customer_profile.is_sponsored:
+            create_plan_for_customer(customer, customer_profile)
 
     if customer_profile.sponsorship_pending:
         billing_session.update_customer_sponsorship_status(True)

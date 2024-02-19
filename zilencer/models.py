@@ -47,6 +47,7 @@ class RemoteZulipServer(models.Model):
     hostname = models.CharField(max_length=HOSTNAME_MAX_LENGTH)
     contact_email = models.EmailField(blank=True, null=False)
     last_updated = models.DateTimeField("last updated", auto_now=True)
+    last_request_datetime = models.DateTimeField(null=True)
     last_version = models.CharField(max_length=VERSION_MAX_LENGTH, null=True)
     last_api_feature_level = models.PositiveIntegerField(null=True)
 
@@ -54,13 +55,22 @@ class RemoteZulipServer(models.Model):
     deactivated = models.BooleanField(default=False)
 
     # Plan types for self-hosted customers
+    #
+    # We reserve PLAN_TYPE_SELF_HOSTED=Realm.PLAN_TYPE_SELF_HOSTED for
+    # self-hosted installations that aren't using the notifications
+    # service.
+    #
+    # The other values align with, e.g., CustomerPlan.TIER_SELF_HOSTED_BASE
     PLAN_TYPE_SELF_HOSTED = 1
-    PLAN_TYPE_COMMUNITY = 100
-    PLAN_TYPE_BUSINESS = 101
-    PLAN_TYPE_ENTERPRISE = 102
+    PLAN_TYPE_SELF_MANAGED = 100
+    PLAN_TYPE_SELF_MANAGED_LEGACY = 101
+    PLAN_TYPE_COMMUNITY = 102
+    PLAN_TYPE_BASIC = 103
+    PLAN_TYPE_BUSINESS = 104
+    PLAN_TYPE_ENTERPRISE = 105
 
     # The current billing plan for the remote server, similar to Realm.plan_type.
-    plan_type = models.PositiveSmallIntegerField(default=PLAN_TYPE_SELF_HOSTED)
+    plan_type = models.PositiveSmallIntegerField(default=PLAN_TYPE_SELF_MANAGED)
 
     # This is not synced with the remote server, but only filled for sponsorship requests.
     org_type = models.PositiveSmallIntegerField(
@@ -133,23 +143,34 @@ class RemoteRealm(models.Model):
     # The fields below are analogical to RemoteZulipServer fields.
 
     last_updated = models.DateTimeField("last updated", auto_now=True)
+    last_request_datetime = models.DateTimeField(null=True)
 
     # Whether the realm registration has been deactivated.
     registration_deactivated = models.BooleanField(default=False)
     # Whether the realm has been deactivated on the remote server.
     realm_deactivated = models.BooleanField(default=False)
+    # Whether we believe the remote server deleted this realm
+    # from the database.
+    realm_locally_deleted = models.BooleanField(default=False)
 
     # When the realm was created on the remote server.
     realm_date_created = models.DateTimeField()
 
     # Plan types for self-hosted customers
+    #
+    # We reserve PLAN_TYPE_SELF_HOSTED=Realm.PLAN_TYPE_SELF_HOSTED for
+    # self-hosted installations that aren't using the notifications
+    # service.
+    #
+    # The other values align with, e.g., CustomerPlan.TIER_SELF_HOSTED_BASE
     PLAN_TYPE_SELF_HOSTED = 1
-    PLAN_TYPE_COMMUNITY = 100
-    PLAN_TYPE_BUSINESS = 101
-    PLAN_TYPE_ENTERPRISE = 102
-
-    # The current billing plan for the remote server, similar to Realm.plan_type.
-    plan_type = models.PositiveSmallIntegerField(default=PLAN_TYPE_SELF_HOSTED, db_index=True)
+    PLAN_TYPE_SELF_MANAGED = 100
+    PLAN_TYPE_SELF_MANAGED_LEGACY = 101
+    PLAN_TYPE_COMMUNITY = 102
+    PLAN_TYPE_BASIC = 103
+    PLAN_TYPE_BUSINESS = 104
+    PLAN_TYPE_ENTERPRISE = 105
+    plan_type = models.PositiveSmallIntegerField(default=PLAN_TYPE_SELF_MANAGED, db_index=True)
 
     @override
     def __str__(self) -> str:
@@ -178,6 +199,9 @@ class RemoteRealmBillingUser(AbstractRemoteRealmBillingUser):
 
     TOS_VERSION_BEFORE_FIRST_LOGIN = UserProfile.TOS_VERSION_BEFORE_FIRST_LOGIN
     tos_version = models.TextField(default=TOS_VERSION_BEFORE_FIRST_LOGIN)
+
+    enable_major_release_emails = models.BooleanField(default=True)
+    enable_maintenance_release_emails = models.BooleanField(default=True)
 
     class Meta:
         unique_together = [
@@ -217,6 +241,12 @@ class RemoteServerBillingUser(AbstractRemoteServerBillingUser):
 
     is_active = models.BooleanField(default=True)
 
+    TOS_VERSION_BEFORE_FIRST_LOGIN = UserProfile.TOS_VERSION_BEFORE_FIRST_LOGIN
+    tos_version = models.TextField(default=TOS_VERSION_BEFORE_FIRST_LOGIN)
+
+    enable_major_release_emails = models.BooleanField(default=True)
+    enable_maintenance_release_emails = models.BooleanField(default=True)
+
     class Meta:
         unique_together = [
             ("remote_server", "email"),
@@ -245,6 +275,11 @@ class RemoteZulipServerAuditLog(AbstractRealmAuditLog):
 
     server = models.ForeignKey(RemoteZulipServer, on_delete=models.CASCADE)
 
+    acting_remote_user = models.ForeignKey(
+        RemoteServerBillingUser, null=True, on_delete=models.SET_NULL
+    )
+    acting_support_user = models.ForeignKey(UserProfile, null=True, on_delete=models.SET_NULL)
+
     @override
     def __str__(self) -> str:
         return f"{self.server!r} {self.event_type} {self.event_time} {self.id}"
@@ -266,6 +301,11 @@ class RemoteRealmAuditLog(AbstractRealmAuditLog):
     realm_id = models.IntegerField(null=True, blank=True)
     # The remote_id field lets us deduplicate data from the remote server
     remote_id = models.IntegerField(null=True)
+
+    acting_remote_user = models.ForeignKey(
+        RemoteRealmBillingUser, null=True, on_delete=models.SET_NULL
+    )
+    acting_support_user = models.ForeignKey(UserProfile, null=True, on_delete=models.SET_NULL)
 
     @override
     def __str__(self) -> str:
@@ -332,6 +372,13 @@ class RemoteInstallationCount(BaseRemoteCount):
                 condition=Q(remote_id__isnull=False),
                 name="unique_remote_installation_count_server_id_remote_id",
             ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["server_id", "end_time"],
+                condition=Q(property="mobile_pushes_forwarded::day"),
+                name="zilencer_remoteinstallationcount_server_end_time_mobile_pushes_forwarded",
+            )
         ]
 
     @override
@@ -423,6 +470,26 @@ class RemoteCustomerUserCount:
     non_guest_user_count: int
 
 
+def get_remote_customer_user_count(
+    audit_logs: List[RemoteRealmAuditLog],
+) -> RemoteCustomerUserCount:
+    guest_count = 0
+    non_guest_count = 0
+    for log in audit_logs:
+        humans_count_dict = log.extra_data[RemoteRealmAuditLog.ROLE_COUNT][
+            RemoteRealmAuditLog.ROLE_COUNT_HUMANS
+        ]
+        for role_type in UserProfile.ROLE_TYPES:
+            if role_type == UserProfile.ROLE_GUEST:
+                guest_count += humans_count_dict.get(str(role_type), 0)
+            else:
+                non_guest_count += humans_count_dict.get(str(role_type), 0)
+
+    return RemoteCustomerUserCount(
+        non_guest_user_count=non_guest_count, guest_user_count=guest_count
+    )
+
+
 def get_remote_server_guest_and_non_guest_count(
     server_id: int, event_time: datetime = timezone_now()
 ) -> RemoteCustomerUserCount:
@@ -446,26 +513,11 @@ def get_remote_server_guest_and_non_guest_count(
         .values_list("max_id", flat=True)
     )
 
-    extra_data_list = RemoteRealmAuditLog.objects.filter(
-        id__in=list(realm_last_audit_log_ids)
-    ).values_list("extra_data", flat=True)
+    realm_audit_logs = RemoteRealmAuditLog.objects.filter(id__in=list(realm_last_audit_log_ids))
 
     # Now we add up the user counts from the different realms.
-    guest_count = 0
-    non_guest_count = 0
-    for extra_data in extra_data_list:
-        humans_count_dict = extra_data[RemoteRealmAuditLog.ROLE_COUNT][
-            RemoteRealmAuditLog.ROLE_COUNT_HUMANS
-        ]
-        for role_type in UserProfile.ROLE_TYPES:
-            if role_type == UserProfile.ROLE_GUEST:
-                guest_count += humans_count_dict.get(str(role_type), 0)
-            else:
-                non_guest_count += humans_count_dict.get(str(role_type), 0)
-
-    return RemoteCustomerUserCount(
-        non_guest_user_count=non_guest_count, guest_user_count=guest_count
-    )
+    user_count = get_remote_customer_user_count(list(realm_audit_logs))
+    return user_count
 
 
 def get_remote_realm_guest_and_non_guest_count(
@@ -486,21 +538,12 @@ def get_remote_realm_guest_and_non_guest_count(
         .exclude(extra_data={}).last()
     )
 
-    guest_count = 0
-    non_guest_count = 0
     if latest_audit_log is not None:
-        humans_count_dict = latest_audit_log.extra_data[RemoteRealmAuditLog.ROLE_COUNT][
-            RemoteRealmAuditLog.ROLE_COUNT_HUMANS
-        ]
-        for role_type in UserProfile.ROLE_TYPES:
-            if role_type == UserProfile.ROLE_GUEST:
-                guest_count += humans_count_dict.get(str(role_type), 0)
-            else:
-                non_guest_count += humans_count_dict.get(str(role_type), 0)
-
-    return RemoteCustomerUserCount(
-        non_guest_user_count=non_guest_count, guest_user_count=guest_count
-    )
+        assert latest_audit_log is not None
+        user_count = get_remote_customer_user_count([latest_audit_log])
+    else:
+        user_count = RemoteCustomerUserCount(guest_user_count=0, non_guest_user_count=0)
+    return user_count
 
 
 def has_stale_audit_log(server: RemoteZulipServer) -> bool:

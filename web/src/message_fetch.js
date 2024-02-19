@@ -19,6 +19,11 @@ import * as stream_data from "./stream_data";
 import * as stream_list from "./stream_list";
 import * as ui_report from "./ui_report";
 
+export let initial_pointer;
+export let initial_offset;
+export let initial_narrow_pointer;
+export let initial_narrow_offset;
+
 let is_all_messages_data_loaded = false;
 
 const consts = {
@@ -33,6 +38,9 @@ const consts = {
     narrowed_view_forward_batch_size: 100,
     recent_view_fetch_more_batch_size: 1000,
     catch_up_batch_size: 1000,
+    // Delay in milliseconds after processing a catch-up request
+    // before sending the next one.
+    catch_up_backfill_delay: 150,
 };
 
 function process_result(data, opts) {
@@ -43,7 +51,7 @@ function process_result(data, opts) {
     const has_found_newest = opts.msg_list?.data.fetch_status.has_found_newest() ?? false;
 
     // In some rare situations, we expect to discover new unread
-    // messages not tracked in unread.js during this fetching process.
+    // messages not tracked in unread.ts during this fetching process.
     message_util.do_unread_count_updates(messages, true);
 
     // If we're loading more messages into the home view, save them to
@@ -236,7 +244,7 @@ export function load_messages(opts, attempt = 1) {
     }
 
     // This block is a hack; structurally, we want to set
-    //   data.narrow = opts.msg_list.data.filter.public_operators()
+    //   data.narrow = opts.msg_list.data.filter.public_terms()
     //
     // But support for the all_messages_data sharing of data with
     // message_lists.home and the (hacky) page_params.narrow feature
@@ -251,11 +259,11 @@ export function load_messages(opts, attempt = 1) {
         // streams and topics even though message_lists.home's in:home
         // operators will filter those.
     } else {
-        let operators = msg_list_data.filter.public_operators();
+        let terms = msg_list_data.filter.public_terms();
         if (page_params.narrow !== undefined) {
-            operators = [...operators, ...page_params.narrow];
+            terms = [...terms, ...page_params.narrow];
         }
-        data.narrow = JSON.stringify(operators);
+        data.narrow = JSON.stringify(terms);
     }
 
     let update_loading_indicator = opts.msg_list === message_lists.current;
@@ -362,15 +370,28 @@ export function load_messages(opts, attempt = 1) {
                 return;
             }
 
-            // Backoff on retries, with full jitter: up to 2s, 4s, 8s, 16s, 32s
-            let delay = Math.random() * 2 ** attempt * 2000;
-            if (attempt >= 5) {
-                delay = 30000;
-            }
             ui_report.show_error($("#connection-error"));
+
+            // We need to respect the server's rate-limiting headers, but beyond
+            // that, we also want to avoid contributing to a thundering herd if
+            // the server is giving us 500s/502s.
+            //
+            // So we do the maximum of the retry-after header and an exponential
+            // backoff with ratio 2 and half jitter. Starts at 1-2s and ends at
+            // 16-32s after 5 failures.
+            const backoff_scale = Math.min(2 ** attempt, 32);
+            const backoff_delay_secs = ((1 + Math.random()) / 2) * backoff_scale;
+            let rate_limit_delay_secs = 0;
+            if (xhr.status === 429 && xhr.responseJSON?.code === "RATE_LIMIT_HIT") {
+                // Add a bit of jitter to the required delay suggested by the
+                // server, because we may be racing with other copies of the web
+                // app.
+                rate_limit_delay_secs = xhr.responseJSON["retry-after"] + Math.random() * 0.5;
+            }
+            const delay_secs = Math.max(backoff_delay_secs, rate_limit_delay_secs);
             setTimeout(() => {
                 load_messages(opts, attempt + 1);
-            }, delay);
+            }, delay_secs * 1000);
         },
     });
 }
@@ -512,6 +533,13 @@ export function start_backfilling_messages() {
     });
 }
 
+export function set_initial_pointer_and_offset({pointer, offset, narrow_pointer, narrow_offset}) {
+    initial_pointer = pointer;
+    initial_offset = offset;
+    initial_narrow_pointer = narrow_pointer;
+    initial_narrow_offset = narrow_offset;
+}
+
 export function initialize(home_view_loaded) {
     // get the initial message list
     function load_more(data) {
@@ -524,7 +552,7 @@ export function initialize(home_view_loaded) {
             message_lists.home.select_id(data.anchor, {
                 then_scroll: true,
                 use_closest: true,
-                target_scroll_offset: page_params.initial_offset,
+                target_scroll_offset: initial_offset,
             });
         }
 
@@ -551,23 +579,26 @@ export function initialize(home_view_loaded) {
 
         // If we fall through here, we need to keep fetching more data, and
         // we'll call back to the function we're in.
-        const messages = data.messages;
-        const latest_id = messages.at(-1).id;
-
-        load_messages({
-            anchor: latest_id,
-            num_before: 0,
-            num_after: consts.catch_up_batch_size,
-            msg_list: message_lists.home,
-            cont: load_more,
-        });
+        //
+        // But we do it with a bit of delay, to reduce risk that we
+        // hit rate limits with these backfills.
+        const latest_id = data.messages.at(-1).id;
+        setTimeout(() => {
+            load_messages({
+                anchor: latest_id,
+                num_before: 0,
+                num_after: consts.catch_up_batch_size,
+                msg_list: message_lists.home,
+                cont: load_more,
+            });
+        }, consts.catch_up_backfill_delay);
     }
 
     let anchor;
-    if (page_params.initial_pointer) {
+    if (initial_pointer !== undefined) {
         // If we're doing a server-initiated reload, similar to a
         // near: narrow query, we want to select a specific message.
-        anchor = page_params.initial_pointer;
+        anchor = initial_pointer;
     } else {
         // Otherwise, we should just use the first unread message in
         // the user's unmuted history as our anchor.

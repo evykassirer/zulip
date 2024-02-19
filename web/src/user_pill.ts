@@ -1,9 +1,9 @@
 import * as blueslip from "./blueslip";
-import type {InputPillContainer, InputPillItem} from "./input_pill";
+import type {InputPillConfig, InputPillContainer, InputPillItem} from "./input_pill";
 import * as input_pill from "./input_pill";
-import {page_params} from "./page_params";
 import type {User} from "./people";
 import * as people from "./people";
+import {realm} from "./state_data";
 import * as user_status from "./user_status";
 
 // This will be used for pills for things like composing
@@ -19,12 +19,13 @@ export type UserPillWidget = InputPillContainer<UserPill>;
 export function create_item_from_email(
     email: string,
     current_items: InputPillItem<UserPill>[],
+    pill_config?: InputPillConfig | undefined,
 ): InputPillItem<UserPill> | undefined {
     // For normal Zulip use, we need to validate the email for our realm.
     const user = people.get_by_email(email);
 
     if (!user) {
-        if (page_params.realm_is_zephyr_mirror_realm) {
+        if (realm.realm_is_zephyr_mirror_realm) {
             const existing_emails = current_items.map((item) => item.email);
 
             if (existing_emails.includes(email)) {
@@ -42,6 +43,10 @@ export function create_item_from_email(
         }
 
         // The email is not allowed, so return.
+        return undefined;
+    }
+
+    if (pill_config?.exclude_inaccessible_users && user.is_inaccessible_user) {
         return undefined;
     }
 
@@ -147,9 +152,7 @@ export function append_user(user: User, pills: UserPillWidget): void {
 
 export function create_pills(
     $pill_container: JQuery,
-    pill_config?: {
-        show_user_status_emoji?: boolean;
-    },
+    pill_config?: InputPillConfig | undefined,
 ): input_pill.InputPillContainer<UserPill> {
     const pills = input_pill.create({
         $container: $pill_container,

@@ -190,62 +190,70 @@ run_test("get_tz_with_UTC_offset", () => {
 });
 
 run_test("render_now_returns_today", () => {
-    const today = date_2019;
+    MockDate.set(date_2019.getTime());
 
     const expected = {
         time_str: $t({defaultMessage: "Today"}),
         formal_time_str: "Friday, April 12, 2019",
         needs_update: true,
     };
-    const actual = timerender.render_now(today, today);
+    const actual = timerender.render_now(date_2019);
     assert.equal(actual.time_str, expected.time_str);
     assert.equal(actual.formal_time_str, expected.formal_time_str);
     assert.equal(actual.needs_update, expected.needs_update);
+
+    MockDate.reset();
 });
 
 run_test("render_now_returns_yesterday", () => {
-    const today = date_2019;
+    MockDate.set(date_2019.getTime());
 
-    const yesterday = add(today, {days: -1});
+    const yesterday = add(date_2019, {days: -1});
     const expected = {
         time_str: $t({defaultMessage: "Yesterday"}),
         formal_time_str: "Thursday, April 11, 2019",
         needs_update: true,
     };
-    const actual = timerender.render_now(yesterday, today);
+    const actual = timerender.render_now(yesterday);
     assert.equal(actual.time_str, expected.time_str);
     assert.equal(actual.formal_time_str, expected.formal_time_str);
     assert.equal(actual.needs_update, expected.needs_update);
+
+    MockDate.reset();
 });
 
 run_test("render_now_returns_year", () => {
-    const today = date_2019;
+    MockDate.set(date_2019.getTime());
 
-    const year_ago = add(today, {years: -1});
+    const year_ago = add(date_2019, {years: -1});
     const expected = {
         time_str: "Apr 12, 2018",
         formal_time_str: "Thursday, April 12, 2018",
         needs_update: false,
     };
-    const actual = timerender.render_now(year_ago, today);
+    const actual = timerender.render_now(year_ago);
     assert.equal(actual.time_str, expected.time_str);
     assert.equal(actual.formal_time_str, expected.formal_time_str);
     assert.equal(actual.needs_update, expected.needs_update);
+
+    MockDate.reset();
 });
 
 run_test("render_now_returns_month_and_day", () => {
-    const today = date_2019;
+    MockDate.set(date_2019.getTime());
 
-    const three_months_ago = add(today, {months: -3});
+    const three_months_ago = add(date_2019, {months: -3});
     const expected = {
         time_str: "Jan 12",
         formal_time_str: "Saturday, January 12, 2019",
         needs_update: false,
     };
-    const actual = timerender.render_now(three_months_ago, today);
+    const actual = timerender.render_now(three_months_ago);
     assert.equal(actual.time_str, expected.time_str);
     assert.equal(actual.formal_time_str, expected.formal_time_str);
     assert.equal(actual.needs_update, expected.needs_update);
+
+    MockDate.reset();
 });
 
 run_test("format_time_modern", () => {
@@ -319,24 +327,27 @@ run_test("format_time_modern_different_timezones", () => {
 });
 
 run_test("render_now_returns_year_with_year_boundary", () => {
-    const today = date_2019;
+    MockDate.set(date_2019.getTime());
 
-    const six_months_ago = add(today, {months: -6});
+    const six_months_ago = add(date_2019, {months: -6});
     const expected = {
         time_str: "Oct 12, 2018",
         formal_time_str: "Friday, October 12, 2018",
         needs_update: false,
     };
-    const actual = timerender.render_now(six_months_ago, today);
+    const actual = timerender.render_now(six_months_ago);
     assert.equal(actual.time_str, expected.time_str);
     assert.equal(actual.formal_time_str, expected.formal_time_str);
     assert.equal(actual.needs_update, expected.needs_update);
+
+    MockDate.reset();
 });
 
 run_test("render_date_renders_time_html", () => {
     timerender.clear_for_testing();
 
     const today = date_2019;
+    MockDate.set(today.getTime());
 
     const message_time = today;
     const expected_html = $t({defaultMessage: "Today"});
@@ -354,10 +365,12 @@ run_test("render_date_renders_time_html", () => {
         return $span_stub;
     };
 
-    const $actual = timerender.render_date(message_time, today);
+    const $actual = timerender.render_date(message_time);
     assert.equal($actual.html(), expected_html);
     assert.equal(attrs["data-tippy-content"], "Friday, April 12, 2019");
     assert.equal(attrs.class, "timerender0");
+
+    MockDate.reset();
 });
 
 run_test("get_full_time", () => {
@@ -391,29 +404,35 @@ run_test("absolute_time_12_hour", () => {
     let timestamp = date_2019.getTime();
 
     let today = date_2019;
+    MockDate.set(today.getTime());
     let expected = "Apr 12, 5:52 PM";
-    let actual = timerender.absolute_time(timestamp, today);
+    let actual = timerender.absolute_time(timestamp);
     assert.equal(actual, expected);
 
     // timestamp with hour > 12, different year
     let next_year = add(today, {years: 1});
+    MockDate.set(next_year.getTime());
     expected = "Apr 12, 2019, 5:52 PM";
-    actual = timerender.absolute_time(timestamp, next_year);
+    actual = timerender.absolute_time(timestamp);
     assert.equal(actual, expected);
 
     // timestamp with hour < 12, same year
     timestamp = date_2017.getTime();
 
     today = date_2017;
+    MockDate.set(today.getTime());
     expected = "May 18, 7:12 AM";
-    actual = timerender.absolute_time(timestamp, today);
+    actual = timerender.absolute_time(timestamp);
     assert.equal(actual, expected);
 
     // timestamp with hour < 12, different year
     next_year = add(today, {years: 1});
+    MockDate.set(next_year.getTime());
     expected = "May 18, 2017, 7:12 AM";
-    actual = timerender.absolute_time(timestamp, next_year);
+    actual = timerender.absolute_time(timestamp);
     assert.equal(actual, expected);
+
+    MockDate.reset();
 });
 
 run_test("absolute_time_24_hour", () => {
@@ -421,28 +440,33 @@ run_test("absolute_time_24_hour", () => {
 
     // date with hour > 12, same year
     let today = date_2019;
+    MockDate.set(today.getTime());
     let expected = "Apr 12, 17:52";
-    let actual = timerender.absolute_time(date_2019.getTime(), today);
+    let actual = timerender.absolute_time(date_2019.getTime());
     assert.equal(actual, expected);
 
     // date with hour > 12, different year
     let next_year = add(today, {years: 1});
-
+    MockDate.set(next_year.getTime());
     expected = "Apr 12, 2019, 17:52";
-    actual = timerender.absolute_time(date_2019.getTime(), next_year);
+    actual = timerender.absolute_time(date_2019.getTime());
     assert.equal(actual, expected);
 
     // timestamp with hour < 12, same year
     today = date_2017;
+    MockDate.set(today.getTime());
     expected = "May 18, 07:12";
-    actual = timerender.absolute_time(date_2017.getTime(), today);
+    actual = timerender.absolute_time(date_2017.getTime());
     assert.equal(actual, expected);
 
     // timestamp with hour < 12, different year
     next_year = add(today, {years: 1});
+    MockDate.set(next_year.getTime());
     expected = "May 18, 2017, 07:12";
-    actual = timerender.absolute_time(date_2017.getTime(), next_year);
+    actual = timerender.absolute_time(date_2017.getTime());
     assert.equal(actual, expected);
+
+    MockDate.reset();
 });
 
 run_test("get_full_datetime", () => {
@@ -479,6 +503,7 @@ run_test("get_full_datetime", () => {
 run_test("last_seen_status_from_date", () => {
     // Set base_date to March 1 2016 12.30 AM (months are zero based)
     let base_date = new Date(2016, 2, 1, 0, 30);
+    MockDate.set(base_date.getTime());
 
     function assert_same(duration, expected_status) {
         const past_date = add(base_date, duration);
@@ -510,11 +535,13 @@ run_test("last_seen_status_from_date", () => {
 
     // Set base_date to May 1 2016 12.30 AM (months are zero based)
     base_date = new Date(2016, 4, 1, 0, 30);
+    MockDate.set(base_date.getTime());
 
     assert_same({days: -91}, $t({defaultMessage: "Active Jan 31"}));
 
     // Set base_date to May 1 2016 10.30 PM (months are zero based)
     base_date = new Date(2016, 4, 2, 23, 30);
+    MockDate.set(base_date.getTime());
 
     assert_same({hours: -1}, $t({defaultMessage: "Active an hour ago"}));
 
@@ -523,18 +550,18 @@ run_test("last_seen_status_from_date", () => {
     assert_same({hours: -12}, $t({defaultMessage: "Active 12 hours ago"}));
 
     assert_same({hours: -24}, $t({defaultMessage: "Active yesterday"}));
+
+    MockDate.reset();
 });
 
 run_test("relative_time_string_from_date", () => {
     // Set base_date to March 1 2016 12.30 AM (months are zero based)
     let base_date = new Date(2016, 2, 1, 0, 30);
+    MockDate.set(base_date.getTime());
 
     function assert_same(duration, expected_status) {
         const past_date = add(base_date, duration);
-        const actual_status = timerender.relative_time_string_from_date({
-            date: past_date,
-            current_date: base_date,
-        });
+        const actual_status = timerender.relative_time_string_from_date(past_date);
         assert.equal(actual_status, expected_status);
     }
 
@@ -568,11 +595,13 @@ run_test("relative_time_string_from_date", () => {
 
     // Set base_date to May 1 2016 12.30 AM (months are zero based)
     base_date = new Date(2016, 4, 1, 0, 30);
+    MockDate.set(base_date.getTime());
 
     assert_same({days: -91}, "Jan 31");
 
     // Set base_date to May 1 2016 10.30 PM (months are zero based)
     base_date = new Date(2016, 4, 2, 23, 30);
+    MockDate.set(base_date.getTime());
 
     assert_same({hours: -1}, $t({defaultMessage: "An hour ago"}));
 
@@ -581,6 +610,8 @@ run_test("relative_time_string_from_date", () => {
     assert_same({hours: -12}, $t({defaultMessage: "12 hours ago"}));
 
     assert_same({hours: -24}, $t({defaultMessage: "Yesterday"}));
+
+    MockDate.reset();
 });
 
 run_test("set_full_datetime", () => {

@@ -2,11 +2,13 @@ import logging
 from functools import wraps
 from typing import Any, Callable
 
+import sentry_sdk
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from django.urls import path
 from django.urls.resolvers import URLPattern
 from django.utils.crypto import constant_time_compare
+from django.utils.timezone import now as timezone_now
 from django.utils.translation import gettext as _
 from django.views.decorators.csrf import csrf_exempt
 from typing_extensions import Concatenate, ParamSpec, override
@@ -73,23 +75,30 @@ def validate_remote_server(
     role: str,
     api_key: str,
 ) -> RemoteZulipServer:
+    log_data = RequestNotes.get_notes(request).log_data
+    assert log_data is not None
     try:
         remote_server = get_remote_server_by_uuid(role)
     except RemoteZulipServer.DoesNotExist:
+        log_data["extra"] = "[invalid-server]"
         raise InvalidZulipServerError(role)
     if not constant_time_compare(api_key, remote_server.api_key):
+        log_data["extra"] = "[invalid-server-key]"
         raise InvalidZulipServerKeyError(role)
 
     if remote_server.deactivated:
+        log_data["extra"] = "[deactivated-server]"
         raise RemoteServerDeactivatedError
     if (
         get_subdomain(request) != Realm.SUBDOMAIN_FOR_ROOT_DOMAIN
         and not settings.DEVELOPMENT_DISABLE_PUSH_BOUNCER_DOMAIN_CHECK
     ):
         # Sometimes we may want to test push bouncer logic in development.
+        log_data["extra"] = "[invalid-domain]"
         raise JsonableError(_("Invalid subdomain for push notifications bouncer"))
     RequestNotes.get_notes(request).remote_server = remote_server
     process_client(request)
+    sentry_sdk.set_user({"server": remote_server.uuid})
     return remote_server
 
 
@@ -102,6 +111,9 @@ def authenticated_remote_server_view(
     ) -> HttpResponse:
         role, api_key = get_basic_credentials(request)
         if "@" in role:
+            log_data = RequestNotes.get_notes(request).log_data
+            assert log_data is not None
+            log_data["extra"] = "[non-server-key]"
             raise JsonableError(_("Must validate with valid Zulip server API key"))
         try:
             remote_server = validate_remote_server(request, role, api_key)
@@ -109,6 +121,10 @@ def authenticated_remote_server_view(
             raise UnauthorizedError(e.msg)
 
         rate_limit_remote_server(request, remote_server, domain="api_by_remote_server")
+
+        remote_server.last_request_datetime = timezone_now()
+        remote_server.save(update_fields=["last_request_datetime"])
+
         return view_func(request, remote_server, *args, **kwargs)
 
     return _wrapped_view_func

@@ -237,7 +237,7 @@ export function build_stream_list(force_rerender) {
         return;
     }
 
-    // The main logic to build the list is in stream_list_sort.js, and
+    // The main logic to build the list is in stream_list_sort.ts, and
     // we get five lists of streams (pinned/normal/muted_pinned/muted_normal/dormant).
     const stream_groups = stream_list_sort.sort_groups(streams, get_search_term());
 
@@ -469,7 +469,7 @@ class StreamSidebarRow {
     }
 
     update_unread_count() {
-        const count = unread.num_unread_for_stream(this.sub.stream_id);
+        const count = unread.unread_count_info_for_stream(this.sub.stream_id);
         const stream_has_any_unread_mention_messages = unread.stream_has_any_unread_mentions(
             this.sub.stream_id,
         );

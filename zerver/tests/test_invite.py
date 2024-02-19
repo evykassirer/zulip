@@ -60,14 +60,14 @@ from zerver.models import (
     Realm,
     ScheduledEmail,
     Stream,
-    SystemGroups,
     UserGroup,
     UserMessage,
     UserProfile,
-    get_realm,
-    get_stream,
-    get_user_by_delivery_email,
 )
+from zerver.models.groups import SystemGroups
+from zerver.models.realms import get_realm
+from zerver.models.streams import get_stream
+from zerver.models.users import get_user_by_delivery_email
 from zerver.views.invite import INVITATION_LINK_VALIDITY_MINUTES, get_invitee_emails_set
 from zerver.views.registration import accounts_home
 
@@ -962,7 +962,7 @@ class InviteUserTest(InviteUserBase):
         self.assertEqual(signups_stream_msg.sender.email, "notification-bot@zulip.com")
         self.assertTrue(
             signups_stream_msg.content.startswith(
-                f"@_**alice_zulip.com|{invitee_profile.id}** just signed up",
+                f"@_**alice_zulip.com|{invitee_profile.id}** joined this organization",
             )
         )
 
@@ -1194,7 +1194,7 @@ so we didn't send them an invitation. We did send invitations to everyone else!"
         zulip_realm.save()
 
         result = self.submit_reg_form_for_user("foo@example.com", "password")
-        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.status_code, 400)
         self.assert_in_response(
             "does not allow signups using emails with your email domain", result
         )
@@ -1221,7 +1221,7 @@ so we didn't send them an invitation. We did send invitations to everyone else!"
         zulip_realm.save()
 
         result = self.submit_reg_form_for_user("foo@mailnator.com", "password")
-        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.status_code, 400)
         self.assert_in_response("does not allow signups using disposable email addresses.", result)
 
     def test_invite_with_email_containing_plus_before_closing(self) -> None:
@@ -1247,7 +1247,7 @@ so we didn't send them an invitation. We did send invitations to everyone else!"
         zulip_realm.save()
 
         result = self.submit_reg_form_for_user(external_address, "password")
-        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.status_code, 400)
         self.assert_in_response('does not allow signups using emails that contain "+".', result)
 
     def test_invalid_email_check_after_confirming_email(self) -> None:
@@ -1263,7 +1263,7 @@ so we didn't send them an invitation. We did send invitations to everyone else!"
         prereg_user.save()
 
         result = self.submit_reg_form_for_user(email, "password")
-        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.status_code, 400)
         self.assert_in_response(
             "The email address you are trying to sign up with is not valid", result
         )
@@ -2462,6 +2462,65 @@ class MultiuseInviteTest(ZulipTestCase):
         # User is not subscribed to default streams as well.
         self.assert_length(get_default_streams_for_realm_as_dicts(self.realm.id), 1)
         self.check_user_subscribed_only_to_streams("alice", [])
+
+    def test_multiuse_invite_without_permission_to_subscribe_others(self) -> None:
+        realm = get_realm("zulip")
+        members_group = UserGroup.objects.get(
+            name=SystemGroups.MEMBERS, realm=realm, is_system_group=True
+        )
+        do_change_realm_permission_group_setting(
+            realm, "create_multiuse_invite_group", members_group, acting_user=None
+        )
+        do_set_realm_property(
+            realm, "invite_to_stream_policy", Realm.POLICY_ADMINS_ONLY, acting_user=None
+        )
+
+        self.login("hamlet")
+        stream_names = ["Rome", "Scotland", "Venice"]
+        streams = [get_stream(stream_name, self.realm) for stream_name in stream_names]
+        stream_ids = [stream.id for stream in streams]
+        result = self.client_post(
+            "/json/invites/multiuse",
+            {
+                "stream_ids": orjson.dumps(stream_ids).decode(),
+                "invite_expires_in_minutes": 2 * 24 * 60,
+            },
+        )
+        self.assert_json_error(
+            result, "You do not have permission to subscribe other users to streams."
+        )
+
+        result = self.client_post(
+            "/json/invites/multiuse",
+            {
+                "stream_ids": orjson.dumps([]).decode(),
+                "invite_expires_in_minutes": 2 * 24 * 60,
+            },
+        )
+        self.assert_json_success(result)
+
+        self.login("iago")
+        result = self.client_post(
+            "/json/invites/multiuse",
+            {
+                "stream_ids": orjson.dumps(stream_ids).decode(),
+                "invite_expires_in_minutes": 2 * 24 * 60,
+            },
+        )
+        self.assert_json_success(result)
+
+        do_set_realm_property(
+            realm, "invite_to_stream_policy", Realm.POLICY_MEMBERS_ONLY, acting_user=None
+        )
+        self.login("hamlet")
+        result = self.client_post(
+            "/json/invites/multiuse",
+            {
+                "stream_ids": orjson.dumps(stream_ids).decode(),
+                "invite_expires_in_minutes": 2 * 24 * 60,
+            },
+        )
+        self.assert_json_success(result)
 
     def test_create_multiuse_invite_group_setting(self) -> None:
         realm = get_realm("zulip")

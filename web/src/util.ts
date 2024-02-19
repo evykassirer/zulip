@@ -2,7 +2,9 @@ import _ from "lodash";
 
 import * as blueslip from "./blueslip";
 import {$t} from "./i18n";
-import type {MatchedMessage, Message, RawMessage, UpdateMessageEvent} from "./types";
+import type {MatchedMessage, Message, RawMessage} from "./message_store";
+import type {UpdateMessageEvent} from "./types";
+import {user_settings} from "./user_settings";
 
 // From MDN: https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/Math/random
 export function random_int(min: number, max: number): number {
@@ -19,10 +21,10 @@ export function random_int(min: number, max: number): number {
 // for some i and false otherwise.
 //
 // Usage: lower_bound(array, value, less)
-export function lower_bound<T>(
-    array: T[],
-    value: T,
-    less: (item: T, value: T, middle: number) => boolean,
+export function lower_bound<T1, T2>(
+    array: T1[],
+    value: T2,
+    less: (item: T1, value: T2, middle: number) => boolean,
 ): number {
     let first = 0;
     const last = array.length;
@@ -408,9 +410,12 @@ export function call_function_periodically(callback: () => void, delay: number):
     // calling "callback".
     setTimeout(() => {
         call_function_periodically(callback, delay);
-    }, delay);
 
-    callback();
+        // Do the callback after scheduling the next call, so that we
+        // are certain to call it again even if the callback throws an
+        // exception.
+        callback();
+    }, delay);
 }
 
 export function get_string_diff(string1: string, string2: string): [number, number, number] {
@@ -471,7 +476,7 @@ export function try_parse_as_truthy<T>(val: (T | undefined)[]): T[] | undefined 
     return result;
 }
 
-export function is_valid_url(url: string, require_absolute: boolean = false): boolean {
+export function is_valid_url(url: string, require_absolute = false): boolean {
     try {
         let base_url;
         if (!require_absolute) {
@@ -487,4 +492,22 @@ export function is_valid_url(url: string, require_absolute: boolean = false): bo
         return false;
     }
     return true;
+}
+
+// Formats an array of strings as a Internationalized list using the specified language.
+export function format_array_as_list(
+    array: string[],
+    style: Intl.ListFormatStyle,
+    type: Intl.ListFormatType,
+): string {
+    // If Intl.ListFormat is not supported
+    if (Intl.ListFormat === undefined) {
+        return array.join(", ");
+    }
+
+    // Use Intl.ListFormat to format the array as a Internationalized list.
+    const list_formatter = new Intl.ListFormat(user_settings.default_language, {style, type});
+
+    // Return the formatted string.
+    return list_formatter.format(array);
 }

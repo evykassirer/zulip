@@ -28,8 +28,8 @@ import * as reactions from "./reactions";
 import * as recent_view_ui from "./recent_view_ui";
 import * as rows from "./rows";
 import * as server_events from "./server_events";
-import * as settings_display from "./settings_display";
 import * as settings_panel_menu from "./settings_panel_menu";
+import * as settings_preferences from "./settings_preferences";
 import * as settings_toggle from "./settings_toggle";
 import * as sidebar_ui from "./sidebar_ui";
 import * as spectators from "./spectators";
@@ -311,7 +311,7 @@ export function initialize() {
     });
     $("body").on("click", ".topic_edit_save", function (e) {
         const $recipient_row = $(this).closest(".recipient_row");
-        message_edit.save_inline_topic_edit($recipient_row);
+        message_edit.try_save_inline_topic_edit($recipient_row);
         e.stopPropagation();
     });
     $("body").on("click", ".topic_edit_cancel", function (e) {
@@ -783,7 +783,7 @@ export function initialize() {
     $("body").on("click", ".language_selection_widget button", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        settings_display.launch_default_language_setting_modal();
+        settings_preferences.launch_default_language_setting_modal();
     });
 
     $("body").on("click", "#header-container .brand", (e) => {
@@ -832,7 +832,6 @@ export function initialize() {
                 // should not have any effect on the compose
                 // state.
                 !$(e.target).closest(".overlay").length &&
-                !$(e.target).closest(".popover").length &&
                 !$(e.target).closest(".micromodal").length &&
                 !$(e.target).closest("[data-tippy-root]").length &&
                 !$(e.target).closest(".typeahead").length &&
@@ -851,7 +850,7 @@ export function initialize() {
     // Workaround for Bootstrap issue #5900, which basically makes dropdowns
     // unclickable on mobile devices.
     // https://github.com/twitter/bootstrap/issues/5900
-    $("a.dropdown-toggle, .dropdown-menu a").on("touchstart", (e) => {
+    $(".dropdown-menu a").on("touchstart", (e) => {
         e.stopPropagation();
     });
 

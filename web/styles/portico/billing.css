@@ -26,24 +26,6 @@
         margin-bottom: 0;
     }
 
-    .nav-tabs {
-        border-bottom: 0;
-        font-size: 1.2em;
-
-        & a {
-            font-weight: bold;
-        }
-    }
-
-    .tab-content {
-        border: 1px solid hsl(0deg 0% 87%);
-        border-bottom-left-radius: 4px;
-        border-bottom-right-radius: 4px;
-        padding: 20px;
-        background-color: hsl(0deg 0% 100%);
-        font-size: 1.1em;
-    }
-
     .support-link {
         margin: 10px 20px;
 
@@ -354,6 +336,8 @@ input[name="licenses"] {
     background-color: hsl(240deg 96% 68%);
 }
 
+#account-deactivated-success-page .white-box,
+#server-deactivate-page .white-box,
 #remote-billing-confirm-login-page .white-box,
 #remote-billing-confirm-email .white-box,
 #server-login-page .white-box,
@@ -363,6 +347,8 @@ input[name="licenses"] {
     margin: 30px;
 }
 
+#account-deactivated-success-page #account-deactivated-success-page-details,
+#server-deactivate-page #server-deactivate-details,
 #server-login-page #server-login-page-details,
 #upgrade-page #upgrade-page-details,
 #billing-page #billing-page-details,
@@ -457,6 +443,8 @@ input[name="licenses"] {
     text-align: left;
 }
 
+#account-deactivated-success-page .pitch,
+#server-deactivate-details .pitch,
 #remote-billing-confirm-login-page .pitch,
 #server-login-page .pitch,
 .sponsorship-page .pitch,
@@ -528,6 +516,12 @@ input[name="licenses"] {
     background-color: hsl(0deg 70% 40%);
 }
 
+#reactivate-subscription
+    .reactivate-current-plan-button.plan-toggle-action-button {
+    background-color: hsl(146deg 92% 26%);
+}
+
+#server-deactivate-button,
 #remote-billing-confirm-login-button,
 #remote-billing-confirm-email-button,
 #server-login-button,
@@ -551,12 +545,17 @@ input[name="licenses"] {
     width: 150px;
 }
 
+#upgrade-page-details #upgrade-cardchange-form {
+    margin: 0;
+}
+
 #server-login-page-details #server-login-form-title .not-editable-realm-field {
     font-weight: 500;
     padding-top: 0;
 }
 
 #server-login-page-details #server-login-form-title,
+#billing-page-details .stripe-customer-billing-portal,
 #billing-page-details #legacy-server-push-notification-notice,
 #billing-page-details .next-payment-info {
     width: 450px;
@@ -587,6 +586,11 @@ input[name="licenses"] {
     margin-top: 10px;
 }
 
+#upgrade-page-details .support-link,
+#account-deactivated-success-page-details .not-editable-realm-field,
+#server-deactivate-details
+    #server-deactivate-form-top-description
+    .not-editable-realm-field,
 #remote-billing-confirm-email-intro .not-editable-realm-field,
 #billing-page-details .billing-frequency-message.not-editable-realm-field,
 #free-trial-top-banner .not-editable-realm-field,
@@ -621,17 +625,22 @@ input[name="licenses"] {
 
 #upgrade-payment-info {
     display: grid;
-    grid-template: auto auto 1fr / 1fr auto;
+    grid-template: auto auto auto 1fr / 1fr auto;
     grid-template-areas:
         "payment-info add-card"
+        "stripe-portal stripe-portal"
         "alert-message alert-message";
     width: 450px;
     margin: auto;
-    padding-bottom: 25px;
 }
 
 #upgrade-payment-info .alert {
     grid-area: alert-message;
+}
+
+#upgrade-page-details .stripe-billing-information {
+    grid-area: stripe-portal;
+    padding-top: 2px;
 }
 
 #upgrade-page-details #upgrade-payment-menthod-wrapper {
@@ -658,6 +667,7 @@ input[name="licenses"] {
     text-align: left;
 }
 
+#server-deactivate-error,
 #server-login-error,
 #autopay-error {
     font-weight: 400;
@@ -686,6 +696,7 @@ input[name="licenses"] {
     top: 5px;
 }
 
+#server-deactivate-error,
 #server-login-error {
     text-align: left;
     margin: 0 auto;
@@ -701,6 +712,7 @@ input[name="licenses"] {
     margin-bottom: 15px;
 }
 
+#server-deactivate-details .upgrade-button-container,
 #server-login-page-button-container {
     width: 450px;
     margin: 30px auto 0;
@@ -717,5 +729,25 @@ input[name="licenses"] {
 }
 
 #remote-billing-confirm-login-form #remote-billing-confirm-login-tos-wrapper {
-    margin: 25px auto 10px;
+    margin: 0 auto 10px;
+}
+
+#account-deactivated-success-page-details
+    #account-deactivated-success-page-top-message {
+    margin-top: 10px;
+}
+
+.flat-discount-minus-sign {
+    position: absolute;
+    left: -10px;
+}
+
+.flat-discount-separator {
+    border-bottom: 1px solid hsl(0deg 0% 0%);
+}
+
+#upgrade-page-details #pay-by-invoice-details {
+    width: 450px;
+    font-weight: normal;
+    padding-left: 15px;
 }

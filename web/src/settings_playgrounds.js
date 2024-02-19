@@ -8,9 +8,10 @@ import * as confirm_dialog from "./confirm_dialog";
 import * as dialog_widget from "./dialog_widget";
 import {$t_html} from "./i18n";
 import * as ListWidget from "./list_widget";
-import {page_params} from "./page_params";
 import * as realm_playground from "./realm_playground";
 import * as scroll_util from "./scroll_util";
+import {current_user, realm} from "./state_data";
+import {render_typeahead_item} from "./typeahead_helper";
 import * as ui_report from "./ui_report";
 
 const meta = {
@@ -22,7 +23,7 @@ export function reset() {
 }
 
 export function maybe_disable_widgets() {
-    if (page_params.is_admin) {
+    if (current_user.is_admin) {
         return;
     }
 }
@@ -44,7 +45,7 @@ export function populate_playgrounds(playgrounds_data) {
                     url_template: playground.url_template,
                     id: playground.id,
                 },
-                can_modify: page_params.is_admin,
+                can_modify: current_user.is_admin,
             });
         },
         filter: {
@@ -79,7 +80,7 @@ export function set_up() {
 
 function build_page() {
     meta.loaded = true;
-    populate_playgrounds(page_params.realm_playgrounds);
+    populate_playgrounds(realm.realm_playgrounds);
 
     $(".admin_playgrounds_table").on("click", ".delete", function (e) {
         e.preventDefault();
@@ -128,7 +129,7 @@ function build_page() {
                     // FIXME: One thing to note here is that the "view code in playground"
                     // option for an already rendered code block (tagged with this newly added
                     // language) would not be visible without a re-render. To fix this, we should
-                    // probably do some extraction in `rendered_markdown.js` which does a
+                    // probably do some extraction in `rendered_markdown.ts` which does a
                     // live-update of the `data-code-language` parameter in code blocks. Or change
                     // how we do the HTML in the frontend so that the icon labels/behavior are
                     // computed dynamically when you hover over the message based on configured
@@ -158,9 +159,7 @@ function build_page() {
         items: 5,
         fixed: true,
         helpOnEmptyStrings: true,
-        highlighter(item) {
-            return language_labels.get(item);
-        },
+        highlighter: (item) => render_typeahead_item({primary: language_labels.get(item)}),
         matcher(item) {
             const q = this.query.trim().toLowerCase();
             return item.toLowerCase().startsWith(q);

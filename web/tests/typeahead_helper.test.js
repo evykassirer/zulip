@@ -4,7 +4,7 @@ const {strict: assert} = require("assert");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
-const {page_params, user_settings} = require("./lib/zpage_params");
+const {current_user, realm, user_settings} = require("./lib/zpage_params");
 
 const stream_topic_history = mock_esm("../src/stream_topic_history");
 
@@ -18,7 +18,7 @@ const stream_data = zrequire("stream_data");
 const stream_list_sort = zrequire("stream_list_sort");
 const compose_state = zrequire("compose_state");
 const emoji = zrequire("emoji");
-const pygments_data = zrequire("../generated/pygments_data.json");
+const pygments_data = zrequire("pygments_data");
 const util = zrequire("util");
 const actual_pygments_data = {...pygments_data};
 const ct = zrequire("composebox_typeahead");
@@ -116,8 +116,8 @@ function test(label, f) {
         recent_senders.clear_for_testing();
         peer_data.clear_for_testing();
         people.clear_recipient_counts_for_testing();
-        page_params.is_admin = false;
-        page_params.realm_is_zephyr_mirror_realm = false;
+        current_user.is_admin = false;
+        realm.realm_is_zephyr_mirror_realm = false;
 
         f(helpers);
     });
@@ -339,9 +339,9 @@ test("sort_recipients", () => {
         "b_user_2@zulip.net",
         "b_user_3@zulip.net",
         "b_bot@example.com",
+        "a_bot@zulip.com",
         "a_user@zulip.org",
         "zman@test.net",
-        "a_bot@zulip.com",
     ]);
 
     // Typeahead for direct message [query, "", ""]
@@ -394,9 +394,9 @@ test("sort_recipients", () => {
         subscriber_email_2,
         subscriber_email_1,
         "b_user_1@zulip.net",
+        "a_bot@zulip.com",
         "zman@test.net",
         "a_user@zulip.org",
-        "a_bot@zulip.com",
     ]);
 
     recent_senders.process_stream_message({
@@ -507,10 +507,10 @@ test("sort_recipients dup bots", () => {
         "b_user_2@zulip.net",
         "b_user_3@zulip.net",
         "b_bot@example.com",
+        "a_bot@zulip.com",
+        "a_bot@zulip.com",
         "a_user@zulip.org",
         "zman@test.net",
-        "a_bot@zulip.com",
-        "a_bot@zulip.com",
     ];
     assert.deepEqual(recipients_email, expected);
 });
@@ -680,7 +680,7 @@ test("highlight_with_escaping", () => {
 
 test("render_person when emails hidden", ({mock_template}) => {
     // Test render_person with regular person, under hidden email visibility case
-    page_params.custom_profile_field_types = {
+    realm.custom_profile_field_types = {
         PRONOUNS: {id: 8, name: "Pronouns"},
     };
     let rendered = false;
@@ -697,7 +697,7 @@ test("render_person when emails hidden", ({mock_template}) => {
 test("render_person", ({mock_template}) => {
     // Test render_person with regular person
     a_user.delivery_email = "a_user_delivery@zulip.org";
-    page_params.custom_profile_field_types = {
+    realm.custom_profile_field_types = {
         PRONOUNS: {id: 8, name: "Pronouns"},
     };
     let rendered = false;
@@ -722,6 +722,7 @@ test("render_person special_item_text", ({mock_template}) => {
         is_bot: false,
         user_id: 7,
         special_item_text: "special_text",
+        is_broadcast: true,
     };
 
     rendered = false;
