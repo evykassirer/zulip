@@ -5,6 +5,7 @@ import {$t} from "./i18n";
 import type {MatchedMessage, Message, RawMessage} from "./message_store";
 import type {UpdateMessageEvent} from "./types";
 import {user_settings} from "./user_settings";
+import assert from "minimalistic-assert";
 
 // From MDN: https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/Math/random
 export function random_int(min: number, max: number): number {
@@ -242,7 +243,7 @@ export function set_match_data(target: Message, source: MatchedMessage): void {
     target.match_content = source.match_content;
 }
 
-export function get_match_topic(obj: Message): string | undefined {
+export function get_match_topic(obj: Message | RawMessage): string | undefined {
     return obj.match_subject;
 }
 
@@ -264,10 +265,9 @@ export function is_topic_synonym(operator: string): boolean {
     return operator === "subject";
 }
 
-export function convert_message_topic(message: Message): void {
-    if (message.type === "stream" && message.topic === undefined) {
-        message.topic = message.subject;
-    }
+export function get_message_topic(message: RawMessage): string {
+    assert(message.type === "stream");
+    return message.subject;
 }
 
 let inertDocument: Document | undefined;

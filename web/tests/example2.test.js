@@ -92,7 +92,10 @@ run_test("unread", () => {
     assert.equal(unread.num_unread_for_topic(stream_id, topic_name), 0);
 
     const in_message = {...messages.isaac_to_denmark_stream};
-    message_store.set_message_booleans(in_message);
+    in_message = {
+        ...in_message,
+        ...message_store.get_message_booleans(in_message),
+    };
 
     unread.process_loaded_messages([in_message]);
     assert.equal(unread.num_unread_for_topic(stream_id, topic_name), 1);

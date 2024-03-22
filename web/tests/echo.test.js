@@ -31,7 +31,7 @@ const message_store = mock_esm("../src/message_store", {
 
     update_booleans() {},
 
-    set_message_booleans() {},
+    get_message_booleans() {},
 });
 
 message_lists.current = {

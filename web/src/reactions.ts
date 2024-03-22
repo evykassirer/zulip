@@ -35,7 +35,7 @@ export function get_local_reaction_id(rendering_details: EmojiRenderingDetails):
 export function current_user_has_reacted_to_emoji(message: Message, local_id: string): boolean {
     set_clean_reactions(message);
 
-    const clean_reaction_object = message.clean_reactions.get(local_id);
+    const clean_reaction_object = message.clean_reactions!.get(local_id);
     return (
         clean_reaction_object !== undefined &&
         clean_reaction_object.user_ids.includes(current_user.user_id)
@@ -153,6 +153,7 @@ export function process_reaction_click(message_id: number, local_id: string): vo
         return;
     }
 
+    assert(message.clean_reactions !== undefined);
     const clean_reaction_object = message.clean_reactions.get(local_id);
 
     if (!clean_reaction_object) {
@@ -232,7 +233,7 @@ function generate_title(emoji_name: string, user_ids: number[]): string {
 export function get_reaction_title_data(message_id: number, local_id: string): string {
     const message = get_message(message_id);
     assert(message !== undefined);
-
+    assert(message.clean_reactions !== undefined);
     const clean_reaction_object = message.clean_reactions.get(local_id);
     assert(clean_reaction_object !== undefined);
 
@@ -280,7 +281,7 @@ export function add_reaction(event: ReactionEvent): void {
 
     const local_id = get_local_reaction_id(event);
     const user_id = event.user_id;
-    let clean_reaction_object = message.clean_reactions.get(local_id);
+    let clean_reaction_object = message.clean_reactions!.get(local_id);
     if (clean_reaction_object && clean_reaction_object.user_ids.includes(user_id)) {
         return;
     }
@@ -307,7 +308,7 @@ export function add_reaction(event: ReactionEvent): void {
             should_display_reactors,
         });
 
-        message.clean_reactions.set(local_id, clean_reaction_object);
+        message.clean_reactions!.set(local_id, clean_reaction_object);
         insert_new_reaction(clean_reaction_object, message, user_id);
     }
 }
@@ -393,7 +394,7 @@ export function remove_reaction(event: ReactionEvent): void {
 
     set_clean_reactions(message);
 
-    const clean_reaction_object = message.clean_reactions.get(local_id);
+    const clean_reaction_object = message.clean_reactions!.get(local_id);
 
     if (!clean_reaction_object) {
         return;
@@ -405,7 +406,7 @@ export function remove_reaction(event: ReactionEvent): void {
 
     clean_reaction_object.user_ids = clean_reaction_object.user_ids.filter((id) => id !== user_id);
     if (clean_reaction_object.user_ids.length === 0) {
-        message.clean_reactions.delete(local_id);
+        message.clean_reactions!.delete(local_id);
     }
 
     const reaction_counts_and_user_ids = get_reaction_counts_and_user_ids(message);
@@ -455,7 +456,7 @@ export function get_emojis_used_by_user_for_message_id(message_id: number): stri
     set_clean_reactions(message);
 
     const names = [];
-    for (const clean_reaction_object of message.clean_reactions.values()) {
+    for (const clean_reaction_object of message.clean_reactions!.values()) {
         if (clean_reaction_object.user_ids.includes(user_id)) {
             names.push(clean_reaction_object.emoji_name);
         }
@@ -466,7 +467,7 @@ export function get_emojis_used_by_user_for_message_id(message_id: number): stri
 
 export function get_message_reactions(message: Message): MessageCleanReaction[] {
     set_clean_reactions(message);
-    return [...message.clean_reactions.values()];
+    return [...message.clean_reactions!.values()];
 }
 
 export function set_clean_reactions(message: Message): void {
@@ -635,6 +636,7 @@ type ReactionUserIdAndCount = {
 };
 
 function get_reaction_counts_and_user_ids(message: Message): ReactionUserIdAndCount[] {
+    assert(message.clean_reactions !== undefined);
     return [...message.clean_reactions.values()].map((reaction) => ({
         count: reaction.count,
         user_ids: reaction.user_ids,
@@ -684,10 +686,10 @@ export function update_vote_text_on_message(message: Message): void {
     set_clean_reactions(message);
     const reaction_counts_and_user_ids = get_reaction_counts_and_user_ids(message);
     const should_display_reactors = check_should_display_reactors(reaction_counts_and_user_ids);
-    for (const [reaction, clean_reaction] of message.clean_reactions.entries()) {
+    for (const [reaction, clean_reaction] of message.clean_reactions!.entries()) {
         const reaction_elem = find_reaction(message.id, clean_reaction.local_id);
         const vote_text = get_vote_text(clean_reaction.user_ids, should_display_reactors);
-        const message_clean_reaction = message.clean_reactions.get(reaction);
+        const message_clean_reaction = message.clean_reactions!.get(reaction);
         assert(message_clean_reaction !== undefined);
         message_clean_reaction.vote_text = vote_text;
         set_reaction_vote_text(reaction_elem, vote_text);
