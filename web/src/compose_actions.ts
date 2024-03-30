@@ -8,11 +8,14 @@ import * as compose_banner from "./compose_banner";
 import * as compose_fade from "./compose_fade";
 import * as compose_pm_pill from "./compose_pm_pill";
 import * as compose_recipient from "./compose_recipient";
+import type {MessageType} from "./compose_recipient";
 import * as compose_state from "./compose_state";
 import * as compose_ui from "./compose_ui";
+import type {ComposeTriggeredOptions} from "./compose_ui";
 import * as compose_validate from "./compose_validate";
 import * as drafts from "./drafts";
 import * as message_lists from "./message_lists";
+import type {Message} from "./message_store";
 import * as message_viewport from "./message_viewport";
 import * as narrow_state from "./narrow_state";
 import {page_params} from "./page_params";
@@ -25,28 +28,30 @@ import * as spectators from "./spectators";
 import {realm} from "./state_data";
 import * as stream_data from "./stream_data";
 
-const compose_clear_box_hooks = [];
-const compose_cancel_hooks = [];
+type Hook = () => void;
 
-export function register_compose_box_clear_hook(hook) {
+const compose_clear_box_hooks: Hook[] = [];
+const compose_cancel_hooks: Hook[] = [];
+
+export function register_compose_box_clear_hook(hook: Hook): void {
     compose_clear_box_hooks.push(hook);
 }
 
-export function register_compose_cancel_hook(hook) {
+export function register_compose_cancel_hook(hook: Hook): void {
     compose_cancel_hooks.push(hook);
 }
 
-function call_hooks(hooks) {
+function call_hooks(hooks: Hook[]): void {
     for (const f of hooks) {
         f();
     }
 }
 
-export function blur_compose_inputs() {
+export function blur_compose_inputs(): void {
     $(".message_comp").find("input, textarea, button, #private_message_recipient").trigger("blur");
 }
 
-function hide_box() {
+function hide_box(): void {
     // This is the main hook for saving drafts when closing the compose box.
     drafts.update_draft();
     blur_compose_inputs();
@@ -58,7 +63,8 @@ function hide_box() {
     $("#compose_controls").show();
 }
 
-function show_compose_box(msg_type, opts) {
+function show_compose_box(msg_type: MessageType, opts: ComposeTriggeredOptions): void {
+    console.log(opts);
     compose_recipient.update_compose_for_message_type(msg_type, opts);
     $("#compose").css({visibility: "visible"});
     // When changing this, edit the 42px in _maybe_autoscroll
@@ -67,11 +73,11 @@ function show_compose_box(msg_type, opts) {
     compose_ui.set_focus(opts);
 }
 
-export function clear_textarea() {
+export function clear_textarea(): void {
     $("#compose").find("input[type=text], textarea").val("");
 }
 
-function clear_box() {
+function clear_box(): void {
     call_hooks(compose_clear_box_hooks);
 
     // TODO: Better encapsulate at-mention warnings.
@@ -91,24 +97,20 @@ function clear_box() {
     $(".compose_control_button_container:has(.add-poll)").removeClass("disabled-on-hover");
 }
 
-export function autosize_message_content(opts) {
+export function autosize_message_content(): void {
     if (!compose_ui.is_full_size()) {
-        autosize($("textarea#compose-textarea"), {
-            callback() {
-                maybe_scroll_up_selected_message(opts);
-            },
-        });
+        autosize($("textarea#compose-textarea"));
     }
 }
 
-export function expand_compose_box() {
+export function expand_compose_box(): void {
     $("#compose_close").attr("data-tooltip-template-id", "compose_close_tooltip_template");
     $("#compose_close").show();
     $("#compose_controls").hide();
     $(".message_comp").show();
 }
 
-export function complete_starting_tasks(msg_type, opts) {
+export function complete_starting_tasks(msg_type: MessageType, opts: FilledOpts): void {
     // This is sort of a kitchen sink function, and it's called only
     // by compose.start() for now.  Having this as a separate function
     // makes testing a bit easier.
@@ -120,7 +122,7 @@ export function complete_starting_tasks(msg_type, opts) {
     compose_recipient.update_narrow_to_recipient_visibility();
 }
 
-export function maybe_scroll_up_selected_message(opts) {
+export function maybe_scroll_up_selected_message(opts: ComposeActionsStartOpts): void {
     if (opts.skip_scrolling_selected_message) {
         return;
     }
@@ -138,7 +140,7 @@ export function maybe_scroll_up_selected_message(opts) {
     }
     const $selected_row = message_lists.current.selected_row();
 
-    if ($selected_row.height() > message_viewport.height() - 100) {
+    if ($selected_row.height()! > message_viewport.height() - 100) {
         // For very tall messages whose height is close to the entire
         // height of the viewport, don't auto-scroll the viewport to
         // the end of the message (since that makes it feel annoying
@@ -153,7 +155,17 @@ export function maybe_scroll_up_selected_message(opts) {
     }
 }
 
-export function fill_in_opts_from_current_narrowed_view(msg_type, opts) {
+type FilledOpts = ComposeActionsStartOpts & {
+    message_type: MessageType;
+    topic: string;
+    private_message_recipient: string;
+    trigger: string;
+};
+
+export function fill_in_opts_from_current_narrowed_view(
+    msg_type: MessageType,
+    opts: ComposeActionsStartOpts,
+): FilledOpts {
     return {
         message_type: msg_type,
         stream_id: undefined,
@@ -170,7 +182,7 @@ export function fill_in_opts_from_current_narrowed_view(msg_type, opts) {
     };
 }
 
-function same_recipient_as_before(msg_type, opts) {
+function same_recipient_as_before(msg_type: MessageType, opts: ComposeActionsStartOpts): boolean {
     return (
         compose_state.get_message_type() === msg_type &&
         ((msg_type === "stream" &&
@@ -181,7 +193,7 @@ function same_recipient_as_before(msg_type, opts) {
     );
 }
 
-export function start(msg_type, opts) {
+export function start(msg_type: MessageType, opts: ComposeActionsStartOpts): void {
     if (page_params.is_spectator) {
         spectators.login_to_access();
         return;
@@ -197,7 +209,7 @@ export function start(msg_type, opts) {
     }
 
     popovers.hide_all();
-    autosize_message_content(opts);
+    autosize_message_content();
 
     if (reload_state.is_in_progress()) {
         return;
@@ -205,35 +217,35 @@ export function start(msg_type, opts) {
     compose_banner.clear_message_sent_banners();
     expand_compose_box();
 
-    opts = fill_in_opts_from_current_narrowed_view(msg_type, opts);
-    const is_clear_topic_button_triggered = opts.trigger === "clear topic button";
+    const filled_opts = fill_in_opts_from_current_narrowed_view(msg_type, opts);
+    const is_clear_topic_button_triggered = filled_opts.trigger === "clear topic button";
 
     // If we are invoked by a compose hotkey (c or x) or new topic
     // button, do not assume that we know what the message's topic or
     // direct message recipient should be.
     if (
-        opts.trigger === "compose_hotkey" ||
+        filled_opts.trigger === "compose_hotkey" ||
         is_clear_topic_button_triggered ||
-        opts.trigger === "new direct message"
+        filled_opts.trigger === "new direct message"
     ) {
-        opts.topic = "";
-        opts.private_message_recipient = "";
+        filled_opts.topic = "";
+        filled_opts.private_message_recipient = "";
     }
 
     const subbed_streams = stream_data.subscribed_subs();
     if (
         subbed_streams.length === 1 &&
         (is_clear_topic_button_triggered ||
-            (opts.trigger === "compose_hotkey" && msg_type === "stream"))
+            (filled_opts.trigger === "compose_hotkey" && msg_type === "stream"))
     ) {
-        opts.stream_id = subbed_streams[0].stream_id;
+        filled_opts.stream_id = subbed_streams[0].stream_id;
     }
 
     // If we go to a different narrow or there is new message content to populate the compose box
     // with (like from a draft), save any existing content as a draft, and clear the compose box.
     if (
         compose_state.composing() &&
-        (!same_recipient_as_before(msg_type, opts) || opts.content !== undefined)
+        (!same_recipient_as_before(msg_type, opts) || filled_opts.content !== undefined)
     ) {
         drafts.update_draft();
         clear_box();
@@ -242,38 +254,44 @@ export function start(msg_type, opts) {
     if (msg_type === "private") {
         compose_state.set_compose_recipient_id(compose_state.DIRECT_MESSAGE_ID);
         compose_recipient.on_compose_select_recipient_update();
-    } else if (opts.stream_id) {
-        compose_state.set_stream_id(opts.stream_id);
+    } else if (filled_opts.stream_id) {
+        compose_state.set_stream_id(filled_opts.stream_id);
         compose_recipient.on_compose_select_recipient_update();
     } else {
         // Open stream selection dropdown if no stream is selected.
         compose_state.set_stream_id("");
         compose_recipient.open_compose_recipient_dropdown();
     }
-    compose_state.topic(opts.topic);
+    compose_state.topic(filled_opts.topic);
 
     // Set the recipients with a space after each comma, so it looks nice.
     compose_state.private_message_recipient(
-        opts.private_message_recipient.replaceAll(/,\s*/g, ", "),
+        filled_opts.private_message_recipient.replaceAll(/,\s*/g, ", "),
     );
 
     // If the user opens the compose box, types some text, and then clicks on a
     // different stream/topic, we want to keep the text in the compose box
-    if (opts.content !== undefined) {
-        compose_state.message_content(opts.content);
+    if (filled_opts.content !== undefined) {
+        compose_state.message_content(filled_opts.content);
         $(".compose_control_button_container:has(.add-poll)").addClass("disabled-on-hover");
     }
 
     compose_state.set_message_type(msg_type);
 
     // Show either stream/topic fields or "You and" field.
-    show_compose_box(msg_type, opts);
 
-    if (opts.draft_id) {
-        $("textarea#compose-textarea").data("draft-id", opts.draft_id);
+    /// TODO look into this
+    // assert(filled_opts.stream_id !== undefined);
+    show_compose_box(msg_type, {
+        ...filled_opts,
+        stream_id: filled_opts.stream_id,
+    });
+
+    if (filled_opts.draft_id) {
+        $("textarea#compose-textarea").data("draft-id", filled_opts.draft_id);
     }
 
-    if (opts.content !== undefined) {
+    if (filled_opts.content !== undefined) {
         // If we were provided with message content, we might need to
         // resize the compose box, or display that it's too long.
         compose_ui.autosize_textarea($("textarea#compose-textarea"));
@@ -281,7 +299,7 @@ export function start(msg_type, opts) {
     }
 
     const $clear_topic_button = $("#recipient_box_clear_topic_button");
-    if (is_clear_topic_button_triggered || opts.topic.length === 0) {
+    if (is_clear_topic_button_triggered || filled_opts.topic.length === 0) {
         $clear_topic_button.hide();
     } else {
         $clear_topic_button.show();
@@ -290,7 +308,7 @@ export function start(msg_type, opts) {
     // Show a warning if topic is resolved
     compose_validate.warn_if_topic_resolved(true);
     // Show a warning if the user is in a search narrow when replying to a message
-    if (opts.is_reply) {
+    if (filled_opts.is_reply) {
         compose_validate.warn_if_in_search_view();
     }
 
@@ -302,10 +320,10 @@ export function start(msg_type, opts) {
     // while writing a long message.
     resize.reset_compose_message_max_height();
 
-    complete_starting_tasks(msg_type, opts);
+    complete_starting_tasks(msg_type, filled_opts);
 }
 
-export function cancel() {
+export function cancel(): void {
     // As user closes the compose box, restore the compose box max height
     if (compose_ui.is_full_size()) {
         compose_ui.make_compose_box_original_size();
@@ -334,7 +352,7 @@ export function cancel() {
     $(document).trigger("compose_canceled.zulip");
 }
 
-export function on_show_navigation_view() {
+export function on_show_navigation_view(): void {
     /* This function dictates the behavior of the compose box
      * when navigating to a view, as opposed to a narrow. */
 
@@ -352,7 +370,7 @@ export function on_show_navigation_view() {
     cancel();
 }
 
-export function on_topic_narrow() {
+export function on_topic_narrow(): void {
     if (!compose_state.composing()) {
         // If our compose box is closed, then just
         // leave it closed, assuming that the user is
@@ -402,7 +420,30 @@ export function on_topic_narrow() {
     $("textarea#compose-textarea").trigger("focus");
 }
 
-export function on_narrow(opts) {
+// TODO/typescript: Complete this type when converting narrow.js
+type ComposeActionsStartOpts = {
+    force_close?: boolean;
+    trigger?: string;
+    private_message_recipient?: string;
+    message?: Message;
+    msg_type?: MessageType;
+    stream_id?: number;
+    topic?: string;
+    content?: string;
+    draft_id?: string;
+    skip_scrolling_selected_message?: boolean;
+    is_reply?: boolean;
+};
+
+// TODO/typescript: move this to narrow.js and fill in missing arguments
+// when converting that module to typescript.
+type NarrowActivateOpts = {
+    trigger?: string;
+    force_close?: boolean;
+    private_message_recipient?: string;
+};
+
+export function on_narrow(opts: NarrowActivateOpts): void {
     // We use force_close when jumping between direct message narrows with
     // the "p" key, so that we don't have an open compose box that makes
     // it difficult to cycle quickly through unread messages.
@@ -445,7 +486,7 @@ export function on_narrow(opts) {
             opts.private_message_recipient
         ) {
             const emails = opts.private_message_recipient.split(",");
-            if (emails.length !== 1 || !people.get_by_email(emails[0]).is_bot) {
+            if (emails.length !== 1 || !people.get_by_email(emails[0])!.is_bot) {
                 // If we are navigating between direct message conversations,
                 // we want the compose box to close for non-bot users.
                 if (compose_state.composing()) {

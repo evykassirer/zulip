@@ -25,11 +25,14 @@ import * as util from "./util";
 type MessageType = "stream" | "private";
 export type ComposeTriggeredOptions = {
     trigger?: string;
+} & ({
+    message_type: "private";
     private_message_recipient: string;
+} | {
+    message_type: "stream";
     topic: string;
     stream_id: number;
-    message_type: MessageType;
-};
+});
 type ComposePlaceholderOptions = {
     direct_message_user_ids: number[];
     message_type: MessageType;
