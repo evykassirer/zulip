@@ -163,7 +163,8 @@ function switch_message_type(message_type: MessageType): void {
     };
     update_compose_for_message_type(message_type, opts);
     update_placeholder_text();
-    compose_ui.set_focus(message_type, opts);
+    opts.message_type = message_type;
+    compose_ui.set_focus(opts);
 }
 
 function update_recipient_label(stream_id: number): void {

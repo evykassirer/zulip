@@ -63,7 +63,8 @@ function show_compose_box(msg_type, opts) {
     $("#compose").css({visibility: "visible"});
     // When changing this, edit the 42px in _maybe_autoscroll
     $(".new_message_textarea").css("min-height", "3em");
-    compose_ui.set_focus(msg_type, opts);
+    opts.message_type = msg_type;
+    compose_ui.set_focus(opts);
 }
 
 export function clear_textarea() {
