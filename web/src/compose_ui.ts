@@ -22,7 +22,7 @@ import * as stream_data from "./stream_data";
 import * as user_status from "./user_status";
 import * as util from "./util";
 
-type MessageType = "stream" | "private";
+export type MessageType = "stream" | "private";
 export type ComposeTriggeredOptions = {
     trigger?: string;
 } & ({

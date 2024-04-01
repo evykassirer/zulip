@@ -27,7 +27,7 @@ import * as sub_store from "./sub_store";
 import * as ui_util from "./ui_util";
 import * as util from "./util";
 
-export type MessageType = "stream" | "private";
+type MessageType = "stream" | "private";
 type DirectMessagesOption = {
     is_direct_message: boolean;
     unique_id: string | number;

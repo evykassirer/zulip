@@ -8,10 +8,9 @@ import * as compose_banner from "./compose_banner";
 import * as compose_fade from "./compose_fade";
 import * as compose_pm_pill from "./compose_pm_pill";
 import * as compose_recipient from "./compose_recipient";
-import type {MessageType} from "./compose_recipient";
 import * as compose_state from "./compose_state";
 import * as compose_ui from "./compose_ui";
-import type {ComposeTriggeredOptions} from "./compose_ui";
+import type {ComposeTriggeredOptions, MessageType} from "./compose_ui";
 import * as compose_validate from "./compose_validate";
 import * as drafts from "./drafts";
 import * as message_lists from "./message_lists";
@@ -27,6 +26,7 @@ import * as settings_config from "./settings_config";
 import * as spectators from "./spectators";
 import {realm} from "./state_data";
 import * as stream_data from "./stream_data";
+import assert from "minimalistic-assert";
 
 type Hook = () => void;
 
@@ -156,11 +156,14 @@ export function maybe_scroll_up_selected_message(opts: ComposeActionsStartOpts):
 }
 
 type FilledOpts = ComposeActionsStartOpts & {
-    message_type: MessageType;
-    topic: string;
-    private_message_recipient: string;
     trigger: string;
-};
+} & ({
+    message_type: "private";
+    private_message_recipient: string;
+} | {
+    message_type: "string";
+    topic: string;
+});
 
 export function fill_in_opts_from_current_narrowed_view(
     msg_type: MessageType,
@@ -278,14 +281,20 @@ export function start(msg_type: MessageType, opts: ComposeActionsStartOpts): voi
 
     compose_state.set_message_type(msg_type);
 
-    // Show either stream/topic fields or "You and" field.
+    let compose_triggered_opts: ComposeTriggeredOptions;
+    if (filled_opts.msg_type === "stream") {
+        assert(filled_opts.stream_id !== undefined);
+        compose_triggered_opts = {
+            ...filled_opts,
+            stream_id: filled_opts.stream_id,
+        }
+    } else {
+        assert(filled_opts.message_type === "private");
+        compose_triggered_opts = filled_opts;
+    }
 
-    /// TODO look into this
-    // assert(filled_opts.stream_id !== undefined);
-    show_compose_box(msg_type, {
-        ...filled_opts,
-        stream_id: filled_opts.stream_id,
-    });
+    // Show either stream/topic fields or "You and" field.
+    show_compose_box(msg_type, compose_triggered_opts);
 
     if (filled_opts.draft_id) {
         $("textarea#compose-textarea").data("draft-id", filled_opts.draft_id);
