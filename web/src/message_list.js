@@ -13,6 +13,7 @@ import {page_params} from "./page_params";
 import {web_mark_read_on_scroll_policy_values} from "./settings_config";
 import * as stream_data from "./stream_data";
 import * as unread from "./unread";
+import * as activity_ui from "./activity_ui";
 import {user_settings} from "./user_settings";
 
 export class MessageList {
@@ -180,6 +181,11 @@ export class MessageList {
             const first_unread_message_id = this.first_unread_message_id();
             assert(first_unread_message_id !== undefined);
             this.select_id(first_unread_message_id, {then_scroll: true, use_closest: true});
+        }
+
+        // Rebuild message list, since we might need to shuffle around the participant users.
+        if (narrow_state.stream_sub() && narrow_state.topic()) {
+            activity_ui.build_user_sidebar();
         }
 
         return render_info;
