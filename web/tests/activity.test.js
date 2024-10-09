@@ -13,7 +13,7 @@ const {mock_esm, set_global, with_overrides, zrequire} = require("./lib/namespac
 const {run_test, noop} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
 const $ = require("./lib/zjquery");
-const {current_user, page_params, realm, user_settings} = require("./lib/zpage_params");
+const {current_user, page_params, realm} = require("./lib/zpage_params");
 
 const $window_stub = $.create("window-stub");
 set_global("to_$", () => $window_stub);
@@ -52,6 +52,10 @@ const peer_data = zrequire("peer_data");
 const message_lists = zrequire("message_lists");
 const util = zrequire("util");
 const {Filter} = zrequire("../src/filter");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 const me = {
     email: "me@zulip.com",
@@ -116,7 +120,7 @@ function add_sub_and_set_as_current_narrow(sub) {
 
 function test(label, f) {
     run_test(label, (helpers) => {
-        user_settings.presence_enabled = true;
+        helpers.override(user_settings, "presence_enabled", true);
         // Simulate a small window by having the
         // fill_screen_with_content render the entire
         // list in one pass.  We will do more refined
@@ -158,7 +162,7 @@ run_test("reload_defaults", () => {
     assert.equal(activity_ui.get_filter_text(), "");
 });
 
-test("get_status", () => {
+test("get_status", ({override}) => {
     page_params.realm_users = [];
     current_user.user_id = 999;
 
@@ -167,9 +171,9 @@ test("get_status", () => {
     assert.equal(presence.get_status(mark.user_id), "idle");
     assert.equal(presence.get_status(fred.user_id), "active");
 
-    user_settings.presence_enabled = false;
+    override(user_settings, "presence_enabled", false);
     assert.equal(presence.get_status(current_user.user_id), "offline");
-    user_settings.presence_enabled = true;
+    override(user_settings, "presence_enabled", true);
     assert.equal(presence.get_status(current_user.user_id), "active");
 
     presence.presence_info.delete(zoe.user_id);
@@ -505,7 +509,7 @@ test("render_empty_user_list_message", ({override, mock_template}) => {
 });
 
 test("insert_one_user_into_empty_list", ({override, mock_template}) => {
-    user_settings.user_list_style = 2;
+    override(user_settings, "user_list_style", 2);
 
     override(padded_widget, "update_padding", noop);
     mock_template("presence_row.hbs", true, (data, html) => {

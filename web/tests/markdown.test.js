@@ -7,7 +7,7 @@ const markdown_test_cases = require("../../zerver/tests/fixtures/markdown_test_c
 const markdown_assert = require("./lib/markdown_assert");
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
-const {page_params, user_settings} = require("./lib/zpage_params");
+const {page_params} = require("./lib/zpage_params");
 
 const example_realm_linkifiers = [
     {
@@ -38,7 +38,6 @@ const example_realm_linkifiers = [
         id: 4,
     },
 ];
-user_settings.translate_emoticons = false;
 
 set_global("document", {compatMode: "CSS1Compat"});
 
@@ -56,6 +55,10 @@ const people = zrequire("people");
 const pygments_data = zrequire("pygments_data");
 const stream_data = zrequire("stream_data");
 const user_groups = zrequire("user_groups");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 const emoji_params = {
     realm_emoji: {
@@ -259,7 +262,7 @@ test("markdown_detection", () => {
     }
 });
 
-test("marked_shared", () => {
+test("marked_shared", ({override}) => {
     const tests = markdown_test_cases.regular_tests;
 
     for (const test of tests) {
@@ -270,7 +273,7 @@ test("marked_shared", () => {
         }
 
         let message = {raw_content: test.input};
-        user_settings.translate_emoticons = test.translate_emoticons || false;
+        override(user_settings, "translate_emoticons", test.translate_emoticons || false);
         message = {
             ...message,
             ...markdown.render(message.raw_content),
@@ -320,7 +323,7 @@ test("message_flags", () => {
     assert.ok(message.flags.includes("topic_wildcard_mentioned"));
 });
 
-test("marked", () => {
+test("marked", ({override}) => {
     const test_cases = [
         {input: "hello", expected: "<p>hello</p>"},
         {input: "hello there", expected: "<p>hello there</p>"},
@@ -633,7 +636,7 @@ test("marked", () => {
 
     for (const test_case of test_cases) {
         // Disable emoji conversion by default.
-        user_settings.translate_emoticons = test_case.translate_emoticons || false;
+        override(user_settings, "translate_emoticons", test_case.translate_emoticons || false);
 
         const input = test_case.input;
         const expected = test_case.expected;

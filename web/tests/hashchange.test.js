@@ -6,7 +6,6 @@ const {mock_esm, set_global, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
 const $ = require("./lib/zjquery");
-const {user_settings} = require("./lib/zpage_params");
 
 let $window_stub;
 set_global("to_$", () => $window_stub);
@@ -37,6 +36,10 @@ const hashchange = zrequire("hashchange");
 const message_view = zrequire("../src/message_view");
 const stream_data = zrequire("stream_data");
 const {Filter} = zrequire("../src/filter");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 const devel_id = 100;
 const devel = {
@@ -232,7 +235,7 @@ function test_helper({override, override_rewire, change_tab}) {
 
 run_test("hash_interactions", ({override, override_rewire}) => {
     $window_stub = $.create("window-stub");
-    user_settings.web_home_view = "recent_topics";
+    override(user_settings, "web_home_view", "recent_topics");
 
     const helper = test_helper({override, override_rewire, change_tab: true});
 

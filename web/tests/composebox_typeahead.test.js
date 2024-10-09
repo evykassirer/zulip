@@ -6,7 +6,7 @@ const {mock_banners} = require("./lib/compose_banner");
 const {mock_esm, set_global, with_overrides, zrequire} = require("./lib/namespace");
 const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {current_user, realm, user_settings} = require("./lib/zpage_params");
+const {current_user, realm} = require("./lib/zpage_params");
 
 let autosize_called;
 
@@ -57,6 +57,10 @@ const compose_pm_pill = zrequire("compose_pm_pill");
 const compose_recipient = zrequire("compose_recipient");
 const composebox_typeahead = zrequire("composebox_typeahead");
 const settings_config = zrequire("settings_config");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 const ct = composebox_typeahead;
 
@@ -1286,7 +1290,7 @@ test("initialize", ({override, override_rewire, mock_template}) => {
         }
     });
 
-    user_settings.enter_sends = false;
+    override(user_settings, "enter_sends", false);
     let compose_finish_called = false;
     function finish() {
         compose_finish_called = true;
@@ -1328,7 +1332,7 @@ test("initialize", ({override, override_rewire, mock_template}) => {
     $stub_target.attr("id", "stream_message_recipient_topic");
     $("form#send_message_form").trigger(event);
     $stub_target.attr("id", "compose-textarea");
-    user_settings.enter_sends = false;
+    override(user_settings, "enter_sends", false);
     event.metaKey = true;
 
     $("form#send_message_form").trigger(event);
@@ -1336,7 +1340,7 @@ test("initialize", ({override, override_rewire, mock_template}) => {
     event.metaKey = false;
     event.ctrlKey = true;
     $("form#send_message_form").trigger(event);
-    user_settings.enter_sends = true;
+    override(user_settings, "enter_sends", true);
     event.ctrlKey = false;
     event.altKey = true;
     $("form#send_message_form").trigger(event);

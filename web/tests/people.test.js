@@ -10,7 +10,7 @@ const {$t} = require("./lib/i18n");
 const {mock_esm, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
-const {current_user, page_params, realm, user_settings} = require("./lib/zpage_params");
+const {current_user, page_params, realm} = require("./lib/zpage_params");
 
 const message_user_ids = mock_esm("../src/message_user_ids");
 const settings_data = mock_esm("../src/settings_data", {
@@ -20,6 +20,10 @@ const settings_data = mock_esm("../src/settings_data", {
 const muted_users = zrequire("muted_users");
 const people = zrequire("people");
 const user_groups = zrequire("user_groups");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 const welcome_bot = {
     email: "welcome-bot@example.com",
@@ -614,19 +618,19 @@ test_people("bot_custom_profile_data", () => {
     assert.equal(people.get_custom_profile_data(bot_botson.user_id, 3), null);
 });
 
-test_people("user_timezone", () => {
+test_people("user_timezone", ({override}) => {
     MockDate.set(parseISO("20130208T080910").getTime());
 
-    user_settings.twenty_four_hour_time = true;
+    override(user_settings, "twenty_four_hour_time", true);
     assert.equal(people.get_user_time(me.user_id), "00:09");
 
-    user_settings.twenty_four_hour_time = false;
+    override(user_settings, "twenty_four_hour_time", false);
     assert.equal(people.get_user_time(me.user_id), "12:09 AM");
 });
 
 test_people("utcToZonedTime", ({override}) => {
     MockDate.set(parseISO("20130208T080910").getTime());
-    user_settings.twenty_four_hour_time = true;
+    override(user_settings, "twenty_four_hour_time", true);
 
     assert.deepEqual(people.get_user_time(unknown_user.user_id), undefined);
     assert.equal(people.get_user_time(me.user_id), "00:09");

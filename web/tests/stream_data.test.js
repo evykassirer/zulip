@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const {mock_esm, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
-const {current_user, page_params, realm, user_settings} = require("./lib/zpage_params");
+const {current_user, page_params, realm} = require("./lib/zpage_params");
 
 // TODO: Remove after we enable support for
 // web_public_streams in production.
@@ -20,6 +20,10 @@ const stream_data = zrequire("stream_data");
 const hash_util = zrequire("hash_util");
 const stream_settings_data = zrequire("stream_settings_data");
 const user_groups = zrequire("user_groups");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 mock_esm("../src/group_permission_settings", {
     get_group_permission_setting_config() {
@@ -582,7 +586,7 @@ test("delete_sub", () => {
     stream_data.delete_sub(99999);
 });
 
-test("notifications", () => {
+test("notifications", ({override}) => {
     const india = {
         stream_id: 102,
         name: "India",
@@ -601,13 +605,13 @@ test("notifications", () => {
     assert.ok(!stream_data.receives_notifications(india.stream_id, "desktop_notifications"));
     assert.ok(!stream_data.receives_notifications(india.stream_id, "audible_notifications"));
 
-    user_settings.enable_stream_desktop_notifications = true;
-    user_settings.enable_stream_audible_notifications = true;
+    override(user_settings, "enable_stream_desktop_notifications", true);
+    override(user_settings, "enable_stream_audible_notifications", true);
     assert.ok(stream_data.receives_notifications(india.stream_id, "desktop_notifications"));
     assert.ok(stream_data.receives_notifications(india.stream_id, "audible_notifications"));
 
-    user_settings.enable_stream_desktop_notifications = false;
-    user_settings.enable_stream_audible_notifications = false;
+    override(user_settings, "enable_stream_desktop_notifications", false);
+    override(user_settings, "enable_stream_audible_notifications", false);
     assert.ok(!stream_data.receives_notifications(india.stream_id, "desktop_notifications"));
     assert.ok(!stream_data.receives_notifications(india.stream_id, "audible_notifications"));
 
@@ -618,38 +622,38 @@ test("notifications", () => {
 
     india.desktop_notifications = false;
     india.audible_notifications = false;
-    user_settings.enable_stream_desktop_notifications = true;
-    user_settings.enable_stream_audible_notifications = true;
+    override(user_settings, "enable_stream_desktop_notifications", true);
+    override(user_settings, "enable_stream_audible_notifications", true);
     assert.ok(!stream_data.receives_notifications(india.stream_id, "desktop_notifications"));
     assert.ok(!stream_data.receives_notifications(india.stream_id, "audible_notifications"));
 
-    user_settings.wildcard_mentions_notify = true;
+    override(user_settings, "wildcard_mentions_notify", true);
     assert.ok(stream_data.receives_notifications(india.stream_id, "wildcard_mentions_notify"));
-    user_settings.wildcard_mentions_notify = false;
+    override(user_settings, "wildcard_mentions_notify", false);
     assert.ok(!stream_data.receives_notifications(india.stream_id, "wildcard_mentions_notify"));
     india.wildcard_mentions_notify = true;
     assert.ok(stream_data.receives_notifications(india.stream_id, "wildcard_mentions_notify"));
-    user_settings.wildcard_mentions_notify = true;
+    override(user_settings, "wildcard_mentions_notify", true);
     india.wildcard_mentions_notify = false;
     assert.ok(!stream_data.receives_notifications(india.stream_id, "wildcard_mentions_notify"));
 
-    user_settings.enable_stream_push_notifications = true;
+    override(user_settings, "enable_stream_push_notifications", true);
     assert.ok(stream_data.receives_notifications(india.stream_id, "push_notifications"));
-    user_settings.enable_stream_push_notifications = false;
+    override(user_settings, "enable_stream_push_notifications", false);
     assert.ok(!stream_data.receives_notifications(india.stream_id, "push_notifications"));
     india.push_notifications = true;
     assert.ok(stream_data.receives_notifications(india.stream_id, "push_notifications"));
-    user_settings.enable_stream_push_notifications = true;
+    override(user_settings, "enable_stream_push_notifications", true);
     india.push_notifications = false;
     assert.ok(!stream_data.receives_notifications(india.stream_id, "push_notifications"));
 
-    user_settings.enable_stream_email_notifications = true;
+    override(user_settings, "enable_stream_email_notifications", true);
     assert.ok(stream_data.receives_notifications(india.stream_id, "email_notifications"));
-    user_settings.enable_stream_email_notifications = false;
+    override(user_settings, "enable_stream_email_notifications", false);
     assert.ok(!stream_data.receives_notifications(india.stream_id, "email_notifications"));
     india.email_notifications = true;
     assert.ok(stream_data.receives_notifications(india.stream_id, "email_notifications"));
-    user_settings.enable_stream_email_notifications = true;
+    override(user_settings, "enable_stream_email_notifications", true);
     india.email_notifications = false;
     assert.ok(!stream_data.receives_notifications(india.stream_id, "email_notifications"));
 
@@ -680,11 +684,11 @@ test("notifications", () => {
     };
     stream_data.add_sub(antarctica);
 
-    user_settings.enable_stream_desktop_notifications = true;
-    user_settings.enable_stream_audible_notifications = true;
-    user_settings.enable_stream_email_notifications = false;
-    user_settings.enable_stream_push_notifications = false;
-    user_settings.wildcard_mentions_notify = true;
+    override(user_settings, "enable_stream_desktop_notifications", true);
+    override(user_settings, "enable_stream_audible_notifications", true);
+    override(user_settings, "enable_stream_email_notifications", false);
+    override(user_settings, "enable_stream_push_notifications", false);
+    override(user_settings, "wildcard_mentions_notify", true);
 
     india.desktop_notifications = null;
     india.audible_notifications = true;

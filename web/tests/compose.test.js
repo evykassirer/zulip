@@ -8,7 +8,7 @@ const {mock_banners} = require("./lib/compose_banner");
 const {mock_esm, set_global, zrequire} = require("./lib/namespace");
 const {run_test, noop} = require("./lib/test");
 const $ = require("./lib/zjquery");
-const {current_user, page_params, realm, user_settings} = require("./lib/zpage_params");
+const {current_user, page_params, realm} = require("./lib/zpage_params");
 
 const user_groups = zrequire("user_groups");
 
@@ -59,6 +59,10 @@ const drafts = zrequire("drafts");
 const echo = zrequire("echo");
 const people = zrequire("people");
 const stream_data = zrequire("stream_data");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 function reset_jquery() {
     // Avoid leaks.
@@ -408,7 +412,7 @@ test_ui("enter_with_preview_open", ({override, override_rewire}) => {
     $("#compose .preview_message_area").show();
     $("#compose .markdown_preview").hide();
     $("#compose").addClass("preview_mode");
-    user_settings.enter_sends = true;
+    override(user_settings, "enter_sends", true);
     let send_message_called = false;
     override_rewire(compose, "send_message", () => {
         send_message_called = true;
@@ -421,7 +425,7 @@ test_ui("enter_with_preview_open", ({override, override_rewire}) => {
     assert.ok(send_message_called);
     assert.ok(show_button_spinner_called);
 
-    user_settings.enter_sends = false;
+    override(user_settings, "enter_sends", false);
     $("textarea#compose-textarea").trigger("blur");
     compose.enter_with_preview_open();
     assert.ok($("textarea#compose-textarea").is_focused());
@@ -429,7 +433,7 @@ test_ui("enter_with_preview_open", ({override, override_rewire}) => {
     // Test sending a message without content.
     $("textarea#compose-textarea").val("");
     $("#compose .preview_message_area").show();
-    user_settings.enter_sends = true;
+    override(user_settings, "enter_sends", true);
 
     compose.enter_with_preview_open();
 });

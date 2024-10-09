@@ -4,11 +4,15 @@ const assert = require("node:assert/strict");
 
 const {mock_esm, zrequire} = require("./lib/namespace");
 const {run_test} = require("./lib/test");
-const {current_user, page_params, realm, user_settings} = require("./lib/zpage_params");
+const {current_user, page_params, realm} = require("./lib/zpage_params");
 
 const settings_data = zrequire("settings_data");
 const settings_config = zrequire("settings_config");
 const user_groups = zrequire("user_groups");
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 /*
     Some methods in settings_data are fairly
@@ -234,11 +238,11 @@ test_realm_group_settings(
     settings_data.user_can_delete_own_message,
 );
 
-run_test("using_dark_theme", () => {
-    user_settings.color_scheme = settings_config.color_scheme_values.dark.code;
+run_test("using_dark_theme", ({override}) => {
+    override(user_settings, "color_scheme", settings_config.color_scheme_values.dark.code);
     assert.equal(settings_data.using_dark_theme(), true);
 
-    user_settings.color_scheme = settings_config.color_scheme_values.automatic.code;
+    override(user_settings, "color_scheme", settings_config.color_scheme_values.automatic.code);
 
     window.matchMedia = (query) => {
         assert.equal(query, "(prefers-color-scheme: dark)");
@@ -252,7 +256,7 @@ run_test("using_dark_theme", () => {
     };
     assert.equal(settings_data.using_dark_theme(), false);
 
-    user_settings.color_scheme = settings_config.color_scheme_values.light.code;
+    override(user_settings, "color_scheme", settings_config.color_scheme_values.light.code);
     assert.equal(settings_data.using_dark_theme(), false);
 });
 

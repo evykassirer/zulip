@@ -7,7 +7,7 @@ const {mock_cjs, mock_esm, zrequire} = require("./lib/namespace");
 const {run_test, noop} = require("./lib/test");
 const blueslip = require("./lib/zblueslip");
 const $ = require("./lib/zjquery");
-const {realm, user_settings} = require("./lib/zpage_params");
+const {realm} = require("./lib/zpage_params");
 
 let clipboard_args;
 class Clipboard {
@@ -23,7 +23,6 @@ mock_cjs("clipboard", Clipboard);
 
 const realm_playground = mock_esm("../src/realm_playground");
 const copied_tooltip = mock_esm("../src/copied_tooltip");
-user_settings.emojiset = "apple";
 
 const rm = zrequire("rendered_markdown");
 const people = zrequire("people");
@@ -34,6 +33,10 @@ const message_store = mock_esm("../src/message_store");
 mock_esm("../src/settings_data", {
     user_can_access_all_other_users: () => false,
 });
+const {initialize_user_settings} = zrequire("user_settings");
+
+const user_settings = {};
+initialize_user_settings({user_settings});
 
 const iago = {
     email: "iago@zulip.com",
@@ -475,7 +478,7 @@ run_test("timestamp-error", () => {
     assert.equal($timestamp_error.text(), "translated: Invalid time format: the-time-format");
 });
 
-run_test("emoji", () => {
+run_test("emoji", ({override}) => {
     // Setup
     const $content = get_content_element();
     const $emoji = $.create("emoji-stub");
@@ -488,14 +491,14 @@ run_test("emoji", () => {
         return {contents: () => ({unwrap() {}})};
     };
     $content.set_find_results(".emoji", $emoji);
-    user_settings.emojiset = "text";
+    override(user_settings, "emojiset", "text");
 
     rm.update_elements($content);
 
     assert.ok(called);
 
     // Set page parameters back so that test run order is independent
-    user_settings.emojiset = "apple";
+    override(user_settings, "emojiset", "apple");
 });
 
 run_test("spoiler-header", () => {
