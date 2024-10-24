@@ -91,8 +91,10 @@ export function update_lock_icon_in_sidebar() {
 export function build_page() {
     setup_settings_label();
 
+    console.log(people.small_avatar_url_for_person(people.get_by_user_id(people.my_current_user_id())))
     const rendered_settings_tab = render_settings_tab({
         full_name: people.my_full_name(),
+        profile_picture: people.small_avatar_url_for_person(people.get_by_user_id(people.my_current_user_id())),
         date_joined_text: get_parsed_date_of_joining(),
         current_user,
         page_params,
