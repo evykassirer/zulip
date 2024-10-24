@@ -115,6 +115,12 @@ $user_status_emoji_width: 24px;
     }
 }
 
+.buddy-list-section
+    .user_sidebar_entry:not(#does-not-exist).with_avatar
+    .user-list-sidebar-menu-icon {
+    display: none;
+}
+
 .buddy-list-section {
     margin-bottom: 0;
     overflow-x: hidden;
