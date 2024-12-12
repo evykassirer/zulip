@@ -287,9 +287,14 @@ h3,
     }
 
     .settings_select {
-        height: 30px;
+        height: 2.1428em; /* 30px at 14px em */
         width: var(--modal-input-width);
         max-width: 100%;
+    }
+
+    .settings_url_input,
+    .settings_text_input {
+        height: 2em; /* 28px at 14px em */
     }
 
     .account-settings-heading {
@@ -1705,7 +1710,6 @@ label.preferences-radio-choice-label {
 .custom_user_field,
 .bot_owner_user_field {
     .pill-container {
-        min-height: 24px;
         max-width: 206px;
         background-color: hsl(0deg 0% 100%);
 
@@ -2089,7 +2093,7 @@ label.preferences-radio-choice-label {
 
 .settings_url_input,
 .settings_text_input {
-    padding: 4px 6px;
+    padding: 0 6px;
     color: hsl(0deg 0% 33%);
     border-radius: 4px;
     border: 1px solid hsl(0deg 0% 80%);
