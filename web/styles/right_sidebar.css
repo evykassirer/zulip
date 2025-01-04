@@ -570,6 +570,7 @@ $user_status_emoji_width: 24px;
     padding-left: 0;
 
     .invite-user-link {
+        padding-left: 17px;
         grid-template-columns:
             var(--right-sidebar-header-icon-toggle-width)
             minmax(0, 1fr);
