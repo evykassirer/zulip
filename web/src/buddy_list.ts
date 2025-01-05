@@ -656,8 +656,8 @@ export class BuddyList extends BuddyListConf {
         // lets a user find the full list of subscribed users and information about them.
         if (
             current_sub &&
-            stream_data.can_view_subscribers(current_sub) &&
-            has_inactive_users_matching_view
+            stream_data.can_view_subscribers(current_sub) // &&
+            // has_inactive_users_matching_view
         ) {
             const stream_edit_hash = hash_util.channels_settings_edit_url(
                 current_sub,
@@ -674,9 +674,9 @@ export class BuddyList extends BuddyListConf {
 
         // We give a link to view the list of all users to help reduce confusion about
         // there being hidden (inactive) "other" users.
-        if (has_inactive_other_users) {
-            $("#buddy-list-other-users-container").append($(render_view_all_users()));
-        }
+        // if (has_inactive_other_users) {
+        $("#buddy-list-other-users-container").append($(render_view_all_users()));
+        // }
 
         // Note that we don't show a link for the participants list because we expect
         // all participants to be shown (except bots or deactivated users).
