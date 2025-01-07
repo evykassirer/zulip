@@ -788,7 +788,6 @@ test("initialize", ({override, override_rewire, mock_template}) => {
         buddy_list.$other_users_list = $("#buddy-list-other-users");
         buddy_list.$other_users_list.append = noop;
         stub_buddy_list_elements();
-        mock_template("empty_list_widget_for_list.hbs", false, () => "<empty-list-stub>");
         clear_buddy_list(buddy_list);
         page_params.presences = {};
     }
