@@ -652,6 +652,15 @@ export class BuddyList extends BuddyListConf {
             this.users_matching_view_ids.length + this.participant_user_ids.length;
         const has_inactive_other_users = other_users_count > this.other_user_ids.length;
 
+        // This is a bit hacky. Ideally we'd be able to figure this out with looking
+        // at the first user's data, but right now this is the only way the server
+        // sends this information to the client.
+        let is_avatar_view = false;
+        if (this.all_user_ids.length > 0) {
+            const data = this.get_data_from_user_ids([this.all_user_ids[0]!]);
+            is_avatar_view = data[0]!.user_list_style.WITH_AVATAR;
+        }
+
         // For stream views, we show a link at the bottom of the list of subscribed users that
         // lets a user find the full list of subscribed users and information about them.
         if (
@@ -667,6 +676,7 @@ export class BuddyList extends BuddyListConf {
                 $(
                     render_view_all_subscribers({
                         stream_edit_hash,
+                        is_avatar_view,
                     }),
                 ),
             );
@@ -675,7 +685,9 @@ export class BuddyList extends BuddyListConf {
         // We give a link to view the list of all users to help reduce confusion about
         // there being hidden (inactive) "other" users.
         // if (has_inactive_other_users) {
-        $("#buddy-list-other-users-container").append($(render_view_all_users()));
+        $("#buddy-list-other-users-container").append(
+            $(render_view_all_users({is_avatar_view})),
+        );
         // }
 
         // Note that we don't show a link for the participants list because we expect
