@@ -1002,7 +1002,6 @@ div.focused-message-list {
        this preserves the dimensions and rounded corners
        on the image itself. */
     line-height: 1;
-    margin-right: 11px;
     vertical-align: top;
     border-radius: 4px;
     overflow: hidden;
@@ -1021,6 +1020,7 @@ div.focused-message-list {
 .user_sidebar_entry.with_avatar .user-profile-picture {
     width: var(--right-sidebar-avatar-width);
     height: var(--right-sidebar-avatar-height);
+    margin-right: 11px;
 }
 
 .home-error-bar {
