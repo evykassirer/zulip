@@ -308,10 +308,10 @@ export class BuddyList extends BuddyListConf {
             this.render_data.hide_headers ? false : this.other_users_is_collapsed,
         );
 
-        this.update_empty_list_placeholders();
         this.fill_screen_with_content();
 
         // This must happen after `fill_screen_with_content`
+        this.update_empty_list_placeholders();
         $("#buddy-list-users-matching-view-container .view-all-subscribers-link").remove();
         $("#buddy-list-other-users-container .view-all-users-link").remove();
         if (!buddy_data.get_is_searching_users()) {
@@ -333,63 +333,27 @@ export class BuddyList extends BuddyListConf {
     }
 
     update_empty_list_placeholders(): void {
-        const {total_human_subscribers_count, other_users_count} = this.render_data;
-        const has_inactive_users_matching_view =
-            total_human_subscribers_count >
-            this.users_matching_view_ids.length + this.participant_user_ids.length;
-        const has_inactive_other_users = other_users_count > this.other_user_ids.length;
-
-        let matching_view_empty_list_message;
-        let other_users_empty_list_message;
-        // Only visible when searching, since we usually hide an empty participants section
-        let participants_empty_list_message;
-
-        if (buddy_data.get_is_searching_users()) {
-            matching_view_empty_list_message = $t({defaultMessage: "No matching users."});
-            other_users_empty_list_message = $t({defaultMessage: "No matching users."});
-            participants_empty_list_message = $t({defaultMessage: "No matching users."});
-        } else {
-            if (has_inactive_users_matching_view) {
-                matching_view_empty_list_message = $t({defaultMessage: "No active users."});
-            } else {
-                matching_view_empty_list_message = $t({defaultMessage: "None."});
-            }
-
-            if (has_inactive_other_users) {
-                other_users_empty_list_message = $t({defaultMessage: "No active users."});
-            } else {
-                other_users_empty_list_message = $t({defaultMessage: "None."});
-            }
+        if (!buddy_data.get_is_searching_users()) {
+            $(`#buddy_list_wrapper .empty-list-message`).remove();
+            return;
         }
 
-        function add_or_update_empty_list_placeholder(selector: string, message: string): void {
-            if (
-                $(selector).children().length === 0 ||
-                $(`${selector} .empty-list-message`).length > 0
-            ) {
+        function add_or_update_empty_list_placeholder(list_selector: string): void {
+            if ($(list_selector).children().length === 0) {
                 const empty_list_widget_html = render_empty_list_widget_for_list({
-                    empty_list_message: message,
+                    empty_list_message: $t({defaultMessage: "No matching users."}),
                 });
-                $(selector).html(empty_list_widget_html);
+                $(list_selector).html(empty_list_widget_html);
+            } else {
+                $(`${list_selector} .empty-list-message`).remove();
             }
         }
 
-        add_or_update_empty_list_placeholder(
-            "#buddy-list-users-matching-view",
-            matching_view_empty_list_message,
-        );
+        add_or_update_empty_list_placeholder("#buddy-list-users-matching-view");
 
-        add_or_update_empty_list_placeholder(
-            "#buddy-list-other-users",
-            other_users_empty_list_message,
-        );
+        add_or_update_empty_list_placeholder("#buddy-list-other-users");
 
-        if (participants_empty_list_message) {
-            add_or_update_empty_list_placeholder(
-                "#buddy-list-participants",
-                participants_empty_list_message,
-            );
-        }
+        add_or_update_empty_list_placeholder("#buddy-list-participants");
     }
 
     update_section_header_counts(): void {
@@ -614,23 +578,26 @@ export class BuddyList extends BuddyListConf {
     }
 
     display_or_hide_sections(): void {
-        const {get_all_participant_ids, hide_headers, total_human_subscribers_count} =
-            this.render_data;
+        // `hide_headers === true` means that we're only showing one section, like
+        // for Inbox view. We hide all headers and show only users from the "others"
+        // section and should hide the other two sections.
+        const {
+            hide_headers,
+            total_human_subscribers_count,
+            other_users_count,
+            get_all_participant_ids,
+        } = this.render_data;
 
-        // If we're in the mode of hiding headers, that means we're only showing the "others"
-        // section, so hide the other two sections.
-        $("#buddy-list-users-matching-view-container").toggleClass("no-display", hide_headers);
-        const hide_participants_list = hide_headers || get_all_participant_ids().size === 0;
-        $("#buddy-list-participants-container").toggleClass("no-display", hide_participants_list);
+        const hide_users_matching_view = hide_headers || total_human_subscribers_count === 0;
+        const hide_participants = hide_headers || get_all_participant_ids().size === 0;
+        const hide_other_users = other_users_count === 0;
 
-        // This is the case where every subscriber is in the participants list. In this case, we
-        // hide the "in this channel" section.
-        if (
-            !hide_participants_list &&
-            total_human_subscribers_count === this.participant_user_ids.length
-        ) {
-            $("#buddy-list-users-matching-view-container").toggleClass("no-display", true);
-        }
+        $("#buddy-list-users-matching-view-container").toggleClass(
+            "no-display",
+            hide_users_matching_view,
+        );
+        $("#buddy-list-participants-container").toggleClass("no-display", hide_participants);
+        $("#buddy-list-other-users-container").toggleClass("no-display", hide_other_users);
     }
 
     render_view_user_list_links(): void {
