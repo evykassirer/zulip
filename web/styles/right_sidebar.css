@@ -311,7 +311,10 @@
         "starting-anchor-element row-content markers-and-controls" var(
             --line-height-sidebar-row
         )
-        ".                       row-content ." auto / 20px minmax(0, 1fr)
+        ".                       row-content ." auto / var(
+            --right-sidebar-presence-circle-width
+        )
+        minmax(0, 1fr)
         minmax(0, auto);
     align-items: baseline;
 }
@@ -539,7 +542,6 @@
 .buddy-list-user-link,
 .invite-user-shortcut {
     margin-right: var(--width-simplebar-scroll-hover);
-    padding-left: var(--right-sidebar-left-spacing);
     border-radius: 4px;
 
     &:hover {
@@ -572,8 +574,8 @@
     }
 }
 
-.buddy-list-user-link {
-    margin-left: var(--right-sidebar-toggle-width-offset);
+.buddy-list-user-link .right-sidebar-wrappable-text-container {
+    margin-left: var(--right-sidebar-header-icon-toggle-width);
 }
 
 .invite-user-shortcut {
@@ -583,7 +585,6 @@
        from the legacy value. */
     margin-top: calc(25px - (var(--legacy-body-line-height-unitless) * 1em));
     margin-bottom: var(--sidebar-bottom-spacing);
-    padding-left: 0;
 
     .invite-user-link {
         grid-template-columns:
