@@ -1,5 +1,5 @@
 /* The width of the settings sidebar. */
-$settings_sidebar_width: 255px;
+$settings_sidebar_width: 18.2142em; /* 255px / 14px em */
 
 label {
     margin: 0;
