@@ -37,6 +37,8 @@ export const media_breakpoints = {
     cb4_min: cb4 + "px",
     cb5_min: cb5 + "px",
     short_navbar_cutoff_height: "600px",
+    // Used for main settings overlay and stream/subscription settings overlay
+    settings_overlay_sidebar_collapse_breakpoint: 1000 / 14 + "em",
 };
 
 export const media_breakpoints_num = {

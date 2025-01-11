@@ -788,7 +788,7 @@ h4.user_group_setting_subsection_title {
             border-top: 1px solid var(--color-border-modal-bar);
         }
 
-        @media (width > $md_min) {
+        @media (width > $settings_overlay_sidebar_collapse_breakpoint) {
             .settings-sticky-footer {
                 border-radius: 0 0 6px;
             }
@@ -1241,7 +1241,7 @@ div.settings-radio-input-parent {
 
    Longer-term we should extract this logic two-column-overlay class
    to read more naturally. */
-@media (width < $md_min) {
+@media (width < $settings_overlay_sidebar_collapse_breakpoint) {
     .user-groups-container,
     .subscriptions-container {
         position: relative;

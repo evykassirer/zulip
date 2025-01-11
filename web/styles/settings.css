@@ -1318,7 +1318,7 @@ label.preferences-radio-choice-label {
             background-color: var(--color-background-modal-bar);
             border-bottom: 1px solid var(--color-border-modal-bar);
 
-            @media (width >= $md_min) {
+            @media (width >= $settings_overlay_sidebar_collapse_breakpoint) {
                 .tab-switcher {
                     display: flex;
                     z-index: 1;
@@ -1330,7 +1330,7 @@ label.preferences-radio-choice-label {
                 }
             }
 
-            @media (width < $md_min) {
+            @media (width < $settings_overlay_sidebar_collapse_breakpoint) {
                 .tab-switcher {
                     display: flex;
                     justify-content: center;
@@ -1777,7 +1777,7 @@ label.preferences-radio-choice-label {
 
 /* This value needs to match with the same in subscriptions.css, as
    we have some shared styles declared there */
-@media (width < $md_min) {
+@media (width < $settings_overlay_sidebar_collapse_breakpoint) {
     .profile-settings-form {
         .user-avatar-section {
             flex: 100%;
@@ -1850,7 +1850,7 @@ label.preferences-radio-choice-label {
     }
 }
 
-@media (width < 830px) and (width > $md_min) {
+@media (width < 830px) and (width > $settings_overlay_sidebar_collapse_breakpoint) {
     #attachments-settings .upload-file-name {
         min-width: 10em;
     }
