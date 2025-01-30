@@ -402,7 +402,7 @@
 
 .modal_select {
     height: 30px;
-    width: 220px;
+    width: var(--modal-input-width);
     padding: 0 25px 0 6px;
     color: hsl(0deg 0% 33%);
     border-radius: 4px;
@@ -428,8 +428,8 @@
     width: fit-content;
 }
 
-.dropdown-widget-button {
-    width: 206px;
+.overlay-content .dropdown-widget-button {
+    width: var(--modal-input-width);
 }
 
 .modal_password_input,
@@ -444,7 +444,8 @@
         border-color linear 0.2s,
         box-shadow linear 0.2s;
     margin-bottom: 10px;
-    width: 206px;
+    /* subtract padding (6px each side) and border (1px each side) */
+    width: calc(var(--modal-input-width) - 14px);
 
     &:focus {
         border-color: hsl(206deg 80% 62% / 80%);

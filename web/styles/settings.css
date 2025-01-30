@@ -288,13 +288,19 @@ h3,
 
     .settings_select {
         height: 30px;
-        min-width: 325px;
+        width: var(--modal-input-width);
         max-width: 100%;
     }
 
     .account-settings-heading {
         margin-right: 10px;
     }
+}
+
+/* Make this one less wide because it's indented, so that the right
+   edge lines up with other dropdown menus */
+#id_realm_jitsi_server_url {
+    width: calc(var(--modal-input-width) - 22px);
 }
 
 /* list_select is similar to settings_select, but without the height styling. */
@@ -365,20 +371,19 @@ select.settings_select {
     /* Preserve the effective space allotted
        inside the input group.
 
-       Select element: 325px
+       Select element: --modal-input-width
        Button element: ~29px
-       Right margin:     4px
-       TOTAL           358px */
-    max-width: 358px;
+       Right margin:     4px */
+    max-width: calc(var(--modal-input-width) + 29px + 4px);
 
     .settings_select {
-        /* Hold the settings select to its usual 325px;
+        /* Hold the settings select to its usual value;
            a TODO would be to fix up the min- and max-
            width values on the parent class, as the
            min-width always applies, and max-width: 100%
            has no meaning without an actual width:
            declaration. */
-        max-width: 325px;
+        max-width: var(--modal-input-width);
         /* Disregard the min-width from the main
            .settings_select selector. */
         min-width: 0;
@@ -1518,7 +1523,7 @@ label.preferences-radio-choice-label {
     }
 
     .preferences-settings-form select {
-        width: 245px;
+        width: var(--modal-input-width);
     }
 }
 
@@ -1599,12 +1604,12 @@ label.preferences-radio-choice-label {
 
 #edit-user-form {
     .person_picker {
-        min-width: 206px;
+        min-width: var(--modal-input-width);
     }
 
     & textarea {
-        width: max(206px, 25vw);
-        max-width: 320px;
+        width: max(var(--modal-input-width), 25vw);
+        max-width: var(--modal-input-width);
     }
 }
 
