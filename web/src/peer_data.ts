@@ -200,7 +200,7 @@ export async function get_all_subscribers(
     // This function parallels `get_subscribers` but ensures we include all
     // subscribers, possibly fetching that data from the server.
     const subscribers = await get_full_subscriber_set(stream_id, retry_on_failure);
-    // This means the request failed.
+    // This means the request failed. It's only possible if `retry_on_failure = false`.
     if (subscribers === null) {
         return null;
     }
