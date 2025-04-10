@@ -290,6 +290,10 @@ test("maybe_fetch_stream_subscribers", async () => {
     assert.equal(await peer_data.maybe_fetch_is_user_subscribed(india.stream_id, 2), true);
     assert.equal(await peer_data.maybe_fetch_is_user_subscribed(india.stream_id, 5), false);
 
+    peer_data.clear_for_testing();
+    assert.deepEqual(await peer_data.get_subscribers(india.stream_id), []);
+    assert.deepEqual(await peer_data.get_all_subscribers(india.stream_id), [1, 2, 3, 4]);
+
     channel.get = () => {
         throw new Error("error");
     };
