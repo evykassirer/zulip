@@ -348,7 +348,7 @@ test("get_subscriber_count", () => {
     assert.deepStrictEqual(peer_data.get_subscriber_count(india.stream_id, false), 1);
 });
 
-test("is_subscriber_subset", () => {
+test("is_subscriber_subset", async () => {
     function make_sub(stream_id, user_ids) {
         const sub = {
             stream_id,
@@ -376,7 +376,10 @@ test("is_subscriber_subset", () => {
     ];
 
     for (const row of matrix) {
-        assert.equal(peer_data.is_subscriber_subset(row[0].stream_id, row[1].stream_id), row[2]);
+        assert.equal(
+            await peer_data.is_subscriber_subset(row[0].stream_id, row[1].stream_id),
+            row[2],
+        );
     }
 
     // Two untracked streams should never be passed into us.
@@ -388,7 +391,7 @@ test("is_subscriber_subset", () => {
         "warn",
         "We called get_loaded_subscriber_subset for an untracked stream: 99999",
     );
-    peer_data.is_subscriber_subset(99999, 88888);
+    await peer_data.is_subscriber_subset(99999, 88888);
     blueslip.reset();
 
     // Warn about hypothetical undefined stream_ids.
@@ -396,7 +399,7 @@ test("is_subscriber_subset", () => {
         "warn",
         "We called get_loaded_subscriber_subset for an untracked stream: undefined",
     );
-    peer_data.is_subscriber_subset(undefined, sub_a.stream_id);
+    await peer_data.is_subscriber_subset(undefined, sub_a.stream_id);
     blueslip.reset();
 });
 
