@@ -13,11 +13,60 @@ log][commit-log] for an up-to-date list of all changes.
 
 _Unreleased_
 
+- Added support for using PostgreSQL 17 as the database. See the
+  [PostgreSQL upgrade
+  documentation](../production/upgrade.md#upgrading-postgresql) if
+  you’re interested in upgrading an existing server to newer
+  PostgreSQL.
+
 #### Upgrade notes for 11.0
 
-- None yet.
+- PostgreSQL 13 is no longer supported; if you are currently using it, you will
+  need to [upgrade PostgreSQL](../production/upgrade.md#upgrading-postgresql)
+  before upgrading Zulip.
 
 ## Zulip Server 10.x series
+
+### Zulip Server 10.1
+
+_Released 2025-03-28_
+
+- CVE-2025-27149: "Public data" administrative data exports can leak
+  metadata for non-exported messages and client user agent strings.
+- CVE-2025-30368: Organization exports can be deleted by
+  administrators of a different organization.
+- CVE-2025-30369: Custom profile fields can be deleted by
+  administrators of a different organization.
+- Fixed typing notifications not being displayed in topic permalink views.
+- Fixed a bug that could cause the compose box send button to be
+  improperly disabled.
+- Fixed multiple display bugs involving the general chat topic.
+- Fixed multiple UI live-update issues with new groups-based permissions.
+- Fixed exceptions using `tusd` with optional `AWS_*` settings not set.
+- Fixed Python virtual environments being incorrectly created
+  referencing `/root/`, which could cause the upgrade tool or
+  installer to fail.
+- Fixed instructions for upgrading to Ubuntu 24.04 on Zulip 10.x.
+- Fixed an exception upgrading to 10.x on servers that had previously
+  hand-deleted users or realms from the database (not using the
+  official management commands) in a way that leaked
+  `DirectMessageGroup` objects associated with them.
+- Fixed the setting to never de-emphasize inactive channels, which
+  broke in 10.0.
+- Fixed several visual glitches with non-default font sizes.
+- Fixed minor inbox and recent conversations glitches.
+- Fixed a dark theme visual glitch with the to-do widget.
+- Fixed an exception when setting a password longer than 72 characters.
+- Fixed the “find organization” emails not being properly translated.
+- Fixed left sidebar unread counts being misaligned on Safari.
+- Fixed reply button text in inbox and recent conversations views.
+- Optimized the main database query to fetch unread message counts.
+- Tweaked notification banner for older unreads to be shown only in
+  conversation views.
+- Tweaked warning banner for mentioning a group none of whose
+  recipients are subscribed to avoid generating duplicate banners.
+- Extended `nginx` configuration override support.
+- Updated translations.
 
 ### Zulip Server 10.0
 
@@ -877,8 +926,10 @@ _Released 2024-01-24_
   authentication could cause other queue workers to not progress
   properly on low-memory Zulip servers.
 - Added support for using PostgreSQL 16 as the database. See the
-  PostgreSQL upgrade documentation if you’re interested in upgrading
-  an existing server to newer Postgres.
+  [PostgreSQL upgrade
+  documentation](../production/upgrade.md#upgrading-postgresql) if
+  you’re interested in upgrading an existing server to newer
+  PostgreSQL.
 - Added support for explicitly deactivating a mobile push
   notifications registration.
 - Added support for a new class of custom authentication hook.
@@ -1322,7 +1373,7 @@ _Released 2023-05-31_
 - Added additional confirmation dialogs for actions deserving caution,
   including marking all messages as read, removing the last user from a
   private stream, and disabling all notifications for direct messages.
-- Added support for Postgres 15, and removed support for Postgres 11.
+- Added support for PostgreSQL 15, and removed support for PostgreSQL 11.
 - Added new `z` keyboard shortcut to view a message in context.
 - Added new `=` keyboard shortcut to upvote an existing emoji reaction.
 - Changed the `s` keyboard shortcut to be a toggle, replacing the
@@ -1729,8 +1780,8 @@ _Released 2022-11-17_
 #### Upgrade notes for 6.0
 
 - Installations using [docker-zulip][docker-zulip] will need to [upgrade
-  Postgres][docker-zulip-upgrade-database] before upgrading to Zulip
-  6.0, because the previous default of Postgres 10 is no longer
+  PostgreSQL][docker-zulip-upgrade-database] before upgrading to Zulip
+  6.0, because the previous default of PostgreSQL 10 is no longer
   supported by this release.
 - Installations using the AzureAD authentication backend will need to
   update `/etc/zulip/zulip-secrets.conf` after upgrading. The
@@ -2040,7 +2091,8 @@ _Released 2022-03-29_
 - Improved various interaction and performance details in "Recent topics".
 - Improved styling for poll and todo list widgets.
 - Zulip now supports configuring the database name and username when
-  using a remote Postgres server. Previously, these were hardcoded to "zulip".
+  using a remote PostgreSQL server. Previously, these were hardcoded
+  to "zulip".
 - Migrated many tooltips to prettier tooltips powered by TippyJS.
 - Autocomplete is now available when editing topics.
 - Typeahead for choosing a topic now consistently fetches the full set

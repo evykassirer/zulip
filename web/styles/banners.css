@@ -32,22 +32,27 @@
 
 .banner-label {
     grid-area: banner-label;
-    padding: 0.3333em 0 0.2667em;
+    padding: 0.3376em 0 0.271em;
     line-height: 1.2667;
 }
 
 .banner-action-buttons {
     grid-area: banner-action-buttons;
     display: flex;
-    gap: 8px;
-    margin-left: 10px;
+    gap: 0.5em; /* 8px at 16px/1em */
+    /* This margin is required to align the banner action
+       buttons vertically, since we cannot use flexbox
+       center alignment as we also need to account for the
+       UI when the banner has a muli-line label. */
+    margin: 0.0625em 0; /* 1px at 16px/1em */
+    margin-left: 0.625em; /* 10px at 16px/1em */
 }
 
 .banner-close-button {
     display: flex;
     grid-area: banner-close-button;
-    padding: 0.6875em;
-    margin-left: 5px;
+    padding: 0.75em; /* 12px at 16px/1em */
+    margin-left: 0.3125em; /* 5px at 16px/1em */
 
     &:focus-visible {
         outline-offset: -2px;

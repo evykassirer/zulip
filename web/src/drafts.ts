@@ -145,9 +145,7 @@ export const draft_model = (function () {
             // since we expect bugged drafts will have either been run
             // through this code or been deleted by the previous
             // behavior of deleting them after 30 days.
-            if (draft.topic === undefined) {
-                draft.topic = "";
-            }
+            draft.topic ??= "";
 
             valid_drafts[draft_id] = {
                 ...draft,
@@ -506,9 +504,9 @@ export function filter_drafts_by_compose_box_and_recipient(
         // Match by stream and topic.
         if (
             stream_id &&
-            topic &&
+            topic !== undefined &&
             draft.type === "stream" &&
-            draft.topic &&
+            draft.topic !== undefined &&
             draft.stream_id !== undefined &&
             util.same_recipient(
                 {type: "stream", stream_id: draft.stream_id, topic: draft.topic},
@@ -518,7 +516,12 @@ export function filter_drafts_by_compose_box_and_recipient(
             narrow_drafts_ids.push(id);
         }
         // Match by only stream.
-        else if (draft.type === "stream" && stream_id && !topic && draft.stream_id === stream_id) {
+        else if (
+            draft.type === "stream" &&
+            stream_id &&
+            topic === undefined &&
+            draft.stream_id === stream_id
+        ) {
             narrow_drafts_ids.push(id);
         }
         // Match by direct message recipient.

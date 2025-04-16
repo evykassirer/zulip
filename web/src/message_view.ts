@@ -780,7 +780,10 @@ export let show = (raw_terms: NarrowTerm[], show_opts: ShowMessageViewOpts): voi
             select_opts,
             then_select_offset,
         );
-        if (id_info.first_unread_msg_id_pending_server_verification) {
+        if (
+            id_info.first_unread_msg_id_pending_server_verification &&
+            filter.is_conversation_view()
+        ) {
             const params = message_fetch.get_parameters_for_message_fetch_api({
                 anchor: "first_unread",
                 num_before: 0,
@@ -1199,10 +1202,7 @@ export function render_message_list_with_selected_message(opts: {
     const id_info = opts.id_info;
     const select_offset = opts.select_offset;
 
-    let msg_id = id_info.final_select_id;
-    if (msg_id === undefined) {
-        msg_id = message_lists.current.first_unread_message_id();
-    }
+    const msg_id = id_info.final_select_id ?? message_lists.current.first_unread_message_id();
     // There should be something since it's not visibly empty.
     assert(msg_id !== undefined);
 
@@ -1495,7 +1495,7 @@ function handle_post_view_change(
     } else {
         compose_closed_ui.update_buttons_for_non_specific_views();
     }
-    compose_closed_ui.update_reply_recipient_label();
+    compose_closed_ui.update_recipient_text_for_reply_button();
 
     message_view_header.render_title_area();
 

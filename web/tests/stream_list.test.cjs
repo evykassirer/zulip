@@ -46,9 +46,14 @@ const stream_list = zrequire("stream_list");
 const stream_list_sort = zrequire("stream_list_sort");
 const user_groups = zrequire("user_groups");
 const {initialize_user_settings} = zrequire("user_settings");
+const settings_config = zrequire("settings_config");
 
-const user_settings = {};
+// Start with always filtering out inactive streams.
+const user_settings = {
+    demote_inactive_streams: settings_config.demote_inactive_streams_values.always.code,
+};
 initialize_user_settings({user_settings});
+stream_list_sort.set_filter_out_inactives();
 
 const me = {
     email: "me@example.com",
@@ -470,7 +475,7 @@ test_ui("narrowing", ({mock_template}) => {
     initialize_stream_data();
 
     topic_list.close = noop;
-    topic_list.rebuild = noop;
+    topic_list.rebuild_left_sidebar = noop;
     topic_list.active_stream_id = noop;
     topic_list.get_stream_li = noop;
     $("#streams_header").outerHeight = () => 0;

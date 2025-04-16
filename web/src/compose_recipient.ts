@@ -114,6 +114,10 @@ export function update_on_recipient_change(): void {
     drafts.update_compose_draft_count();
     check_posting_policy_for_compose_box();
     compose_validate.validate_and_update_send_button_status();
+
+    // Clear the topic moved banner when the recipient
+    // is changed or compose box is closed.
+    compose_validate.clear_topic_moved_info();
 }
 
 export let check_posting_policy_for_compose_box = (): void => {
@@ -344,13 +348,7 @@ export function update_topic_inputbox_on_mandatory_topics_change(): void {
     update_topic_displayed_text(compose_state.topic());
 }
 
-export function update_topic_displayed_text(
-    topic_name: string | undefined,
-    has_topic_focus = false,
-): void {
-    if (topic_name === undefined) {
-        topic_name = "";
-    }
+export function update_topic_displayed_text(topic_name = "", has_topic_focus = false): void {
     compose_state.topic(topic_name);
 
     // When topics are mandatory, no additional adjustments are needed.
@@ -373,11 +371,7 @@ export function update_topic_displayed_text(
     $topic_not_mandatory_placeholder.hide();
 
     function update_placeholder_visibility(): void {
-        if ($input.val() === "") {
-            $topic_not_mandatory_placeholder.addClass("visible");
-        } else {
-            $topic_not_mandatory_placeholder.removeClass("visible");
-        }
+        $topic_not_mandatory_placeholder.toggleClass("visible", $input.val() === "");
     }
 
     if (is_empty_string_topic && !has_topic_focus && recipient_widget_hidden) {

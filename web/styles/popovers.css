@@ -450,24 +450,9 @@ ul.popover-group-menu-member-list {
         }
     }
 
-    .user-profile-manage-own-edit-button,
-    .user-profile-manage-others-edit-button {
+    .user-profile-header-actions {
         display: flex;
-        text-decoration: none;
-        /* 15px at 22px/1em */
-        font-size: 0.6818em;
-    }
-
-    .user-profile-manage-own-copy-link-button {
-        display: flex;
-        /* 19px at 22px/1em */
-        font-size: 0.8638em;
-        text-decoration: none;
-    }
-
-    .zulip-icon-link,
-    .zulip-icon-edit {
-        vertical-align: middle;
+        gap: 5px;
     }
 
     .deactivated-user-icon {
@@ -609,12 +594,6 @@ ul.popover-group-menu-member-list {
         margin-bottom: 5px;
         -webkit-overflow-scrolling: touch;
 
-        .remove-subscription-button,
-        .remove-member-button {
-            padding-top: 2px;
-            padding-bottom: 2px;
-        }
-
         .user-stream-list,
         .user-group-list {
             width: 100%;
@@ -637,7 +616,7 @@ ul.popover-group-menu-member-list {
 
                     &.remove_subscription,
                     &.remove_member {
-                        text-align: right;
+                        float: right;
                         padding-right: 10px;
                     }
 
@@ -880,19 +859,28 @@ ul.popover-group-menu-member-list {
         }
     }
 
-    .move_messages_edit_topic {
-        margin-bottom: unset;
-        box-sizing: border-box;
-        width: 100%;
-        height: auto;
-
-        &.empty-topic-display::placeholder {
-            color: inherit;
-        }
-    }
-
     #move-topic-new-topic-input-wrapper {
         position: relative;
+        display: grid;
+        /* 30px at 16px/1em */
+        grid-template:
+            "move-topic-input clear-topic" auto / minmax(0, 1fr)
+            1.875em;
+
+        & input.move_messages_edit_topic {
+            grid-column: move-topic-input-start / clear-topic-end;
+            grid-row: move-topic-input;
+            /* 30px at 16px/1em */
+            padding-right: 1.875em;
+            margin-bottom: unset;
+            box-sizing: border-box;
+            width: 100%;
+            height: auto;
+
+            &.empty-topic-display::placeholder {
+                color: inherit;
+            }
+        }
     }
 
     .move-topic-new-topic-placeholder {
@@ -1574,8 +1562,4 @@ ul.popover-menu-list {
 #user-group-to-add {
     flex: 1;
     min-width: 0;
-}
-
-.add-groups-button-wrapper {
-    flex: 0 0 auto;
 }

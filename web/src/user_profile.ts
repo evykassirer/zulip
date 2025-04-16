@@ -54,6 +54,7 @@ import * as subscriber_api from "./subscriber_api.ts";
 import * as timerender from "./timerender.ts";
 import type {HTMLSelectOneElement} from "./types.ts";
 import * as ui_report from "./ui_report.ts";
+import * as ui_util from "./ui_util.ts";
 import type {UploadWidget} from "./upload_widget.ts";
 import * as user_deactivation_ui from "./user_deactivation_ui.ts";
 import * as user_group_edit_members from "./user_group_edit_members.ts";
@@ -233,19 +234,13 @@ function change_state_of_subscribe_button(
     assert(user_profile_subscribe_widget !== undefined);
     user_profile_subscribe_widget.render();
     const $subscribe_button = $("#user-profile-modal .add-subscription-button");
-    const $element: (tippy.ReferenceElement & HTMLElement) | undefined =
-        $subscribe_button.parent()[0];
-    assert($element !== undefined);
-    $element._tippy?.destroy();
-    $subscribe_button.prop("disabled", false);
+    ui_util.enable_element_and_remove_tooltip($subscribe_button);
 }
 
 function reset_subscribe_widget(): void {
-    $("#user-profile-modal .add-subscription-button").prop("disabled", true);
-    settings_components.initialize_disable_button_hint_popover(
-        $("#user-profile-modal .add-subscription-button-wrapper"),
+    ui_util.disable_element_and_add_tooltip(
+        $("#user-profile-modal .add-subscription-button"),
         $t({defaultMessage: "Select a channel to subscribe"}),
-        {},
     );
     $("#user_profile_subscribe_widget .dropdown_widget_value").text(
         $t({defaultMessage: "Select a channel"}),
@@ -1449,12 +1444,14 @@ export function initialize(): void {
         },
     );
 
+    $("body").on("click", "#user-profile-modal #name .user-profile-manage-own-edit-button", () => {
+        browser_history.go_to_location("#settings/profile");
+        hide_user_profile();
+    });
+
     /* These click handlers are implemented as just deep links to the
      * relevant part of the Zulip UI, so we don't want preventDefault,
      * but we do want to close the modal when you click them. */
-    $("body").on("click", "#user-profile-modal #name .user-profile-manage-own-edit-button", () => {
-        hide_user_profile();
-    });
 
     $("body").on("click", "#user-profile-modal .user-profile-channel-list-item", () => {
         hide_user_profile();
@@ -1484,7 +1481,7 @@ export function initialize(): void {
 
     new ClipboardJS(".copy-link-to-user-profile", {
         text(trigger) {
-            const user_id = $(trigger).attr("data-user-id");
+            const user_id = $(trigger).closest("#user-profile-modal").attr("data-user-id");
             const user_profile_link = window.location.origin + "/#user/" + user_id;
 
             return user_profile_link;

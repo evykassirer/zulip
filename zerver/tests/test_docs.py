@@ -10,7 +10,8 @@ from django.conf import settings
 from django.test import override_settings
 from django.utils.timezone import now as timezone_now
 
-from corporate.models import Customer, CustomerPlan
+from corporate.models.customers import Customer
+from corporate.models.plans import CustomerPlan
 from zerver.context_processors import get_apps_page_url
 from zerver.lib.integrations import CATEGORIES, INTEGRATIONS, META_CATEGORY
 from zerver.lib.test_classes import ZulipTestCase
@@ -264,7 +265,6 @@ class DocPageTest(ZulipTestCase):
         self._test("/security/", ["TLS encryption"])
         self._test("/use-cases/", ["Use cases and customer stories"])
         self._test("/why-zulip/", ["Why Zulip?"])
-        self._test("/try-zulip/", ["check out the Zulip app"])
         # /for/... pages
         self._test("/for/open-source/", ["for open source projects"])
         self._test("/for/events/", ["for conferences and events"])

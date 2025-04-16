@@ -30,7 +30,7 @@ Options:
       Sets the PostgreSQL database name.
   --postgresql-database-user=zulip
       Sets the PostgreSQL database user.
-  --postgresql-version=16
+  --postgresql-version=17
       Sets the version of PostgreSQL that will be installed.
   --postgresql-missing-dictionaries
       Set postgresql.missing_dictionaries, which alters the initial database.  Use with
@@ -205,7 +205,7 @@ read -r -a ADDITIONAL_PACKAGES <<<"${ADDITIONAL_PACKAGES:-}"
 # zulip::profile::docker for Docker.  Use
 # e.g. zulip::profile::app_frontend for a Zulip frontend server.
 PUPPET_CLASSES="${PUPPET_CLASSES:-zulip::profile::standalone}"
-POSTGRESQL_VERSION="${POSTGRESQL_VERSION:-16}"
+POSTGRESQL_VERSION="${POSTGRESQL_VERSION:-17}"
 
 if [ -n "$SELF_SIGNED_CERT" ] && [ -n "$USE_CERTBOT" ]; then
     set +x
@@ -241,8 +241,8 @@ if [ "$EXTERNAL_HOST" = zulip.example.com ] \
 fi
 
 case "$POSTGRESQL_VERSION" in
-    [0-9] | [0-9].* | 1[0-2] | 1[0-2].*)
-        echo "error: PostgreSQL 13 or newer is required." >&2
+    [0-9] | [0-9].* | 1[0-3] | 1[0-3].*)
+        echo "error: PostgreSQL 14 or newer is required." >&2
         exit 1
         ;;
 esac
@@ -586,13 +586,21 @@ EOF
 fi
 
 if has_class "zulip::app_frontend_base"; then
-    # Create and activate a virtualenv
-    "$ZULIP_PATH"/scripts/lib/create-production-venv "$ZULIP_PATH"
+    # Frontend deploys use /home/zulip/deployments; without this, the
+    # install directory is also only readable by root.
+    mkdir -p /home/zulip/deployments
+    deploy_path=$("$ZULIP_PATH"/scripts/lib/zulip_tools.py make_deploy_path)
+    mv "$ZULIP_PATH" "$deploy_path"
+    ln -nsf /home/zulip/deployments/next "$ZULIP_PATH"
+    ln -nsf "$deploy_path" /home/zulip/deployments/next
 
-    "$ZULIP_PATH"/scripts/lib/install-node
+    # Create and activate a virtualenv
+    "$deploy_path"/scripts/lib/create-production-venv "$deploy_path"
+
+    "$deploy_path"/scripts/lib/install-node
 
     if [ -z "$NO_OVERWRITE_SETTINGS" ] || ! [ -e "/etc/zulip/settings.py" ]; then
-        cp -a "$ZULIP_PATH"/zproject/prod_settings_template.py /etc/zulip/settings.py
+        cp -a "$deploy_path"/zproject/prod_settings_template.py /etc/zulip/settings.py
         if [ -n "$EXTERNAL_HOST" ]; then
             sed -i "s/^EXTERNAL_HOST =.*/EXTERNAL_HOST = '$EXTERNAL_HOST'/" /etc/zulip/settings.py
         fi
@@ -613,11 +621,13 @@ if has_class "zulip::app_frontend_base"; then
             echo "ZULIP_SERVICE_SUBMIT_USAGE_STATISTICS = $SERVICE_SUBMIT_USAGE_STATISTICS" >>/etc/zulip/settings.py
         fi
     fi
-    ln -nsf /etc/zulip/settings.py "$ZULIP_PATH"/zproject/prod_settings.py
-    "$ZULIP_PATH"/scripts/setup/generate_secrets.py --production
+    ln -nsf /etc/zulip/settings.py "$deploy_path"/zproject/prod_settings.py
+    "$deploy_path"/scripts/setup/generate_secrets.py --production
+else
+    deploy_path="$ZULIP_PATH"
 fi
 
-"$ZULIP_PATH"/scripts/zulip-puppet-apply -f
+"$deploy_path"/scripts/zulip-puppet-apply -f
 
 if [ "$package_system" = apt ]; then
     apt-get -y --with-new-pkgs upgrade
@@ -627,7 +637,7 @@ elif [ "$package_system" = yum ]; then
 fi
 
 if [ -n "$USE_CERTBOT" ]; then
-    "$ZULIP_PATH"/scripts/setup/setup-certbot \
+    "$deploy_path"/scripts/setup/setup-certbot \
         "$EXTERNAL_HOST" --email "$ZULIP_ADMINISTRATOR"
 fi
 
@@ -689,12 +699,6 @@ EOF
     exit 0
 fi
 
-# Frontend deploys use /home/zulip/deployments; without this, the
-# install directory is also only readable by root.
-deploy_path=$("$ZULIP_PATH"/scripts/lib/zulip_tools.py make_deploy_path)
-mv "$ZULIP_PATH" "$deploy_path"
-ln -nsf /home/zulip/deployments/next "$ZULIP_PATH"
-ln -nsf "$deploy_path" /home/zulip/deployments/next
 ln -nsf "$deploy_path" /home/zulip/deployments/current
 ln -nsf /etc/zulip/settings.py "$deploy_path"/zproject/prod_settings.py
 mkdir -p "$deploy_path"/prod-static/serve

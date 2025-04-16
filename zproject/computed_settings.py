@@ -514,7 +514,7 @@ ROOT_DOMAIN_URI = EXTERNAL_URI_SCHEME + EXTERNAL_HOST
 
 S3_KEY = get_secret("s3_key")
 S3_SECRET_KEY = get_secret("s3_secret_key")
-if S3_KEY is not None and S3_SECRET_KEY is not None and S3_REGION is None:
+if LOCAL_UPLOADS_DIR is None and S3_REGION is None:
     import boto3
 
     S3_REGION = boto3.client("s3").meta.region_name
@@ -680,6 +680,10 @@ default_template_engine_settings.update(
         os.path.join(DEPLOY_ROOT, "templates"),
         # The webhook integration templates
         os.path.join(DEPLOY_ROOT, "zerver", "webhooks"),
+        # The python-zulip-api:integrations package templates
+        # Keep above the zulip_bots templates to override bots with the same names
+        # (e.g., the Jira plugin doc and the Jira bot both use "jira/doc.md").
+        os.path.join("static" if DEBUG else STATIC_ROOT, "generated", "integrations"),
         # The python-zulip-api:zulip_bots package templates
         os.path.join("static" if DEBUG else STATIC_ROOT, "generated", "bots"),
     ],

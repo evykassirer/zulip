@@ -40,6 +40,7 @@ import * as ListWidget from "./list_widget.ts";
 import * as loading from "./loading.ts";
 import * as overlays from "./overlays.ts";
 import * as people from "./people.ts";
+import * as resize from "./resize.ts";
 import * as scroll_util from "./scroll_util.ts";
 import type {UserGroupUpdateEvent} from "./server_event_types.ts";
 import * as settings_components from "./settings_components.ts";
@@ -433,6 +434,7 @@ export function handle_subgroup_edit_event(group_id: number, direct_subgroup_ids
         update_your_groups_list_if_needed();
         update_display_checkmark_on_group_edit(group);
     }
+    update_permissions_panel_on_subgroup_update(direct_subgroup_ids);
 }
 
 function update_status_text_on_member_update(updated_group: UserGroup): void {
@@ -763,6 +765,7 @@ export function update_realm_setting_in_permissions_panel(
         setting_name,
         active_group_id,
         can_edit,
+        "realm",
     );
 
     const group_has_permission = assigned_permission_object !== undefined;
@@ -823,6 +826,7 @@ export function update_stream_setting_in_permissions_panel(
         setting_name,
         active_group_id,
         can_edit,
+        "stream",
     );
 
     const group_has_permission = assigned_permission_object !== undefined;
@@ -901,6 +905,7 @@ export function update_group_setting_in_permissions_panel(
         setting_name,
         active_group_id,
         can_edit,
+        "group",
     );
 
     const group_has_permission = assigned_permission_object !== undefined;
@@ -1152,6 +1157,32 @@ export function setup_group_list_tab_hash(tab_key_value: string): void {
     }
 }
 
+export function update_permissions_panel_on_subgroup_update(subgroup_ids: number[]): void {
+    const active_group_id = get_active_data().id;
+    if (active_group_id === undefined) {
+        return;
+    }
+
+    for (const subgroup_id of subgroup_ids) {
+        if (
+            active_group_id === subgroup_id ||
+            // If one of the supergroup of the currently opened group
+            // is added/removed from it's supergroup, we need to update
+            // the permissions panel.
+            user_groups.is_subgroup_of_target_group(subgroup_id, active_group_id)
+        ) {
+            const group = user_groups.get_user_group_from_id(active_group_id);
+            // We can probably write some logic where we don't need to
+            // calculate everything again on such change, but this
+            // change should not be too frequent in nature and this
+            // approach keeps things simple.
+            show_settings_for(group);
+            return;
+        }
+    }
+    return;
+}
+
 function display_membership_toggle_spinner($group_row: JQuery): void {
     /* Prevent sending multiple requests by removing the button class. */
     $group_row.find(".check").removeClass("join_leave_button");
@@ -1186,7 +1217,7 @@ function empty_right_panel(): void {
 
 function open_right_panel_empty(): void {
     empty_right_panel();
-    const tab_key = $(".user-groups-container")
+    const tab_key = $("#groups_overlay .two-pane-settings-container")
         .find("div.ind-tab.selected")
         .first()
         .attr("data-tab-key");
@@ -1272,7 +1303,9 @@ export function is_group_already_present(group: UserGroup): boolean {
 }
 
 export function get_active_data(): ActiveData {
-    const $active_tabs = $(".user-groups-container").find("div.ind-tab.selected");
+    const $active_tabs = $("#groups_overlay .two-pane-settings-container").find(
+        "div.ind-tab.selected",
+    );
     const active_group_id = user_group_components.active_group_id;
     let $row;
     if (active_group_id !== undefined) {
@@ -1311,8 +1344,8 @@ export function switch_to_group_row(group: UserGroup): void {
 }
 
 function show_right_section(): void {
-    $(".right").addClass("show");
-    $(".user-groups-header").addClass("slide-left");
+    $("#groups_overlay .two-pane-settings-container").addClass("right-pane-open");
+    $("#groups_overlay .two-pane-settings-header").addClass("slide-left");
 }
 
 export function add_group_to_table(group: UserGroup): void {
@@ -1348,6 +1381,30 @@ export function sync_group_permission_setting(property: string, group: UserGroup
     }
 }
 
+export function update_group_right_panel(group: UserGroup, changed_settings: string[]): void {
+    if (changed_settings.includes("can_manage_group")) {
+        update_group_management_ui();
+        return;
+    }
+
+    if (
+        changed_settings.includes("can_add_members_group") ||
+        changed_settings.includes("can_remove_members_group")
+    ) {
+        update_group_membership_button(group.id);
+        update_members_panel_ui(group);
+        return;
+    }
+
+    if (
+        changed_settings.includes("can_join_group") ||
+        changed_settings.includes("can_leave_group")
+    ) {
+        update_group_membership_button(group.id);
+        return;
+    }
+}
+
 export function update_group(event: UserGroupUpdateEvent, group: UserGroup): void {
     if (!overlays.groups_open()) {
         return;
@@ -1370,6 +1427,10 @@ export function update_group(event: UserGroupUpdateEvent, group: UserGroup): voi
         return;
     }
 
+    const changed_group_settings = group_permission_settings
+        .get_group_permission_settings()
+        .filter((setting_name) => event.data[setting_name] !== undefined);
+
     if (get_active_data().id === group.id) {
         // update right side pane
         update_group_details(group);
@@ -1379,36 +1440,16 @@ export function update_group(event: UserGroupUpdateEvent, group: UserGroup): voi
                 .text(user_groups.get_display_group_name(group.name))
                 .addClass("showing-info-title");
         }
-        if (event.data.can_mention_group !== undefined) {
-            sync_group_permission_setting("can_mention_group", group);
-            update_group_management_ui();
-        }
-        if (event.data.can_add_members_group !== undefined) {
-            sync_group_permission_setting("can_add_members_group", group);
-            update_group_management_ui();
-        }
-        if (event.data.can_manage_group !== undefined) {
-            sync_group_permission_setting("can_manage_group", group);
-            update_group_management_ui();
-        }
-        if (event.data.can_join_group !== undefined) {
-            sync_group_permission_setting("can_join_group", group);
-            update_group_membership_button(group.id);
-        }
-        if (event.data.can_leave_group !== undefined) {
-            sync_group_permission_setting("can_leave_group", group);
-            update_group_membership_button(group.id);
-        }
-        if (event.data.can_remove_members_group !== undefined) {
-            sync_group_permission_setting("can_remove_members_group", group);
-            update_group_management_ui();
+
+        if (changed_group_settings.length > 0) {
+            update_group_right_panel(group, changed_group_settings);
         }
     }
 
-    const changed_group_settings = group_permission_settings
-        .get_group_permission_settings()
-        .filter((setting_name) => event.data[setting_name] !== undefined);
     for (const setting_name of changed_group_settings) {
+        if (get_active_data().id === group.id) {
+            sync_group_permission_setting(setting_name, group);
+        }
         update_group_setting_in_permissions_panel(
             setting_name,
             group_setting_value_schema.parse(event.data[setting_name]),
@@ -1425,6 +1466,7 @@ export function change_state(
     if (section === "new") {
         do_open_create_user_group();
         redraw_user_group_list();
+        resize.resize_settings_creation_overlay();
         return;
     }
 
@@ -1488,7 +1530,6 @@ function redraw_left_panel(tab_name: string): void {
     groups_list_data.sort(compare_by_name);
     group_list_widget.replace_list_data(groups_list_data);
     update_empty_left_panel_message();
-    maybe_reset_right_panel(groups_list_data);
 }
 
 export function redraw_user_group_list(): void {
@@ -1550,17 +1591,6 @@ export function add_or_remove_from_group(group: UserGroup, $group_row: JQuery): 
             success: success_callback,
             error: error_callback,
         });
-    }
-}
-
-export function maybe_reset_right_panel(groups_list_data: UserGroup[]): void {
-    if (user_group_components.active_group_id === undefined) {
-        return;
-    }
-
-    const group_ids = new Set(groups_list_data.map((group) => group.id));
-    if (!group_ids.has(user_group_components.active_group_id)) {
-        user_group_components.show_user_group_settings_pane.nothing_selected();
     }
 }
 
@@ -1988,8 +2018,8 @@ export function initialize(): void {
     $("#groups_overlay_container").on("click", ".group-row", show_right_section);
 
     $("#groups_overlay_container").on("click", ".fa-chevron-left", () => {
-        $(".right").removeClass("show");
-        $(".user-groups-header").removeClass("slide-left");
+        $("#groups_overlay .two-pane-settings-container").removeClass("right-pane-open");
+        $("#groups_overlay_container .two-pane-settings-header").removeClass("slide-left");
     });
 
     $("#groups_overlay_container").on("click", ".join_leave_button", function (this: HTMLElement) {
@@ -2087,6 +2117,7 @@ export function launch(
             },
         });
         change_state(section, left_side_tab, right_side_tab);
+        resize.resize_settings_overlay();
     });
     if (!get_active_data().id) {
         if (section === "new") {

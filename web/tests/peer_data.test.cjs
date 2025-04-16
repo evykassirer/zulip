@@ -81,6 +81,7 @@ function test(label, f) {
             "server_supported_permission_settings",
             example_settings.server_supported_permission_settings,
         );
+        override(realm, "realm_can_access_all_users_group", nobody_group.id);
 
         f({override});
     });
@@ -177,12 +178,6 @@ test("subscribers", () => {
     assert.ok(ok);
     assert.ok(!stream_data.is_user_subscribed(stream_id, brutus.user_id));
     assert.equal(peer_data.get_subscriber_count(stream_id), 0);
-
-    // verify that checking subscription with undefined user id
-
-    blueslip.expect("warn", "Undefined user_id passed to function is_user_subscribed");
-    assert.ok(!stream_data.is_user_subscribed(stream_id, undefined));
-    blueslip.reset();
 
     // Verify noop for bad stream when removing subscriber
     const bad_stream_id = 999999;

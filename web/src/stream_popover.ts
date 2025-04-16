@@ -616,7 +616,12 @@ export async function build_move_topic_to_stream_popover(
         if ($("#move_topic_modal select.message_edit_topic_propagate").val() === "change_one") {
             return false;
         }
-        const {new_topic_name} = get_params_from_form();
+        let {new_topic_name} = get_params_from_form();
+        if (!settings_data.user_can_move_messages_to_another_topic()) {
+            // new_topic_name is undefined since the new topic input is disabled when
+            // user does not have permission to edit topic.
+            new_topic_name = args.topic_name;
+        }
         assert(new_topic_name !== undefined);
         // Don't show warning for empty topic as the user is probably
         // about to type a new topic name. Note that if topics are
@@ -759,15 +764,34 @@ export async function build_move_topic_to_stream_popover(
     function update_topic_input_placeholder_visibility(topic_input_value: string): void {
         if (!realm.realm_mandatory_topics) {
             const $topic_not_mandatory_placeholder = $(".move-topic-new-topic-placeholder");
-            if (topic_input_value === "") {
-                $topic_not_mandatory_placeholder.addClass(
-                    "move-topic-new-topic-placeholder-visible",
-                );
-            } else {
-                $topic_not_mandatory_placeholder.removeClass(
-                    "move-topic-new-topic-placeholder-visible",
-                );
-            }
+            $topic_not_mandatory_placeholder.toggleClass(
+                "move-topic-new-topic-placeholder-visible",
+                topic_input_value === "",
+            );
+        }
+    }
+
+    function setup_resize_observer($topic_input: JQuery<HTMLInputElement>): void {
+        // Update position of topic typeahead because showing/hiding the
+        // "topic already exists" warning changes the size of the modal.
+        const update_topic_typeahead_position = new ResizeObserver((_entries) => {
+            requestAnimationFrame(() => {
+                $topic_input.trigger(new $.Event("typeahead.refreshPosition"));
+            });
+        });
+        const move_topic_form = document.querySelector("#move_topic_form");
+        if (move_topic_form) {
+            update_topic_typeahead_position.observe(move_topic_form);
+        }
+    }
+
+    function update_clear_move_topic_button_state(): void {
+        const $clear_topic_name_button = $("#clear_move_topic_new_topic_name");
+        const topic_input_value = $("input#move-topic-new-topic-name").val();
+        if (topic_input_value === "") {
+            $clear_topic_name_button.css("visibility", "hidden");
+        } else {
+            $clear_topic_name_button.css("visibility", "visible");
         }
     }
 
@@ -798,6 +822,7 @@ export async function build_move_topic_to_stream_popover(
                     $topic_not_mandatory_placeholder.addClass(
                         "move-topic-new-topic-placeholder-visible",
                     );
+                    $("#clear_move_topic_new_topic_name").css("visibility", "hidden");
                 }
 
                 $topic_input.one("blur", () => {
@@ -807,10 +832,22 @@ export async function build_move_topic_to_stream_popover(
                         );
                         $topic_input.attr("placeholder", empty_string_topic_display_name);
                         $topic_input.addClass("empty-topic-display");
+                        $("#clear_move_topic_new_topic_name").css("visibility", "visible");
                     }
                 });
             });
         }
+
+        setup_resize_observer($topic_input);
+        update_clear_move_topic_button_state();
+
+        $("#clear_move_topic_new_topic_name").on("click", (e) => {
+            e.stopPropagation();
+            const $topic_input = $("#move-topic-new-topic-name").expectOne();
+            $topic_input.val("");
+            $topic_input.trigger("input").trigger("focus");
+            move_topic_to_stream_topic_typeahead?.hide();
+        });
 
         if (only_topic_edit) {
             // Set select_stream_id to current_stream_id since we user is not allowed
@@ -822,6 +859,7 @@ export async function build_move_topic_to_stream_popover(
                 const topic_input_value = $topic_input.val();
                 assert(topic_input_value !== undefined);
                 update_topic_input_placeholder_visibility(topic_input_value);
+                update_clear_move_topic_button_state();
             });
             return;
         }
@@ -849,24 +887,14 @@ export async function build_move_topic_to_stream_popover(
         render_selected_stream();
         $("#move_topic_to_stream_widget").prop("disabled", disable_stream_input);
         $topic_input.on("input", () => {
-            update_submit_button_disabled_state(current_stream_id);
+            assert(stream_widget_value !== undefined);
+            update_submit_button_disabled_state(stream_widget_value);
             maybe_show_topic_already_exists_warning();
             const topic_input_value = $topic_input.val();
             assert(topic_input_value !== undefined);
             update_topic_input_placeholder_visibility(topic_input_value);
+            update_clear_move_topic_button_state();
         });
-
-        // Update position of topic typeahead because showing/hiding the
-        // "topic already exists" warning changes the size of the modal.
-        const update_topic_typeahead_position = new ResizeObserver((_entries) => {
-            requestAnimationFrame(() => {
-                $topic_input.trigger(new $.Event("typeahead.refreshPosition"));
-            });
-        });
-        const move_topic_form = document.querySelector("#move_topic_form");
-        if (move_topic_form) {
-            update_topic_typeahead_position.observe(move_topic_form);
-        }
 
         if (!args.from_message_actions_popover) {
             update_move_messages_count_text("change_all");

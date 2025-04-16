@@ -55,6 +55,7 @@ from zerver.actions.user_groups import (
     check_add_user_group,
     do_change_user_group_permission_setting,
     do_deactivate_user_group,
+    do_reactivate_user_group,
     do_update_user_group_description,
     do_update_user_group_name,
     remove_subgroups_from_user_group,
@@ -282,20 +283,20 @@ class TestRealmAuditLog(ZulipTestCase):
     def test_change_email(self) -> None:
         now = timezone_now()
         user = self.example_user("hamlet")
+        original_email = user.delivery_email
         new_email = "test@example.com"
         do_change_user_delivery_email(user, new_email, acting_user=user)
-        self.assertEqual(
-            RealmAuditLog.objects.filter(
-                event_type=AuditLogEventType.USER_EMAIL_CHANGED, event_time__gte=now
-            ).count(),
-            1,
-        )
         self.assertEqual(new_email, user.delivery_email)
 
-        # Test the RealmAuditLog stringification
         audit_entry = RealmAuditLog.objects.get(
             event_type=AuditLogEventType.USER_EMAIL_CHANGED, event_time__gte=now
         )
+        self.assertEqual(audit_entry.modified_user, user)
+        self.assertEqual(
+            audit_entry.extra_data,
+            {RealmAuditLog.OLD_VALUE: original_email, RealmAuditLog.NEW_VALUE: new_email},
+        )
+        # Test the RealmAuditLog stringification
         self.assertTrue(
             repr(audit_entry).startswith(
                 f"<RealmAuditLog: {AuditLogEventType.USER_EMAIL_CHANGED.name} "
@@ -1494,7 +1495,7 @@ class TestRealmAuditLog(ZulipTestCase):
             },
         )
 
-    def test_user_group_deactivation(self) -> None:
+    def test_user_group_deactivation_and_reactivation(self) -> None:
         hamlet = self.example_user("hamlet")
         cordelia = self.example_user("cordelia")
         user_group = check_add_user_group(
@@ -1511,6 +1512,17 @@ class TestRealmAuditLog(ZulipTestCase):
             realm=hamlet.realm,
             event_time__gte=now,
             event_type=AuditLogEventType.USER_GROUP_DEACTIVATED,
+        )
+        self.assert_length(audit_log_entries, 1)
+        self.assertIsNone(audit_log_entries[0].modified_user)
+        self.assertEqual(audit_log_entries[0].modified_user_group, user_group)
+
+        do_reactivate_user_group(user_group, acting_user=hamlet)
+        audit_log_entries = RealmAuditLog.objects.filter(
+            acting_user=hamlet,
+            realm=hamlet.realm,
+            event_time__gte=now,
+            event_type=AuditLogEventType.USER_GROUP_REACTIVATED,
         )
         self.assert_length(audit_log_entries, 1)
         self.assertIsNone(audit_log_entries[0].modified_user)

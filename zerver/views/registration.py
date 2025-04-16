@@ -18,7 +18,6 @@ from django.shortcuts import redirect, render
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.translation import get_language
-from django.views.defaults import server_error
 from django_auth_ldap.backend import LDAPBackend, _LDAPUser
 from pydantic import Json, NonNegativeInt, StringConstraints
 
@@ -57,6 +56,7 @@ from zerver.lib.email_validation import email_allowed_for_realm, validate_email_
 from zerver.lib.exceptions import RateLimitedError
 from zerver.lib.i18n import (
     get_browser_language_code,
+    get_default_language_for_anonymous_user,
     get_default_language_for_new_user,
     get_language_name,
 )
@@ -945,7 +945,7 @@ def create_realm(request: HttpRequest, creation_key: str | None = None) -> HttpR
             except EmailNotDeliveredError:
                 logging.exception("Failed to deliver email during realm creation")
                 if settings.CORPORATE_ENABLED:
-                    return server_error(request)
+                    return render(request, "500.html", status=500)
                 return config_error(request, "smtp")
 
             if key_record is not None:
@@ -1106,7 +1106,7 @@ def accounts_home(
             except EmailNotDeliveredError:
                 logging.exception("Failed to deliver email during user registration")
                 if settings.CORPORATE_ENABLED:
-                    return server_error(request)
+                    return render(request, "500.html", status=500)
                 return config_error(request, "smtp")
             signup_send_confirm_url = reverse("signup_send_confirm")
             query = urlencode({"email": email})
@@ -1241,6 +1241,7 @@ def find_account(request: HttpRequest) -> HttpResponse:
                     ),
                     from_address=FromAddress.SUPPORT,
                     request=request,
+                    language=get_default_language_for_anonymous_user(request),
                 )
     return render(
         request,

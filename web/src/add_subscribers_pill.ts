@@ -63,11 +63,13 @@ export function set_up_pill_typeahead({
         user_group: boolean;
         user: boolean;
         user_group_source?: () => UserGroup[];
+        is_stream_subscriber_input: boolean;
     } = {
         user_source: get_users,
         stream: true,
         user_group: true,
         user: true,
+        is_stream_subscriber_input: true,
     };
     if (get_user_groups !== undefined) {
         opts.user_group_source = get_user_groups;
@@ -144,7 +146,8 @@ export function create({
     }
 
     function get_groups(): UserGroup[] {
-        const groups = get_user_groups();
+        let groups = get_user_groups();
+        groups = groups.filter((item) => item.name !== "role:nobody");
         return user_group_pill.filter_taken_groups(groups, pill_widget);
     }
 
@@ -182,7 +185,8 @@ export function create_without_add_button({
     }
 
     function get_groups(): UserGroup[] {
-        const user_groups = get_user_groups();
+        let user_groups = get_user_groups();
+        user_groups = user_groups.filter((item) => item.name !== "role:nobody");
         return user_group_pill.filter_taken_groups(user_groups, pill_widget);
     }
 

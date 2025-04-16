@@ -315,6 +315,21 @@ export function add_sub_to_table(sub: StreamSubscription): void {
     update_empty_left_panel_message();
 }
 
+export function remove_stream(stream_id: number): void {
+    if (!overlays.streams_open()) {
+        return;
+    }
+
+    // It is possible that row is empty when we deactivate a
+    // stream, but we let jQuery silently handle that.
+    const $row = stream_ui_updates.row_for_stream_id(stream_id);
+    $row.remove();
+    update_empty_left_panel_message();
+    if (hash_parser.is_editing_stream(stream_id)) {
+        stream_edit.open_edit_panel_empty();
+    }
+}
+
 export function update_settings_for_subscribed(slim_sub: StreamSubscription): void {
     const sub = stream_settings_data.get_sub_for_settings(slim_sub);
     stream_ui_updates.update_add_subscriptions_elements(sub);
@@ -786,7 +801,7 @@ function setup_page(callback: () => void): void {
             values: [
                 {label: $t({defaultMessage: "Subscribed"}), key: "subscribed"},
                 {label: $t({defaultMessage: "Not subscribed"}), key: "not-subscribed"},
-                {label: $t({defaultMessage: "All channels"}), key: "all-streams"},
+                {label: $t({defaultMessage: "All"}), key: "all-streams"},
             ],
             callback(_value, key) {
                 switch_stream_tab(key);
@@ -923,8 +938,8 @@ export function switch_to_stream_row(stream_id: number): void {
 }
 
 function show_right_section(): void {
-    $(".right").addClass("show");
-    $(".subscriptions-header").addClass("slide-left");
+    $("#channels_overlay_container .two-pane-settings-container").addClass("right-pane-open");
+    $("#subscription_overlay .two-pane-settings-header").addClass("slide-left");
     resize.resize_stream_subscribers_list();
 }
 
@@ -938,6 +953,7 @@ export function change_state(
     if (section === "new") {
         do_open_create_stream();
         show_right_section();
+        resize.resize_settings_creation_overlay();
         return;
     }
 
@@ -1015,6 +1031,7 @@ export function launch(
                 }
             }
         }, 0);
+        resize.resize_settings_overlay();
     });
 }
 
@@ -1070,26 +1087,26 @@ export function keyboard_sub(): void {
 
 export function toggle_view(event: string): void {
     const active_data = stream_settings_components.get_active_data();
-    const stream_filter_tab = active_data.$tabs.first().text();
+    const stream_filter_tab_key = active_data.$tabs.first().attr("data-tab-key");
     assert(toggler !== undefined);
 
     switch (event) {
         case "right_arrow":
-            switch (stream_filter_tab) {
-                case "Subscribed":
+            switch (stream_filter_tab_key) {
+                case "subscribed":
                     toggler.goto("not-subscribed");
                     break;
-                case "Not subscribed":
+                case "not-subscribed":
                     toggler.goto("all-streams");
                     break;
             }
             break;
         case "left_arrow":
-            switch (stream_filter_tab) {
-                case "Not subscribed":
+            switch (stream_filter_tab_key) {
+                case "not-subscribed":
                     toggler.goto("subscribed");
                     break;
-                case "All channels":
+                case "all-streams":
                     toggler.goto("not-subscribed");
                     break;
             }
@@ -1159,7 +1176,9 @@ export function initialize(): void {
     );
 
     $("#channels_overlay_container").on("click", ".fa-chevron-left", () => {
-        $(".right").removeClass("show");
-        $(".subscriptions-header").removeClass("slide-left");
+        $("#channels_overlay_container .two-pane-settings-container").removeClass(
+            "right-pane-open",
+        );
+        $("#channels_overlay_container .two-pane-settings-header").removeClass("slide-left");
     });
 }

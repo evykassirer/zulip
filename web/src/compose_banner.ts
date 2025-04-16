@@ -37,6 +37,7 @@ export const CLASSNAMES = {
     ...MESSAGE_SENT_CLASSNAMES,
     non_interleaved_view_messages_fading: "non_interleaved_view_messages_fading",
     interleaved_view_messages_fading: "interleaved_view_messages_fading",
+    topic_is_moved: "topic_is_moved",
     // unmute topic notifications are styled like warnings but have distinct behaviour
     unmute_topic_notification: "unmute_topic_notification warning-style",
     // warnings
@@ -238,17 +239,17 @@ export function show_stream_does_not_exist_error(stream_name: string): void {
     $("#compose_select_recipient_widget").trigger("click");
 }
 
-export function show_stream_not_subscribed_error(sub: StreamSubscription): void {
+export function show_stream_not_subscribed_error(
+    sub: StreamSubscription,
+    banner_text: string,
+): void {
     const $banner_container = $("#compose_banners");
     if ($(`#compose_banners .${CSS.escape(CLASSNAMES.user_not_subscribed)}`).length > 0) {
         return;
     }
     const new_row_html = render_compose_banner({
         banner_type: ERROR,
-        banner_text: $t({
-            defaultMessage:
-                "You're not subscribed to this channel. You will not be notified if other users reply to your message.",
-        }),
+        banner_text,
         button_text: stream_data.can_toggle_subscription(sub)
             ? $t({defaultMessage: "Subscribe"})
             : null,
