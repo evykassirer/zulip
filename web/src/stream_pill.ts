@@ -60,12 +60,21 @@ export function get_stream_name_from_item(item: StreamPill): string {
     return stream.name;
 }
 
-export function get_user_ids(pill_widget: StreamPillWidget | CombinedPillContainer): number[] {
-    let user_ids = pill_widget
-        .items()
-        .flatMap((item) =>
-            item.type === "stream" ? peer_data.get_subscribers(item.stream_id) : [],
-        );
+export async function get_user_ids(
+    pill_widget: StreamPillWidget | CombinedPillContainer,
+): Promise<number[]> {
+    let user_ids: number[] = [];
+    for (const pill of pill_widget.items()) {
+        if (pill.type === "stream") {
+            const subscribers = await peer_data.get_all_subscribers(pill.stream_id, false);
+            // This means the request failed. We don't want to keep retrying
+            // since that will delay this function's return.
+            if (subscribers === null) {
+                continue;
+            }
+            user_ids = [...user_ids, ...subscribers];
+        }
+    }
     user_ids = [...new Set(user_ids)];
     user_ids.sort((a, b) => a - b);
     return user_ids;

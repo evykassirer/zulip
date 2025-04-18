@@ -13,9 +13,9 @@ import * as user_groups from "./user_groups.ts";
 import type {UserGroup} from "./user_groups.ts";
 import * as user_pill from "./user_pill.ts";
 
-function get_pill_user_ids(pill_widget: CombinedPillContainer): number[] {
+async function get_pill_user_ids(pill_widget: CombinedPillContainer): Promise<number[]> {
     const user_ids = user_pill.get_user_ids(pill_widget);
-    const stream_user_ids = stream_pill.get_user_ids(pill_widget);
+    const stream_user_ids = await stream_pill.get_user_ids(pill_widget);
     return [...user_ids, ...stream_user_ids];
 }
 
@@ -128,11 +128,24 @@ export function create_without_add_button({
         return user_group_pill.filter_taken_groups(potential_subgroups, pill_widget);
     }
 
+    // TODO: Add loading state to the UI for better experience
+    // on long loads. Possibly add a spinner at the bottom of
+    // the user list and disable the input?
+
+    // TODO: Make sure we handle things properly if a pill is
+    // added and then removed while the fetch is still taking
+    // place.
     pill_widget.onPillCreate(() => {
-        onPillCreateAction(get_pill_user_ids(pill_widget), get_pill_group_ids(pill_widget));
+        void (async () => {
+            const user_ids = await get_pill_user_ids(pill_widget);
+            onPillCreateAction(user_ids, get_pill_group_ids(pill_widget));
+        })();
     });
     pill_widget.onPillRemove(() => {
-        onPillRemoveAction(get_pill_user_ids(pill_widget), get_pill_group_ids(pill_widget));
+        void (async () => {
+            const user_ids = await get_pill_user_ids(pill_widget);
+            onPillRemoveAction(user_ids, get_pill_group_ids(pill_widget));
+        })();
     });
 
     add_subscribers_pill.set_up_pill_typeahead({
@@ -172,9 +185,19 @@ export function set_up_handlers({
     */
     function callback(): void {
         const pill_widget = get_pill_widget();
-        const pill_user_ids = get_pill_user_ids(pill_widget);
-        const pill_group_ids = get_pill_group_ids(pill_widget);
-        action({pill_user_ids, pill_group_ids});
+        void (async () => {
+            // TODO: Add loading state to the UI for better experience
+            // on long loads. Probably add a spinner to the "Add" button
+            // and disable the input?
+            const pill_user_ids = await get_pill_user_ids(pill_widget);
+            // If we're no longer in the same view after fetching
+            // subscriber data, don't update th UI.
+            if (get_pill_widget() !== pill_widget) {
+                return;
+            }
+            const pill_group_ids = get_pill_group_ids(pill_widget);
+            action({pill_user_ids, pill_group_ids});
+        })();
     }
 
     $parent_container.on("keyup", pill_selector, (e) => {
