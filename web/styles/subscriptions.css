@@ -350,7 +350,7 @@ h4.user_group_setting_subsection_title {
     .right {
         display: flex;
         justify-content: center;
-        height: var(--settings-overlay-subheader-height);
+        min-height: var(--settings-overlay-subheader-height);
     }
 
     .list-toggler-container {
@@ -442,6 +442,9 @@ h4.user_group_setting_subsection_title {
     /* TODO(evy) Broken! For some reason the children are not shrinking and growing
        with the container element. It seems to load fine on page-load, but when I
        change the size of the screen things start getting cut off.
+
+       Specifically for the full width two pane view!
+
        I tried setting 97vw width on every child element too but then the container
        was shrinking faster than the children. ??? */
     width: 97%;
@@ -1394,7 +1397,6 @@ div.settings-radio-input-parent {
         /* default left pane open without `.right-pane-open` present */
         .left {
             position: absolute;
-            display: block;
             width: 100%;
         }
 
