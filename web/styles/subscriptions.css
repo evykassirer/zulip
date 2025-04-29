@@ -350,6 +350,7 @@ h4.user_group_setting_subsection_title {
     .right {
         display: flex;
         justify-content: center;
+        height: var(--settings-overlay-subheader-height);
     }
 
     .list-toggler-container {
