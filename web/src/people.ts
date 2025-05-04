@@ -207,6 +207,17 @@ export function sort_emails_by_username(emails: string[]): (string | undefined)[
     return sorted_emails;
 }
 
+export function sort_user_ids_by_username(user_ids: number[]): number[] {
+    const name_id_dict = user_ids.map((user_id, index) => ({
+        name: people_by_user_id_dict.has(user_id)
+            ? people_by_user_id_dict.get(user_id)?.full_name
+            : "?",
+        user_id: user_ids[index]!,
+    }));
+
+    return name_id_dict.sort((a, b) => util.strcmp(a.name!, b.name!)).map(({user_id}) => user_id);
+}
+
 export function get_visible_email(user: User): string {
     if (user.delivery_email) {
         return user.delivery_email;
@@ -961,6 +972,21 @@ export function is_valid_email_for_compose(email: string): boolean {
     }
 
     const person = get_by_email(email);
+    if (!person || person.is_inaccessible_user) {
+        return false;
+    }
+
+    // we allow deactivated users in compose so that
+    // one can attempt to reply to threads that contained them.
+    return true;
+}
+
+export function is_valid_user_id_for_compose(user_id: number): boolean {
+    if (cross_realm_dict.has(user_id)) {
+        return true;
+    }
+
+    const person = get_by_user_id(user_id);
     if (!person || person.is_inaccessible_user) {
         return false;
     }

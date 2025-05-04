@@ -34,8 +34,11 @@ export function set_focused_recipient(msg_type?: "private" | "stream"): void {
     } else if (msg_type === "private") {
         // Normalize the recipient list so it matches the one used when
         // adding the message (see message_helper.process_new_message()).
-        const reply_to = util.normalize_recipients(compose_state.private_message_recipient());
+        const reply_to = util.normalize_recipients(
+            compose_state.private_message_recipient_emails(),
+        );
         const to_user_ids = people.reply_to_to_user_ids_string(reply_to);
+        // TODO(evy): use the ids directly but make sure they're sorted and stuff
         focused_recipient = {
             type: msg_type,
             reply_to,
@@ -83,7 +86,7 @@ function fade_messages(): void {
             if (
                 message_lists.current !== expected_msg_list ||
                 !compose_state.composing() ||
-                compose_state.private_message_recipient() !== expected_recipient
+                compose_state.private_message_recipient_emails() !== expected_recipient
             ) {
                 return;
             }
@@ -101,7 +104,7 @@ function fade_messages(): void {
         },
         0,
         message_lists.current,
-        compose_state.private_message_recipient(),
+        compose_state.private_message_recipient_emails(),
     );
 }
 

@@ -44,6 +44,7 @@ export type ComposeTriggeredOptions = {
     | {
           message_type: "private";
           private_message_recipient: string;
+          private_message_recipient_ids: number[];
       }
 );
 export type ComposePlaceholderOptions =

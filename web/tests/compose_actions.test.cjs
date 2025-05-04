@@ -259,7 +259,7 @@ test("start", ({override, override_rewire, mock_template}) => {
     assert_hidden("input#stream_message_recipient_topic");
     assert_visible("#compose-direct-recipient");
 
-    assert.equal(compose_state.private_message_recipient(), "foo@example.com");
+    assert.equal(compose_state.private_message_recipient_emails(), "foo@example.com");
     assert.equal($("textarea#compose-textarea").val(), "hello");
     assert.equal(compose_state.get_message_type(), "private");
     assert.ok(compose_state.composing());
@@ -272,7 +272,7 @@ test("start", ({override, override_rewire, mock_template}) => {
 
     start(opts);
 
-    assert.equal(compose_state.private_message_recipient(), "");
+    assert.equal(compose_state.private_message_recipient_emails(), "");
     assert.equal(compose_state.get_message_type(), "private");
     assert.ok(compose_state.composing());
 
@@ -336,7 +336,7 @@ test("respond_to_message", ({override, override_rewire, mock_template}) => {
     };
 
     respond_to_message(opts);
-    assert.equal(compose_state.private_message_recipient(), "alice@example.com");
+    assert.equal(compose_state.private_message_recipient_emails(), "alice@example.com");
 
     // Test stream
     const denmark = {

@@ -35,6 +35,7 @@ type ComposeActionsStartOpts = {
     force_close?: boolean;
     trigger?: string;
     private_message_recipient?: string;
+    private_message_recipient_ids?: number[];
     message?: Message | undefined;
     stream_id?: number | undefined;
     topic?: string;
@@ -50,6 +51,7 @@ type ComposeActionsStartOpts = {
 type ComposeActionsOpts = ComposeActionsStartOpts & {
     topic: string;
     private_message_recipient: string;
+    private_message_recipient_ids: number[];
     trigger: string;
 };
 
@@ -99,6 +101,7 @@ function show_compose_box(opts: ComposeActionsOpts): void {
             trigger: opts.trigger,
             message_type: "private",
             private_message_recipient: opts.private_message_recipient,
+            private_message_recipient_ids: opts.private_message_recipient_ids,
         };
     } else {
         opts_by_message_type = {
@@ -253,6 +256,7 @@ export function fill_in_opts_from_current_narrowed_view(
         stream_id: undefined,
         topic: "",
         private_message_recipient: "",
+        private_message_recipient_ids: [],
         trigger: "unknown",
 
         // Set default parameters based on the current narrowed view.
@@ -271,7 +275,9 @@ function same_recipient_as_before(opts: ComposeActionsOpts): boolean {
             opts.stream_id === compose_state.stream_id() &&
             opts.topic === compose_state.topic()) ||
             (opts.message_type === "private" &&
-                opts.private_message_recipient === compose_state.private_message_recipient()))
+                // opts.private_message_recipient_ids === compose_state.private_message_recipient_ids()))
+                opts.private_message_recipient ===
+                    compose_state.private_message_recipient_emails()))
     );
 }
 
@@ -312,6 +318,7 @@ export let start = (raw_opts: ComposeActionsStartOpts): void => {
     ) {
         opts.topic = "";
         opts.private_message_recipient = "";
+        opts.private_message_recipient_ids = [];
     }
 
     const subbed_streams = stream_data.subscribed_subs();
@@ -360,7 +367,7 @@ export let start = (raw_opts: ComposeActionsStartOpts): void => {
     compose_recipient.update_topic_displayed_text(opts.topic);
 
     // Set the recipients with a space after each comma, so it looks nice.
-    compose_state.private_message_recipient(
+    compose_state.private_message_recipient_emails(
         opts.private_message_recipient.replaceAll(/,\s*/g, ", "),
     );
 
@@ -558,6 +565,7 @@ type NarrowActivateOpts = {
     trigger?: string;
     force_close?: boolean;
     private_message_recipient?: string;
+    private_message_recipient_ids?: number[];
 };
 
 export function on_narrow(opts: NarrowActivateOpts): void {
@@ -598,6 +606,7 @@ export function on_narrow(opts: NarrowActivateOpts): void {
             }
             return;
         }
+        // TODO(evy): look into permissions stuff here
         // Do not open compose box if sender is not allowed to send direct message.
         const recipient_ids_string = people.emails_strings_to_user_ids_string(
             opts.private_message_recipient,

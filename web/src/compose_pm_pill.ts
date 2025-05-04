@@ -63,6 +63,20 @@ export function set_from_typeahead(person: User): void {
     });
 }
 
+export function set_from_user_ids(value: number[]): void {
+    clear();
+    for (const user_id of value) {
+        const person = people.get_by_user_id(user_id);
+        if (person === undefined) {
+            continue;
+        }
+        user_pill.append_person({
+            pill_widget: widget,
+            person,
+        });
+    }
+}
+
 export let set_from_emails = (value: string): void => {
     // value is something like "alice@example.com,bob@example.com"
     clear();

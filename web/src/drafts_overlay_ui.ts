@@ -148,7 +148,11 @@ export function launch(): void {
     }
 
     function get_header_for_narrow_drafts(): string {
-        const {stream_name, topic, private_recipients} = drafts.current_recipient_data();
+        const {
+            stream_name,
+            topic,
+            private_recipients_emails: private_recipients,
+        } = drafts.current_recipient_data();
         if (private_recipients) {
             if (!private_recipients.includes(",")) {
                 const user = people.get_by_email(private_recipients);

@@ -654,7 +654,7 @@ export function set_user_acknowledged_stream_wildcard_flag(value: boolean): void
 
 export function get_invalid_recipient_emails(): string[] {
     const private_recipients = util.extract_pm_recipients(
-        compose_state.private_message_recipient(),
+        compose_state.private_message_recipient_emails(),
     );
     const invalid_recipients = private_recipients.filter(
         (email) => !people.is_valid_email_for_compose(email),
@@ -886,7 +886,8 @@ function validate_private_message(show_banner = true): boolean {
     const user_ids = compose_pm_pill.get_user_ids();
     const user_ids_string = util.sorted_ids(user_ids).join(",");
     const $banner_container = $("#compose_banners");
-    const missing_direct_message_recipient = compose_state.private_message_recipient().length === 0;
+    const missing_direct_message_recipient =
+        compose_state.private_message_recipient_emails().length === 0;
 
     if (missing_direct_message_recipient) {
         report_validation_error(
