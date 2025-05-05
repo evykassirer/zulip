@@ -3,11 +3,12 @@
 const assert = require("node:assert/strict");
 
 const {mock_banners} = require("./lib/compose_banner.cjs");
+const {make_user} = require("./lib/example_user.cjs");
 const {mock_esm, set_global, zrequire} = require("./lib/namespace.cjs");
 const {run_test, noop} = require("./lib/test.cjs");
-const blueslip = require("./lib/zblueslip.cjs");
 const $ = require("./lib/zjquery.cjs");
 
+const {set_current_user} = zrequire("state_data");
 const user_groups = zrequire("user_groups");
 
 const nobody = {
@@ -109,12 +110,15 @@ function assert_hidden(sel) {
     assert.ok(!$(sel).visible());
 }
 
-function override_private_message_recipient_emails({override}) {
-    let recipient;
-    override(compose_pm_pill, "set_from_emails", (value) => {
-        recipient = value;
+function override_private_message_recipient_ids({override}) {
+    let recipient_emails;
+    let recipient_user_ids;
+    override(compose_pm_pill, "set_from_user_ids", (value) => {
+        recipient_user_ids = value;
+        recipient_emails = value.map((user_id) => people.get_by_user_id(user_id).email).join(",");
     });
-    override(compose_pm_pill, "get_emails", () => recipient, {unused: false});
+    override(compose_pm_pill, "get_emails", () => recipient_emails, {unused: false});
+    override(compose_pm_pill, "get_user_ids", () => recipient_user_ids, {unused: false});
 }
 
 function test(label, f) {
@@ -146,7 +150,7 @@ test("initial_state", () => {
 
 test("start", ({override, override_rewire, mock_template}) => {
     mock_banners();
-    override_private_message_recipient_emails({override});
+    override_private_message_recipient_ids({override});
     override_rewire(compose_actions, "autosize_message_content", noop);
     override_rewire(compose_actions, "expand_compose_box", noop);
     override_rewire(compose_actions, "complete_starting_tasks", noop);
@@ -244,9 +248,14 @@ test("start", ({override, override_rewire, mock_template}) => {
     assert.equal(compose_state.topic(), "");
     stream_data.clear_subscriptions();
 
+    const user1 = make_user();
+    people._add_user(user1);
+    const me = make_user();
+    set_current_user(me);
+
     // Start direct message
     compose_defaults = {
-        private_message_recipient: "foo@example.com",
+        private_message_recipient_ids: [user1.user_id],
     };
 
     opts = {
@@ -259,7 +268,7 @@ test("start", ({override, override_rewire, mock_template}) => {
     assert_hidden("input#stream_message_recipient_topic");
     assert_visible("#compose-direct-recipient");
 
-    assert.equal(compose_state.private_message_recipient_emails(), "foo@example.com");
+    assert.deepEqual(compose_state.private_message_recipient_ids(), [user1.user_id]);
     assert.equal($("textarea#compose-textarea").val(), "hello");
     assert.equal(compose_state.get_message_type(), "private");
     assert.ok(compose_state.composing());
@@ -272,7 +281,7 @@ test("start", ({override, override_rewire, mock_template}) => {
 
     start(opts);
 
-    assert.equal(compose_state.private_message_recipient_emails(), "");
+    assert.deepEqual(compose_state.private_message_recipient_ids(), []);
     assert.equal(compose_state.get_message_type(), "private");
     assert.ok(compose_state.composing());
 
@@ -310,7 +319,7 @@ test("respond_to_message", ({override, override_rewire, mock_template}) => {
 
     override_rewire(compose_recipient, "on_compose_select_recipient_update", noop);
     override_rewire(compose_recipient, "check_posting_policy_for_compose_box", noop);
-    override_private_message_recipient_emails({override});
+    override_private_message_recipient_ids({override});
     mock_template("inline_decorated_channel_name.hbs", false, noop);
 
     override(realm, "realm_direct_message_permission_group", nobody.id);
@@ -336,6 +345,7 @@ test("respond_to_message", ({override, override_rewire, mock_template}) => {
     };
 
     respond_to_message(opts);
+    assert.deepEqual(compose_state.private_message_recipient_ids(), [person.user_id]);
     assert.equal(compose_state.private_message_recipient_emails(), "alice@example.com");
 
     // Test stream
@@ -373,7 +383,7 @@ test("reply_with_mention", ({override, override_rewire, mock_template}) => {
     $elem.set_find_results(".message-textarea", $textarea);
     $elem.set_find_results(".message-limit-indicator", $indicator);
 
-    override_private_message_recipient_emails({override});
+    override_private_message_recipient_ids({override});
     override_rewire(compose_recipient, "check_posting_policy_for_compose_box", noop);
     mock_template("inline_decorated_channel_name.hbs", false, noop);
 
@@ -448,7 +458,7 @@ test("quote_message", ({disallow, override, override_rewire}) => {
 
     override_rewire(compose_actions, "complete_starting_tasks", noop);
     override_rewire(compose_actions, "clear_textarea", noop);
-    override_private_message_recipient_emails({override});
+    override_private_message_recipient_ids({override});
 
     let selected_message;
     override(message_lists.current, "get", (id) => (id === 100 ? selected_message : undefined));
@@ -667,7 +677,7 @@ test("on_narrow", ({override, override_rewire}) => {
     let compose_defaults;
     override(narrow_state, "set_compose_defaults", () => compose_defaults);
     compose_defaults = {
-        private_message_recipient: "steve@example.com",
+        private_message_recipient_ids: [steve.user_id],
     };
     compose_actions.on_narrow({
         force_close: false,
@@ -676,7 +686,7 @@ test("on_narrow", ({override, override_rewire}) => {
     assert.ok(!start_called);
 
     compose_defaults = {
-        private_message_recipient: "bot@example.com",
+        private_message_recipient_ids: [bot.user_id],
     };
     compose_actions.on_narrow({
         force_close: false,
@@ -685,9 +695,8 @@ test("on_narrow", ({override, override_rewire}) => {
     assert.ok(start_called);
 
     override(realm, "realm_direct_message_permission_group", everyone.id);
-    blueslip.expect("warn", "Unknown emails");
     compose_defaults = {
-        private_message_recipient: "not@empty.com",
+        private_message_recipient_ids: [999],
     };
     compose_actions.on_narrow({
         force_close: false,
@@ -696,10 +705,12 @@ test("on_narrow", ({override, override_rewire}) => {
     assert.ok(start_called);
 
     start_called = false;
+    compose_defaults = {
+        private_message_recipient_ids: [],
+    };
     compose_actions.on_narrow({
         force_close: false,
         trigger: "search",
-        private_message_recipient: "",
     });
     assert.ok(!start_called);
 

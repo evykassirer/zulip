@@ -73,6 +73,20 @@ export function rewire_set_from_emails(value: typeof set_from_emails): void {
     set_from_emails = value;
 }
 
+export function set_from_user_ids(value: number[]): void {
+    clear();
+    for (const user_id of value) {
+        const person = people.get_by_user_id(user_id);
+        if (person === undefined) {
+            continue;
+        }
+        user_pill.append_person({
+            pill_widget: widget,
+            person,
+        });
+    }
+}
+
 export function get_user_ids(): number[] {
     return user_pill.get_user_ids(widget);
 }
