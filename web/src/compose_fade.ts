@@ -7,7 +7,6 @@ import * as compose_state from "./compose_state.ts";
 import type {MessageGroup} from "./message_list_view.ts";
 import * as message_lists from "./message_lists.ts";
 import * as message_viewport from "./message_viewport.ts";
-import * as people from "./people.ts";
 import * as rows from "./rows.ts";
 import * as util from "./util.ts";
 
@@ -37,8 +36,7 @@ export function set_focused_recipient(msg_type?: "private" | "stream"): void {
         const reply_to = util.normalize_recipients(
             compose_state.private_message_recipient_emails(),
         );
-        const to_user_ids = people.reply_to_to_user_ids_string(reply_to);
-        // TODO(evy): use the ids directly but make sure they're sorted and stuff
+        const to_user_ids = compose_state.private_message_recipient_ids().join(",");
         focused_recipient = {
             type: msg_type,
             reply_to,
@@ -86,7 +84,7 @@ function fade_messages(): void {
             if (
                 message_lists.current !== expected_msg_list ||
                 !compose_state.composing() ||
-                compose_state.private_message_recipient_emails() !== expected_recipient
+                !_.isEqual(compose_state.private_message_recipient_ids(), expected_recipient)
             ) {
                 return;
             }
@@ -104,7 +102,7 @@ function fade_messages(): void {
         },
         0,
         message_lists.current,
-        compose_state.private_message_recipient_emails(),
+        compose_state.private_message_recipient_ids(),
     );
 }
 

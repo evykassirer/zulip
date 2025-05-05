@@ -43,7 +43,6 @@ export type ComposeTriggeredOptions = {
       }
     | {
           message_type: "private";
-          private_message_recipient: string;
           private_message_recipient_ids: number[];
       }
 );
@@ -213,7 +212,7 @@ function get_focus_area(opts: ComposeTriggeredOptions): string {
         return "input#stream_message_recipient_topic";
     } else if (
         (opts.message_type === "stream" && opts.stream_id !== undefined) ||
-        (opts.message_type === "private" && opts.private_message_recipient)
+        (opts.message_type === "private" && opts.private_message_recipient_ids)
     ) {
         if (opts.trigger === "clear topic button" || opts.trigger === "compose_hotkey") {
             return "input#stream_message_recipient_topic";

@@ -1456,6 +1456,8 @@ export function to_compose_target(): void {
         return;
     }
 
+    // TODO(evy) fixing the search operand is a whole other project
+    // but we can also do that (preserving past urls on load)
     if (compose_state.get_message_type() === "private") {
         const recipient_string = compose_state.private_message_recipient_emails();
         const emails = util.extract_pm_recipients(recipient_string);

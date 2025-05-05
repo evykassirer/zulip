@@ -20,7 +20,6 @@ import * as message_util from "./message_util.ts";
 import * as message_viewport from "./message_viewport.ts";
 import * as narrow_state from "./narrow_state.ts";
 import {page_params} from "./page_params.ts";
-import * as people from "./people.ts";
 import * as popovers from "./popovers.ts";
 import * as reload_state from "./reload_state.ts";
 import * as resize from "./resize.ts";
@@ -28,13 +27,13 @@ import * as saved_snippets_ui from "./saved_snippets_ui.ts";
 import * as spectators from "./spectators.ts";
 import {realm} from "./state_data.ts";
 import * as stream_data from "./stream_data.ts";
+import * as util from "./util.ts";
 
 // Opts sent to `compose_actions.start`.
 type ComposeActionsStartOpts = {
     message_type: "private" | "stream";
     force_close?: boolean;
     trigger?: string;
-    private_message_recipient?: string;
     private_message_recipient_ids?: number[];
     message?: Message | undefined;
     stream_id?: number | undefined;
@@ -50,7 +49,6 @@ type ComposeActionsStartOpts = {
 // some values are present.
 type ComposeActionsOpts = ComposeActionsStartOpts & {
     topic: string;
-    private_message_recipient: string;
     private_message_recipient_ids: number[];
     trigger: string;
 };
@@ -100,7 +98,6 @@ function show_compose_box(opts: ComposeActionsOpts): void {
         opts_by_message_type = {
             trigger: opts.trigger,
             message_type: "private",
-            private_message_recipient: opts.private_message_recipient,
             private_message_recipient_ids: opts.private_message_recipient_ids,
         };
     } else {
@@ -255,7 +252,6 @@ export function fill_in_opts_from_current_narrowed_view(
     return {
         stream_id: undefined,
         topic: "",
-        private_message_recipient: "",
         private_message_recipient_ids: [],
         trigger: "unknown",
 
@@ -275,9 +271,10 @@ function same_recipient_as_before(opts: ComposeActionsOpts): boolean {
             opts.stream_id === compose_state.stream_id() &&
             opts.topic === compose_state.topic()) ||
             (opts.message_type === "private" &&
-                // opts.private_message_recipient_ids === compose_state.private_message_recipient_ids()))
-                opts.private_message_recipient ===
-                    compose_state.private_message_recipient_emails()))
+                util.array_compare(
+                    opts.private_message_recipient_ids,
+                    compose_state.private_message_recipient_ids(),
+                )))
     );
 }
 
@@ -317,7 +314,6 @@ export let start = (raw_opts: ComposeActionsStartOpts): void => {
         opts.trigger === "new direct message"
     ) {
         opts.topic = "";
-        opts.private_message_recipient = "";
         opts.private_message_recipient_ids = [];
     }
 
@@ -366,10 +362,7 @@ export let start = (raw_opts: ComposeActionsStartOpts): void => {
     }
     compose_recipient.update_topic_displayed_text(opts.topic);
 
-    // Set the recipients with a space after each comma, so it looks nice.
-    compose_state.private_message_recipient_emails(
-        opts.private_message_recipient.replaceAll(/,\s*/g, ", "),
-    );
+    compose_state.private_message_recipient_ids(opts.private_message_recipient_ids);
 
     // If we're not explicitly opening a different draft, restore the last
     // saved draft (if it exists).
@@ -564,7 +557,6 @@ export function rewire_on_topic_narrow(value: typeof on_topic_narrow): void {
 type NarrowActivateOpts = {
     trigger?: string;
     force_close?: boolean;
-    private_message_recipient?: string;
     private_message_recipient_ids?: number[];
 };
 
@@ -600,17 +592,15 @@ export function on_narrow(opts: NarrowActivateOpts): void {
             message_type: "private",
         });
         // Do not open compose box if an invalid recipient is present.
-        if (!opts.private_message_recipient) {
+        if (!opts.private_message_recipient_ids) {
             if (compose_state.composing()) {
                 cancel();
             }
             return;
         }
-        // TODO(evy): look into permissions stuff here
+        // TODO(evy): validate?
         // Do not open compose box if sender is not allowed to send direct message.
-        const recipient_ids_string = people.emails_strings_to_user_ids_string(
-            opts.private_message_recipient,
-        );
+        const recipient_ids_string = util.sorted_ids(opts.private_message_recipient_ids).join(",");
 
         if (
             recipient_ids_string &&

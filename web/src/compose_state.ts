@@ -4,6 +4,7 @@ import * as compose_pm_pill from "./compose_pm_pill.ts";
 import * as people from "./people.ts";
 import {realm} from "./state_data.ts";
 import * as sub_store from "./sub_store.ts";
+import * as util from "./util.ts";
 
 let message_type: "stream" | "private" | undefined;
 let recipient_edited_manually = false;
@@ -215,7 +216,7 @@ export function focus_in_empty_compose(
     // Check whether the current input element is empty for each input type.
     switch (focused_element_id) {
         case "private_message_recipient":
-            return private_message_recipient_emails().length === 0;
+            return private_message_recipient_ids().length === 0;
         case "stream_message_recipient_topic":
             return topic() === "";
         case "compose_select_recipient_widget_wrapper":
@@ -239,7 +240,7 @@ export function private_message_recipient_ids(): number[];
 export function private_message_recipient_ids(value: number[]): undefined;
 export function private_message_recipient_ids(value?: number[]): number[] | undefined {
     if (value === undefined) {
-        return compose_pm_pill.get_user_ids();
+        return util.sorted_ids(compose_pm_pill.get_user_ids());
     }
     compose_pm_pill.set_from_user_ids(value);
     return undefined;
@@ -263,9 +264,12 @@ export function has_full_recipient(): boolean {
         const has_topic = topic() !== "" || !realm.realm_mandatory_topics;
         return stream_id() !== undefined && has_topic;
     }
-    return private_message_recipient_emails() !== "";
+    return private_message_recipient_ids().length > 0;
 }
 
+// TODO(evy) I think this isn't necessary anymore because `get_emails`
+// fetches users by user id and gets emails that way, so delete this
+// in a prep commit.
 export function update_email(user_id: number, new_email: string): void {
     let reply_to = private_message_recipient_emails();
 

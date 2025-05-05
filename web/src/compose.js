@@ -98,6 +98,7 @@ export function create_message_object(message_content = compose_state.message_co
         message.to = emails;
         message.reply_to = recipient;
         message.private_message_recipient = recipient;
+        // TODO(evy) do we want to delete any of these email fields on messages?
         message.to_user_ids = people.email_list_to_user_ids_string(emails);
 
         // Note: The `undefined` case is for situations like

@@ -105,7 +105,6 @@ const draft_1 = {
 };
 const draft_2 = {
     private_message_recipient_ids: [aaron.user_id],
-    private_message_recipient: "aaron@zulip.com",
     reply_to: "aaron@zulip.com",
     type: "private",
     content: "Test direct message",
@@ -227,7 +226,7 @@ test("draft_model delete", ({override_rewire}) => {
 
 test("snapshot_message", ({override, override_rewire}) => {
     override(user_pill, "get_user_ids", () => [aaron.user_id]);
-    override_rewire(compose_pm_pill, "set_from_emails", noop);
+    override_rewire(compose_pm_pill, "set_from_user_ids", noop);
     mock_banners();
 
     $(".narrow_to_compose_recipients").toggleClass = noop;
@@ -243,7 +242,7 @@ test("snapshot_message", ({override, override_rewire}) => {
             compose_state.set_stream_id(curr_draft.stream_id);
         }
         compose_state.topic(curr_draft.topic);
-        compose_state.private_message_recipient_emails(curr_draft.private_message_recipient);
+        compose_state.private_message_recipient_ids(curr_draft.private_message_recipient_ids);
     }
 
     const stream = {
@@ -301,7 +300,7 @@ test("update_draft", ({override, override_rewire}) => {
     override(user_pill, "get_user_ids", () => [aaron.user_id]);
     compose_state.set_message_type("private");
     compose_state.message_content("dummy content");
-    compose_state.private_message_recipient_emails(aaron.email);
+    compose_state.private_message_recipient_ids([aaron.user_id]);
 
     const $container = $(".top_left_drafts");
     const $child = $(".unread_count");
@@ -474,7 +473,6 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_2 = {
-        private_message_recipient: "aaron@zulip.com",
         private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
@@ -493,7 +491,6 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_4 = {
-        private_message_recipient: "iago@zulip.com",
         private_message_recipient_ids: [iago.user_id],
         reply_to: "iago@zulip.com",
         type: "private",
@@ -503,7 +500,6 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_5 = {
-        private_message_recipient: "zoe@zulip.com,iago@zulip.com",
         private_message_recipient_ids: [zoe.user_id, iago.user_id],
         reply_to: "zoe@zulip.com,iago@zulip.com",
         type: "private",
@@ -522,7 +518,6 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_7 = {
-        private_message_recipient: "",
         private_message_recipient_ids: [],
         reply_to: "",
         type: "private",
@@ -648,7 +643,7 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
 
     override(user_pill, "get_user_ids", () => []);
     compose_state.set_message_type("private");
-    compose_state.private_message_recipient_emails(null);
+    compose_state.private_message_recipient_ids([]);
 
     mock_template("draft_table_body.hbs", false, (data) => {
         // Tests formatting and time-sorting of drafts
@@ -706,7 +701,6 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const pm_draft_1 = {
-        private_message_recipient: "aaron@zulip.com",
         private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
@@ -725,7 +719,6 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const pm_draft_2 = {
-        private_message_recipient: "aaron@zulip.com",
         private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
@@ -735,7 +728,6 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const pm_draft_3 = {
-        private_message_recipient: "aaron@zulip.com",
         private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
@@ -846,9 +838,9 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
     $(".top_left_drafts").set_find_results(".unread_count", $unread_count);
 
     override(user_pill, "get_user_ids", () => [aaron.user_id]);
-    override_rewire(compose_pm_pill, "set_from_emails", noop);
+    override_rewire(compose_pm_pill, "set_from_user_ids", noop);
     compose_state.set_message_type("private");
-    compose_state.private_message_recipient_emails(aaron.email);
+    compose_state.private_message_recipient_ids([aaron.user_id]);
 
     $.create("#drafts_table .overlay-message-row", {children: []});
     $(".draft-selection-checkbox").filter = () => [];

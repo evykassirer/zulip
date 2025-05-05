@@ -56,7 +56,6 @@ const draft_schema = z.intersection(
         z.object({
             type: z.literal("private"),
             reply_to: z.string(),
-            private_message_recipient: z.string(),
             private_message_recipient_ids: z.array(z.number()),
         }),
     ]),
@@ -123,14 +122,15 @@ export const draft_model = (function () {
             if (draft.type === "private") {
                 if (draft.private_message_recipient_ids === undefined) {
                     assert(draft.private_message_recipient !== undefined);
-                    const user_ids_string = people.email_list_to_user_ids_string(util.extract_pm_recipients(draft.private_message_recipient));
+                    const user_ids_string = people.email_list_to_user_ids_string(
+                        util.extract_pm_recipients(draft.private_message_recipient),
+                    );
                     if (user_ids_string === undefined) {
                         blueslip.error("Couldn't parse emails for draft to user ids, skipping");
                         continue;
                     }
-                    draft.private_message_recipient_ids = people.user_ids_string_to_ids_array(
-                        user_ids_string
-                    );
+                    draft.private_message_recipient_ids =
+                        people.user_ids_string_to_ids_array(user_ids_string);
                 }
                 valid_drafts[draft_id] = {
                     ...draft,
@@ -336,7 +336,6 @@ export function snapshot_message(): LocalStorageDraft | undefined {
             ...message,
             type: "private",
             reply_to: recipient_emails,
-            private_message_recipient: recipient_emails,
             private_message_recipient_ids: compose_state.private_message_recipient_ids(),
             is_sending_saving: false,
             drafts_version: CURRENT_DRAFT_VERSION,
@@ -362,7 +361,6 @@ type ComposeArguments =
       }
     | {
           type: "private";
-          private_message_recipient: string;
           private_message_recipient_ids: number[];
           content: string;
       };
@@ -382,17 +380,13 @@ export function restore_message(draft: LocalStorageDraft): ComposeArguments {
         };
     }
 
-    const recipient_emails = draft.private_message_recipient
-        .split(",")
-        .filter((email) => people.is_valid_email_for_compose(email));
-    const sorted_recipient_emails = people.sort_emails_by_username(recipient_emails);
-    const sorted_recipient_ids = people.sort_user_ids_by_username(
-        draft.private_message_recipient_ids,
+    const recipient_ids = draft.private_message_recipient_ids.filter((user_id) =>
+        people.is_valid_user_id_for_compose(user_id),
     );
+    const sorted_recipient_ids = people.sort_user_ids_by_username(recipient_ids);
 
     return {
         type: "private",
-        private_message_recipient: sorted_recipient_emails.join(","),
         private_message_recipient_ids: sorted_recipient_ids,
         content: draft.content,
     };
@@ -484,8 +478,7 @@ export function rewire_update_draft(value: typeof update_draft): void {
 export function current_recipient_data(): {
     stream_name: string | undefined;
     topic: string | undefined;
-    private_recipients_emails: string | undefined;
-    private_recipients_ids: number[] | undefined;
+    private_recipient_ids: number[] | undefined;
 } {
     // Prioritize recipients from the compose box first. If the compose
     // box isn't open, just return data from the current narrow.
@@ -494,8 +487,7 @@ export function current_recipient_data(): {
         return {
             stream_name,
             topic: narrow_state.topic(),
-            private_recipients_emails: narrow_state.pm_emails_string(),
-            private_recipients_ids: [...narrow_state.pm_ids_set()],
+            private_recipient_ids: [...narrow_state.pm_ids_set()],
         };
     }
 
@@ -504,29 +496,26 @@ export function current_recipient_data(): {
         return {
             stream_name,
             topic: compose_state.topic(),
-            private_recipients_emails: undefined,
-            private_recipients_ids: [],
+            private_recipient_ids: [],
         };
     } else if (compose_state.get_message_type() === "private") {
         return {
             stream_name: undefined,
             topic: undefined,
-            private_recipients_emails: compose_state.private_message_recipient_emails(),
-            private_recipients_ids: compose_state.private_message_recipient_ids(),
+            private_recipient_ids: compose_state.private_message_recipient_ids(),
         };
     }
     return {
         stream_name: undefined,
         topic: undefined,
-        private_recipients_emails: undefined,
-        private_recipients_ids: [],
+        private_recipient_ids: [],
     };
 }
 
 export function filter_drafts_by_compose_box_and_recipient(
     drafts = draft_model.get(),
 ): Record<string, LocalStorageDraft> {
-    const {stream_name, topic, private_recipients_emails} = current_recipient_data();
+    const {stream_name, topic, private_recipient_ids} = current_recipient_data();
     const stream_id = stream_name ? stream_data.get_stream_id(stream_name) : undefined;
     const narrow_drafts_ids = [];
     for (const [id, draft] of Object.entries(drafts)) {
@@ -556,16 +545,10 @@ export function filter_drafts_by_compose_box_and_recipient(
         // Match by direct message recipient.
         else if (
             draft.type === "private" &&
-            private_recipients_emails &&
+            private_recipient_ids &&
             _.isEqual(
-                draft.private_message_recipient
-                    .split(",")
-                    .map((s) => s.trim())
-                    .sort(),
-                private_recipients_emails
-                    .split(",")
-                    .map((s) => s.trim())
-                    .sort(),
+                util.sorted_ids(draft.private_message_recipient_ids),
+                util.sorted_ids(private_recipient_ids),
             )
         ) {
             narrow_drafts_ids.push(id);
@@ -684,7 +667,7 @@ export function format_draft(draft: LocalStorageDraftWithId): FormattedDraft | u
         };
     }
 
-    if (draft.private_message_recipient === "") {
+    if (draft.private_message_recipient_ids.length === 0) {
         // No users were set as DM recipients when the draft was created.
         return {
             draft_id: draft.id,
@@ -698,14 +681,14 @@ export function format_draft(draft: LocalStorageDraftWithId): FormattedDraft | u
     }
 
     let is_dm_with_self = false;
-    const emails = util.extract_pm_recipients(draft.private_message_recipient);
-    if (emails.length === 1) {
-        const user = people.get_by_email(emails[0]!);
+    const user_ids = draft.private_message_recipient_ids;
+    if (user_ids.length === 1) {
+        const user = people.get_by_user_id(user_ids[0]!);
         if (user && people.is_direct_message_conversation_with_self([user.user_id])) {
             is_dm_with_self = true;
         }
     }
-    const recipients = people.emails_to_full_names_string(emails);
+    const recipients = people.user_ids_to_full_names_string(user_ids);
     return {
         draft_id: draft.id,
         is_stream: false,

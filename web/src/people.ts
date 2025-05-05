@@ -260,6 +260,7 @@ export function is_known_user_id(user_id: number): boolean {
     return true;
 }
 
+// TODO(evy) replace this with util.sorted_ids
 function sort_numerically(user_ids: number[]): number[] {
     user_ids.sort((a, b) => a - b);
 
@@ -364,6 +365,19 @@ export function emails_to_full_names_string(emails: string[]): string {
     const names = emails.map((email) => {
         email = email.trim();
         const person = get_by_email(email);
+        if (person !== undefined) {
+            return person.full_name;
+        }
+        return INACCESSIBLE_USER_NAME;
+    });
+
+    const sorted_names = names.sort(util.make_strcmp());
+    return sorted_names.join(", ");
+}
+
+export function user_ids_to_full_names_string(user_ids: number[]): string {
+    const names = user_ids.map((user_id) => {
+        const person = get_by_user_id(user_id);
         if (person !== undefined) {
             return person.full_name;
         }

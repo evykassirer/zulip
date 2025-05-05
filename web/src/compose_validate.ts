@@ -887,7 +887,7 @@ function validate_private_message(show_banner = true): boolean {
     const user_ids_string = util.sorted_ids(user_ids).join(",");
     const $banner_container = $("#compose_banners");
     const missing_direct_message_recipient =
-        compose_state.private_message_recipient_emails().length === 0;
+        compose_state.private_message_recipient_ids().length === 0;
 
     if (missing_direct_message_recipient) {
         report_validation_error(
@@ -916,6 +916,7 @@ function validate_private_message(show_banner = true): boolean {
         return false;
     }
 
+    // TODO(evy): Is this possible anymore? Since we validate earlier?
     const invalid_recipients = get_invalid_recipient_emails();
 
     let context = {};

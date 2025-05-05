@@ -5,6 +5,8 @@ import * as compose_actions from "./compose_actions.ts";
 import {localstorage} from "./localstorage.ts";
 import * as message_fetch from "./message_fetch.ts";
 import * as message_view from "./message_view.ts";
+import * as people from "./people.ts";
+import * as util from "./util.ts";
 
 // Check if we're doing a compose-preserving reload.  This must be
 // done before the first call to get_events
@@ -51,11 +53,22 @@ export function initialize() {
         const send_now = Number.parseInt(vars.send_after_reload, 10);
 
         try {
+            let private_message_recipient_ids = [];
+            if (vars.recipient) {
+                const user_ids_string = people.email_list_to_user_ids_string(
+                    util.extract_pm_recipients(vars.recipient),
+                );
+                if (user_ids_string === undefined) {
+                    throw new Error("Couldn't parse emails for draft to user ids, skipping");
+                }
+                private_message_recipient_ids =
+                    people.user_ids_string_to_ids_array(user_ids_string);
+            }
             compose_actions.start({
                 message_type: vars.msg_type,
                 stream_id: Number.parseInt(vars.stream_id, 10) || undefined,
                 topic: vars.topic || "",
-                private_message_recipient: vars.recipient || "",
+                private_message_recipient_ids,
                 content: vars.msg || "",
                 draft_id: vars.draft_id || "",
             });
