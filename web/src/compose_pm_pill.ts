@@ -73,7 +73,7 @@ export function rewire_set_from_emails(value: typeof set_from_emails): void {
     set_from_emails = value;
 }
 
-export function set_from_user_ids(value: number[]): void {
+export let set_from_user_ids = (value: number[]): void => {
     clear();
     for (const user_id of value) {
         const person = people.get_by_user_id(user_id);
@@ -85,6 +85,10 @@ export function set_from_user_ids(value: number[]): void {
             person,
         });
     }
+};
+
+export function rewire_set_from_user_ids(value: typeof set_from_user_ids): void {
+    set_from_user_ids = value;
 }
 
 export function get_user_ids(): number[] {
