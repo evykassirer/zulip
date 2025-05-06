@@ -6,6 +6,7 @@ const {$t} = require("./lib/i18n.cjs");
 const {mock_esm, set_global, zrequire} = require("./lib/namespace.cjs");
 const {run_test, noop} = require("./lib/test.cjs");
 const $ = require("./lib/zjquery.cjs");
+const { private_message_recipient_ids } = require("../src/compose_state");
 
 set_global("navigator", {});
 
@@ -1281,11 +1282,11 @@ run_test("right-to-left", () => {
 
 const get_focus_area = compose_ui._get_focus_area;
 run_test("get_focus_area", ({override}) => {
-    assert.equal(get_focus_area({message_type: "private"}), "#private_message_recipient");
+    assert.equal(get_focus_area({message_type: "private", private_message_recipient_ids: []}), "#private_message_recipient");
     assert.equal(
         get_focus_area({
             message_type: "private",
-            private_message_recipient: "bob@example.com",
+            private_message_recipient_ids: [bob.user_id],
         }),
         "textarea#compose-textarea",
     );
