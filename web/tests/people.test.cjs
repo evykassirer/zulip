@@ -923,20 +923,17 @@ test_people("multi_user_methods", () => {
     assert.equal(people.reply_to_to_user_ids_string("invalid@example.com"), undefined);
 });
 
-test_people("emails_to_full_names_string", () => {
+test_people("user_ids_to_full_names_string", () => {
     people.add_active_user(charles);
     people.add_active_user(maria);
     assert.equal(
-        people.emails_to_full_names_string([charles.email, maria.email]),
+        people.user_ids_to_full_names_string([charles.user_id, maria.user_id]),
         `${charles.full_name}, ${maria.full_name}`,
     );
 
+    blueslip.expect("error", "Unknown user_id in maybe_get_user_by_id");
     assert.equal(
-        people.emails_to_full_names_string([
-            charles.email,
-            "unknown-email@example.com",
-            maria.email,
-        ]),
+        people.user_ids_to_full_names_string([charles.user_id, 9999, maria.user_id]),
         `${charles.full_name}, ${maria.full_name}, translated: Unknown user`,
     );
 });

@@ -11,7 +11,6 @@ const user_pill = mock_esm("../src/user_pill");
 const messages_overlay_ui = mock_esm("../src/messages_overlay_ui");
 messages_overlay_ui.initialize_restore_overlay_message_tooltip = noop;
 
-const compose_pm_pill = zrequire("compose_pm_pill");
 const people = zrequire("people");
 const compose_state = zrequire("compose_state");
 const compose_recipient = zrequire("compose_recipient");
@@ -104,7 +103,7 @@ const draft_1 = {
     drafts_version: 1,
 };
 const draft_2 = {
-    private_message_recipient: "aaron@zulip.com",
+    private_message_recipient_ids: [aaron.user_id],
     reply_to: "aaron@zulip.com",
     type: "private",
     content: "Test direct message",
@@ -160,9 +159,18 @@ test("fix buggy drafts", ({override_rewire}) => {
         content: "Test stream message",
         updatedAt: Date.now(),
     };
-    const data = {id1: buggy_draft};
+    const draft_with_pm_emails = {
+        private_message_recipient: "iago@zulip.com,zoe@zulip.com",
+        reply_to: "iago@zulip.com,zoe@zulip.com",
+        type: "private",
+        content: "Test direct message",
+        updatedAt: Date.now(),
+    };
     const ls = localstorage();
-    ls.set("drafts", data);
+    ls.set("drafts", {
+        id1: buggy_draft,
+        id2: draft_with_pm_emails,
+    });
     const draft_model = drafts.draft_model;
 
     // The draft is fixed in this codepath.
@@ -176,6 +184,10 @@ test("fix buggy drafts", ({override_rewire}) => {
     const draft = draft_model.getDraft("id1");
     assert.equal(draft.stream_id, stream_B.stream_id);
     assert.equal(draft.topic, "");
+
+    const fixed_draft = draft_model.getDraft("id2");
+    assert.equal(fixed_draft.private_message_recipient, undefined);
+    assert.deepEqual(fixed_draft.private_message_recipient_ids, [iago.user_id, zoe.user_id]);
 });
 
 test("draft_model add", ({override_rewire}) => {
@@ -223,9 +235,8 @@ test("draft_model delete", ({override_rewire}) => {
     assert.deepEqual(draft_model.getDraft(id), false);
 });
 
-test("snapshot_message", ({override, override_rewire}) => {
+test("snapshot_message", ({override}) => {
     override(user_pill, "get_user_ids", () => [aaron.user_id]);
-    override_rewire(compose_pm_pill, "set_from_emails", noop);
     mock_banners();
 
     $(".narrow_to_compose_recipients").toggleClass = noop;
@@ -241,7 +252,6 @@ test("snapshot_message", ({override, override_rewire}) => {
             compose_state.set_stream_id(curr_draft.stream_id);
         }
         compose_state.topic(curr_draft.topic);
-        compose_state.private_message_recipient(curr_draft.private_message_recipient);
     }
 
     const stream = {
@@ -295,11 +305,9 @@ test("update_draft", ({override, override_rewire}) => {
     let draft_id = drafts.update_draft();
     assert.equal(draft_id, undefined);
 
-    override_rewire(compose_pm_pill, "set_from_emails", noop);
     override(user_pill, "get_user_ids", () => [aaron.user_id]);
     compose_state.set_message_type("private");
     compose_state.message_content("dummy content");
-    compose_state.private_message_recipient(aaron.email);
 
     const $container = $(".top_left_drafts");
     const $child = $(".unread_count");
@@ -472,7 +480,7 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_2 = {
-        private_message_recipient: "aaron@zulip.com",
+        private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
         content: "Test direct message",
@@ -490,7 +498,7 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_4 = {
-        private_message_recipient: "iago@zulip.com",
+        private_message_recipient_ids: [iago.user_id],
         reply_to: "iago@zulip.com",
         type: "private",
         content: "Test direct message 2",
@@ -499,7 +507,7 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_5 = {
-        private_message_recipient: "zoe@zulip.com,iago@zulip.com",
+        private_message_recipient_ids: [zoe.user_id, iago.user_id],
         reply_to: "zoe@zulip.com,iago@zulip.com",
         type: "private",
         content: "Test direct message 3",
@@ -517,7 +525,7 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const draft_7 = {
-        private_message_recipient: "",
+        private_message_recipient_ids: [],
         reply_to: "",
         type: "private",
         content: "Test direct message 4",
@@ -642,12 +650,12 @@ test("format_drafts", ({override, override_rewire, mock_template}) => {
 
     override(user_pill, "get_user_ids", () => []);
     compose_state.set_message_type("private");
-    compose_state.private_message_recipient(null);
 
     mock_template("draft_table_body.hbs", false, (data) => {
         // Tests formatting and time-sorting of drafts
         assert.deepEqual(data.narrow_drafts, []);
         assert.deepEqual(data.other_drafts, expected);
+        assert.ok(data);
         return "<draft table stub>";
     });
 
@@ -700,7 +708,7 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const pm_draft_1 = {
-        private_message_recipient: "aaron@zulip.com",
+        private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
         content: "Test direct message",
@@ -718,7 +726,7 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const pm_draft_2 = {
-        private_message_recipient: "aaron@zulip.com",
+        private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
         content: "Test direct message 2",
@@ -727,7 +735,7 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
         drafts_version: 1,
     };
     const pm_draft_3 = {
-        private_message_recipient: "aaron@zulip.com",
+        private_message_recipient_ids: [aaron.user_id],
         reply_to: "aaron@zulip.com",
         type: "private",
         content: "Test direct message 3",
@@ -837,9 +845,7 @@ test("filter_drafts", ({override, override_rewire, mock_template}) => {
     $(".top_left_drafts").set_find_results(".unread_count", $unread_count);
 
     override(user_pill, "get_user_ids", () => [aaron.user_id]);
-    override_rewire(compose_pm_pill, "set_from_emails", noop);
     compose_state.set_message_type("private");
-    compose_state.private_message_recipient(aaron.email);
 
     $.create("#drafts_table .overlay-message-row", {children: []});
     $(".draft-selection-checkbox").filter = () => [];
