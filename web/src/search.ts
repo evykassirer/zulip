@@ -1,8 +1,6 @@
 import $ from "jquery";
 import assert from "minimalistic-assert";
 
-import render_search_list_item from "../templates/search_list_item.hbs";
-
 import {Typeahead} from "./bootstrap_typeahead.ts";
 import type {TypeaheadInputElement} from "./bootstrap_typeahead.ts";
 import {Filter} from "./filter.ts";
@@ -159,13 +157,6 @@ export function initialize(opts: {on_narrow_search: OnNarrowSearch}): void {
         search_typeahead.lookup(false);
     });
 
-    // Data storage for the typeahead.
-    // This maps a search string to an object with a "description_html" field.
-    // (It's a bit of legacy that we have an object with only one important
-    // field.  There's also a "search_string" field on each element that actually
-    // just represents the key of the hash, so it's redundant.)
-    let search_map = new Map<string, search_suggestion.Suggestion>();
-
     const bootstrap_typeahead_input: TypeaheadInputElement = {
         $element: $search_query_box,
         type: "contenteditable",
@@ -179,14 +170,11 @@ export function initialize(opts: {on_narrow_search: OnNarrowSearch}): void {
             const pill_terms = search_pill.get_current_search_pill_terms(search_pill_widget);
             const add_current_filter =
                 pill_terms.length === 0 && narrow_state.filter() !== undefined;
-            const suggestions = search_suggestion.get_suggestions(
+            return search_suggestion.get_suggestions(
                 pill_terms,
                 Filter.parse(query),
                 add_current_filter,
             );
-            // Update our global search_map hash
-            search_map = suggestions.lookup_table;
-            return suggestions.strings;
         },
         non_tippy_parent_element: "#searchbox_form",
         items: search_suggestion.max_num_of_search_results,
@@ -194,8 +182,7 @@ export function initialize(opts: {on_narrow_search: OnNarrowSearch}): void {
         stopAdvance: true,
         requireHighlight: false,
         highlighter_html(item: string): string {
-            const obj = search_map.get(item);
-            return render_search_list_item(obj);
+            return search_pill.generate_pills_html(item);
         },
         // When the user starts typing new search operands,
         // we want to highlight the first typeahead row by default

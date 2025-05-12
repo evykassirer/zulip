@@ -1177,34 +1177,9 @@ export function get_suggestions(
     pill_search_terms: NarrowTerm[],
     text_search_terms: NarrowTerm[],
     add_current_filter = false,
-): {
-    strings: string[];
-    lookup_table: Map<string, Suggestion>;
-} {
+): string[] {
+    // TODO(evy): We don't need to get the whole search object most of the time
+    // but we do want to keep the suggestion text (description_html) sometimes, so figure that out
     const result = get_search_result(pill_search_terms, text_search_terms, add_current_filter);
-    return finalize_search_result(result);
-}
-
-export function finalize_search_result(result: Suggestion[]): {
-    strings: string[];
-    lookup_table: Map<string, Suggestion>;
-} {
-    for (const sug of result) {
-        const first = sug.description_html.charAt(0).toUpperCase();
-        sug.description_html = first + sug.description_html.slice(1);
-    }
-
-    // Typeahead expects us to give it strings, not objects,
-    // so we maintain our own hash back to our objects
-    const lookup_table = new Map<string, Suggestion>();
-
-    for (const obj of result) {
-        lookup_table.set(obj.search_string, obj);
-    }
-
-    const strings = result.map((obj: Suggestion) => obj.search_string);
-    return {
-        strings,
-        lookup_table,
-    };
+    return result.map((obj: Suggestion) => obj.search_string);
 }

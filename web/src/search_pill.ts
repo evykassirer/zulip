@@ -2,6 +2,7 @@ import $ from "jquery";
 import assert from "minimalistic-assert";
 
 import render_input_pill from "../templates/input_pill.hbs";
+import render_search_list_item from "../templates/search_list_item.hbs";
 import render_search_user_pill from "../templates/search_user_pill.hbs";
 
 import {Filter} from "./filter.ts";
@@ -109,6 +110,43 @@ function on_pill_exit(
     $user_pill.remove();
 }
 
+export function generate_pills_html(search_string: string): string {
+    const search_terms = Filter.parse(search_string);
+    const pills: SearchPill[] = search_terms.map((term) => {
+        if (user_pill_operators.has(term.operator) && term.operand !== "") {
+            // TODO(evy): can we assume this email is valid? since we generated it earlier
+            const users = term.operand.split(",").map((email) => people.get_by_email(email)!);
+            return search_user_pill_data(users, term.operator, term.negated ?? false);
+        }
+        return {
+            type: "search",
+            operator: term.operator,
+            operand: term.operand,
+            negated: term.negated,
+        };
+    });
+    const pill_render_data = pills.map((item) => {
+        if (item.type === "search_user") {
+            return item;
+        }
+        if (item.operator === "topic" && item.operand === "") {
+            return {
+                ...item,
+                is_empty_string_topic: true,
+                sign: item.negated ? "-" : "",
+                topic_display_name: util.get_final_topic_display_name(""),
+            };
+        }
+        return {
+            ...item,
+            display_value: get_search_string_from_item(item),
+        };
+    });
+    return render_search_list_item({
+        pills: pill_render_data,
+    });
+}
+
 export function create_pills($pill_container: JQuery): SearchPillWidget {
     const pills = input_pill.create({
         $container: $pill_container,
@@ -141,13 +179,8 @@ export function create_pills($pill_container: JQuery): SearchPillWidget {
     return pills;
 }
 
-function append_user_pill(
-    users: User[],
-    pill_widget: SearchPillWidget,
-    operator: string,
-    negated: boolean,
-): void {
-    const pill_data: SearchUserPill = {
+function search_user_pill_data(users: User[], operator: string, negated: boolean): SearchUserPill {
+    return {
         type: "search_user",
         operator,
         negated,
@@ -161,7 +194,15 @@ function append_user_pill(
             deactivated: !people.is_person_active(user.user_id) && !user.is_inaccessible_user,
         })),
     };
+}
 
+function append_user_pill(
+    users: User[],
+    pill_widget: SearchPillWidget,
+    operator: string,
+    negated: boolean,
+): void {
+    const pill_data = search_user_pill_data(users, operator, negated);
     pill_widget.appendValidatedData(pill_data);
     pill_widget.clear_text();
 }
