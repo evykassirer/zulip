@@ -2,13 +2,16 @@ import $ from "jquery";
 import assert from "minimalistic-assert";
 
 import render_input_pill from "../templates/input_pill.hbs";
+import render_search_list_item from "../templates/search_list_item.hbs";
 import render_search_user_pill from "../templates/search_user_pill.hbs";
 
+import * as blueslip from "./blueslip.ts";
 import {Filter} from "./filter.ts";
 import * as input_pill from "./input_pill.ts";
 import type {InputPill, InputPillContainer} from "./input_pill.ts";
 import * as people from "./people.ts";
 import type {User} from "./people.ts";
+import {type Suggestion, search_term_description_html} from "./search_suggestion.ts";
 import type {NarrowTerm} from "./state_data.ts";
 import * as stream_data from "./stream_data.ts";
 import * as user_status from "./user_status.ts";
@@ -107,6 +110,93 @@ function on_pill_exit(
     const $user_pill = $($outer_container.children(".pill")[user_idx]!);
     assert($user_pill.attr("data-user-id") === user_id.toString());
     $user_pill.remove();
+}
+
+function search_user_pill_data_from_term(term: NarrowTerm): SearchUserPill {
+    const emails = term.operand.split(",");
+    const users = emails.map((email) => {
+        const person = people.get_by_email(email);
+        assert(person !== undefined);
+        return person;
+    });
+    return search_user_pill_data(users, term.operator, term.negated ?? false);
+}
+
+const user_pill_description_html_by_operand = new Map([
+    ["dm", "Direct message conversation"],
+    ["sender", "Who sent the message"],
+    ["dm-including", "Conversation participant"],
+]);
+
+// TODO: We're calculating `description_html` every time, even though
+// we only show it (in `generate_pills_html`) for lines with only one
+// pill. We can probably simplify things by separating out a function
+// that generates `description_html` from the information in a single
+// search pill, and remove `description_html` from the `Suggestion` type.
+export function generate_pills_html(suggestion: Suggestion): string {
+    const search_terms = Filter.parse(suggestion.search_string);
+
+    const pills: SearchPill[] = search_terms.map((term) => {
+        if (user_pill_operators.has(term.operator) && term.operand !== "") {
+            return search_user_pill_data_from_term(term);
+        }
+        return {
+            type: "search_non_user",
+            operator: term.operator,
+            operand: term.operand,
+            negated: term.negated,
+        };
+    });
+
+    const pill_render_data = pills.map((item) => {
+        if (item.type === "search_user") {
+            return item;
+        }
+        if (item.operator === "topic" && item.operand === "") {
+            return {
+                ...item,
+                is_empty_string_topic: true,
+                sign: item.negated ? "-" : "",
+                topic_display_name: util.get_final_topic_display_name(""),
+            };
+        }
+        if (item.operator === "search") {
+            return {
+                ...item,
+                description_html: search_term_description_html(item),
+            };
+        }
+        return {
+            ...item,
+            display_value: get_search_string_from_item(item),
+        };
+    });
+
+    // We show help text (description_html) only when there's just a
+    // single pill on that suggstion line.
+    if (pills.length === 1) {
+        const pill = util.the(pills);
+        let description_html;
+        // We don't need to add description html for search terms,
+        // since those "pills" are already set up to only display
+        // text and no pill.
+        if (pill.type === "search_non_user" && pill.operator !== "search") {
+            description_html = suggestion.description_html;
+        } else if (pill.type === "search_user") {
+            description_html = user_pill_description_html_by_operand.get(pill.operator);
+            if (description_html === undefined) {
+                blueslip.warn("unexpected user pill operator: " + pill.operator);
+            }
+        }
+        return render_search_list_item({
+            pills: pill_render_data,
+            description_html,
+        });
+    }
+
+    return render_search_list_item({
+        pills: pill_render_data,
+    });
 }
 
 export function create_pills($pill_container: JQuery): SearchPillWidget {
@@ -240,7 +330,7 @@ function get_search_operand(item: SearchPill, for_display: boolean): string {
     if (item.type === "search_user") {
         return item.users.map((user) => user.email).join(",");
     }
-    if (for_display && item.operator === "channel") {
+    if (for_display && item.operator === "channel" && item.operand !== "") {
         return stream_data.get_valid_sub_by_id_string(item.operand).name;
     }
     if (for_display && item.operator === "topic") {
