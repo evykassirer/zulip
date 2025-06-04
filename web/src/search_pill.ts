@@ -112,6 +112,12 @@ function on_pill_exit(
     $user_pill.remove();
 }
 
+// TODO(evy): One problem is we're not highlighting the query text
+// in user pills that are displayed at the very end of search
+// suggestions, and we might want to still do that, but if so we'll
+// need to reshape some logic to get that set up. I've started a
+// conversation about it on CZO:
+// https://chat.zulip.org/#narrow/channel/101-design/topic/search.20typeahead.20highlighting/near/2187269
 function search_user_pill_data_from_term(term: NarrowTerm): SearchUserPill {
     const emails = term.operand.split(",");
     const users = emails.map((email) => {
