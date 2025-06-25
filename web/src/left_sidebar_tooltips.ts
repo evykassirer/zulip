@@ -136,7 +136,9 @@ export function initialize(): void {
     });
 
     tippy.delegate("body", {
-        target: ["#add_streams_tooltip"].join(","),
+        target: ["#add_streams_tooltip", ".stream-list-section-container .add_stream_tooltip"].join(
+            ",",
+        ),
         appendTo: () => document.body,
     });
 
