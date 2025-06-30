@@ -135,10 +135,10 @@ export function update_invite_user_option(): void {
 export function update_unread_counts_visibility(): void {
     const hidden = !user_settings.web_left_sidebar_unreads_count_summary;
 
-    const $streams_header: JQuery = $("#streams_header");
+    const $channel_sections: JQuery = $(".stream-list-subsection-header");
     const $home_view_li: JQuery = $(".top_left_row");
 
-    for (const $el of [$home_view_li, $streams_header]) {
+    for (const $el of [$home_view_li, $channel_sections]) {
         $el.toggleClass("hide-unread-messages-count", hidden);
     }
 }
@@ -302,7 +302,6 @@ export function initialize_left_sidebar(): void {
             user_settings.web_home_view === settings_config.web_home_view_values.all_messages.code,
         is_recent_view_home_view:
             user_settings.web_home_view === settings_config.web_home_view_values.recent_topics.code,
-        hide_unread_counts: settings_data.should_mask_unread_count(false),
         is_spectator: page_params.is_spectator,
     });
 
