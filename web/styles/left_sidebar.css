@@ -309,7 +309,8 @@
     /* Must be more than .stream-list-subsection-header */
     z-index: 3;
     background: var(--color-background);
-    margin: var(--left-sidebar-sections-vertical-gutter)
+    /* Must be padding not margin so that the sticky headers don't show behind it */
+    padding: var(--left-sidebar-sections-vertical-gutter)
         var(--left-sidebar-right-margin) 3px 5px;
 
     .stream_search_section {
@@ -344,7 +345,7 @@
     background-color: var(--color-background);
     position: sticky;
     /* TODO(evy) this should be an actual measurement that perfectly aligns with the search filter */
-    top: 33px;
+    top: 43px;
     /* Must be more than .sidebar-topic-check and less than #stream_search_and_add */
     z-index: 2;
     color: var(--color-text-default);
