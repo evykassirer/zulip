@@ -32,13 +32,13 @@ import * as zcommand from "./zcommand.ts";
 
 // Docs: https://zulip.readthedocs.io/en/latest/subsystems/sending-messages.html
 
-// TODO(evy) consolidate with transmit.ts?
+// This is similar to transmit.SendMessageData but not quite the same.
+// We might want to try to consolidate them at some point.
 export type SendMessageData = {
     sender_id: number;
     queue_id: string | null;
     to: string;
     content: string;
-    // TODO(evy) maybe fill these in so they're not optional
     resend?: boolean;
     locally_echoed?: boolean;
     draft_id: string;
@@ -141,6 +141,7 @@ export type SentMessageData = SendMessageData & {
     locally_echoed: boolean;
     resend: boolean;
 };
+
 export function send_message_success(
     sent_message: SentMessageData | ProcessedLocalMessage,
     data: PostMessageAPIData,
