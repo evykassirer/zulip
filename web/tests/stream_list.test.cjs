@@ -251,6 +251,7 @@ test_ui("create_sidebar_row", ({override, override_rewire, mock_template}) => {
 test_ui("pinned_streams_never_inactive", ({mock_template, override_rewire}) => {
     override_rewire(stream_list, "update_stream_section_mention_indicators", noop);
     override_rewire(stream_list, "update_dom_with_unread_counts", noop);
+    override_rewire(stream_list, "set_sections_states", noop);
 
     stream_data.add_sub(devel);
     stream_data.add_sub(social);
@@ -447,6 +448,7 @@ test_ui("narrowing", ({override_rewire}) => {
     override_rewire(stream_list, "scroll_stream_into_view", noop);
     override_rewire(stream_list, "update_stream_section_mention_indicators", noop);
     override_rewire(stream_list, "update_dom_with_unread_counts", noop);
+    override_rewire(stream_list, "set_sections_states", noop);
 
     initialize_stream_data();
     assert.ok(!$("<devel-sidebar-row-stub>").hasClass("active-filter"));
@@ -549,6 +551,7 @@ test_ui("sort_streams", ({override_rewire}) => {
 test_ui("separators_only_pinned_and_dormant", ({override_rewire}) => {
     override_rewire(stream_list, "update_dom_with_unread_counts", noop);
     override_rewire(stream_list, "update_stream_section_mention_indicators", noop);
+    override_rewire(stream_list, "set_sections_states", noop);
 
     // Get coverage on early-exit.
     stream_list.build_stream_list();
@@ -604,6 +607,7 @@ test_ui("separators_only_pinned_and_dormant", ({override_rewire}) => {
 test_ui("rename_stream", ({mock_template, override, override_rewire}) => {
     override_rewire(stream_list, "update_dom_with_unread_counts", noop);
     override_rewire(stream_list, "update_stream_section_mention_indicators", noop);
+    override_rewire(stream_list, "set_sections_states", noop);
     override(user_settings, "web_stream_unreads_count_display_policy", 3);
     override(current_user, "user_id", me.user_id);
     initialize_stream_data();
