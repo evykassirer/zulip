@@ -1627,9 +1627,9 @@ export class Filter {
         return new Filter(terms);
     }
 
-    has_topic(stream_id: number, topic: string): boolean {
+    has_topic(stream_id: string, topic: string): boolean {
         return (
-            this.has_operand("channel", stream_id.toString()) && this.has_operand("topic", topic)
+            this.has_operand("channel", stream_id) && this.has_operand("topic", topic)
         );
     }
 
