@@ -58,7 +58,7 @@ export function get_topic_link_content(
     stream_name: string,
     topic_name?: string,
     message_id?: string,
-): {text: string; url: string} {
+): {display_html: string; url: string} {
     const stream = stream_data.get_sub(stream_name);
     const stream_id = stream?.stream_id;
     assert(stream_id !== undefined);
@@ -68,17 +68,17 @@ export function get_topic_link_content(
         const topic_display_name = util.get_final_topic_display_name(topic_name);
         if (message_id !== undefined) {
             return {
-                text: `#${escape(stream_name)} > ${escape(topic_display_name)} @ 💬`,
+                display_html: `#${escape(stream_name)} > ${escape(topic_display_name)} @ 💬`,
                 url: `${stream_topic_url}/near/${message_id}`,
             };
         }
         return {
-            text: `#${escape(stream_name)} > ${escape(topic_display_name)}`,
+            display_html: `#${escape(stream_name)} > ${escape(topic_display_name)}`,
             url: stream_topic_url,
         };
     }
     return {
-        text: `#${escape(stream_name)}`,
+        display_html: `#${escape(stream_name)}`,
         url: hash_util.channel_url_by_user_setting(stream_id),
     };
 }
@@ -103,8 +103,8 @@ export function get_fallback_markdown_link(
     // Generates the vanilla markdown link syntax for a stream/topic/message link, as
     // a fallback for cases where the nicer Zulip link syntax would not
     // render properly due to special characters in the channel or topic name.
-    const {text, url} = get_topic_link_content(stream_name, topic_name, message_id);
-    return as_markdown_link_syntax(text, url);
+    const {display_html, url} = get_topic_link_content(stream_name, topic_name, message_id);
+    return as_markdown_link_syntax(display_html, url);
 }
 
 export function get_stream_topic_link_syntax(stream_name: string, topic_name: string): string {
