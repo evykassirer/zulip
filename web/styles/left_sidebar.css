@@ -2408,6 +2408,9 @@ body:not(.spectator-view)
     #left-sidebar:not(.direct-messages-hidden-by-filters).zoom-in-topics
     #left-sidebar-modal {
     .left-sidebar-modal-close-area {
+        /* Avoid annoying flash of gray in the close area
+           on iOS/iPadOS */
+        -webkit-tap-highlight-color: transparent;
         padding-top: calc(
             var(--left-sidebar-modal-close-area-padding-top) +
                 var(--line-height-sidebar-row-prominent)
