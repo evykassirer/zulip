@@ -1417,15 +1417,24 @@ ul.popover-menu-list {
     color: var(--color-text-popover-menu) !important;
 
     .popover-topic-links-list {
-        padding: 0 0.6666em 0.6666em;
+        /* Equal padding on all sides; the bottom padding here stacks with
+           the next section title's top padding to leave a double-height
+           gap between the two link sections. */
+        padding: 0.6666em;
     }
 
     .topic-links-menu-title {
         display: flex;
         align-items: center;
         gap: 5px;
-        padding: 0.6666em 0.6666em 0;
+        padding: 0.6666em;
         font-weight: 600;
+        margin: 0;
+    }
+
+    .popover-menu-separator {
+        /* The space above and below each separator comes from the
+           adjacent title and list padding, so it stays symmetrical. */
         margin: 0;
     }
 
@@ -1445,10 +1454,8 @@ ul.popover-menu-list {
         margin-right: 3px;
     }
 
-    .topic-links-menu-link-list + .topic-links-menu-link-list {
-        .topic-links-menu-title {
-            padding-top: 0;
-        }
+    .popover-topic-links-list li + li {
+        margin-top: 0.5em;
     }
 
     ul {
