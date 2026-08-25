@@ -1,0 +1,100 @@
+name: Sync "has completion candidate" label
+
+on:
+  # pull_request_target is needed for the token to have write access when
+  # the PR comes from a fork. This is safe because the job never checks
+  # out or runs code from the PR; it only calls the GitHub API.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [labeled, unlabeled, closed, reopened]
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  sync-has-completion-candidate-label:
+    # Only run for the "completion candidate" label being added or
+    # removed, or for a PR that has that label being closed or reopened.
+    if: >-
+      ((github.event.action == 'labeled' || github.event.action == 'unlabeled')
+      && github.event.label.name == 'completion candidate')
+      || ((github.event.action == 'closed' || github.event.action == 'reopened')
+      && contains(github.event.pull_request.labels.*.name, 'completion candidate'))
+    runs-on: ubuntu-slim
+
+    steps:
+      - name: Sync label on linked issues
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const prLabel = "completion candidate";
+            const issueLabel = "has completion candidate";
+            const repoName = `${context.repo.owner}/${context.repo.repo}`;
+
+            // The event is just a trigger to re-sync; the desired state of
+            // each issue is computed from the current set of open PRs that
+            // link it, so runs are idempotent regardless of event order.
+            //
+            // Issues are linked from the PR description ("Fixes #123") or
+            // manually via the "Development" sidebar. By default,
+            // closedByPullRequestsReferences only includes open PRs.
+            const { repository } = await github.graphql(
+              `
+                query ($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      closingIssuesReferences(first: 20) {
+                        nodes {
+                          number
+                          state
+                          repository {
+                            nameWithOwner
+                          }
+                          labels(first: 100) {
+                            nodes {
+                              name
+                            }
+                          }
+                          closedByPullRequestsReferences(first: 20) {
+                            nodes {
+                              labels(first: 100) {
+                                nodes {
+                                  name
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                number: context.payload.pull_request.number,
+              },
+            );
+
+            for (const issue of repository.pullRequest.closingIssuesReferences.nodes) {
+              if (issue.state !== "OPEN") continue;
+              if (issue.repository.nameWithOwner !== repoName) continue;
+
+              const hasLabel = issue.labels.nodes.some((l) => l.name === issueLabel);
+              const shouldHaveLabel = issue.closedByPullRequestsReferences.nodes.some(
+                (linkedPR) => linkedPR.labels.nodes.some((l) => l.name === prLabel),
+              );
+              if (hasLabel === shouldHaveLabel) continue;
+
+              const issueParams = {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+              };
+              if (shouldHaveLabel) {
+                await github.rest.issues.addLabels({ ...issueParams, labels: [issueLabel] });
+              } else {
+                await github.rest.issues.removeLabel({ ...issueParams, name: issueLabel });
+              }
+            }
