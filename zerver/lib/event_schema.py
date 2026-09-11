@@ -9,7 +9,8 @@ import inspect
 from collections.abc import Callable
 from enum import Enum
 from pprint import PrettyPrinter
-from typing import cast
+from types import UnionType
+from typing import Union, cast, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -134,12 +135,82 @@ from zerver.models import Realm, RealmUserDefault, Stream, UserProfile
 from zerver.models.streams import StreamTopicsPolicyEnum
 
 
-def validate_with_model(data: dict[str, object], model: type[BaseModel]) -> None:
-    allowed_fields = set(model.model_fields.keys())
-    if not set(data.keys()).issubset(allowed_fields):  # nocoverage
-        raise ValueError(f"Extra fields not allowed: {set(data.keys()) - allowed_fields}")
+def annotation_alternatives(annotation: object) -> list[object]:
+    # The alternatives a field annotation admits: the annotation itself,
+    # or each member of a union such as `A | B | None`.
+    if get_origin(annotation) in (Union, UnionType):
+        return list(get_args(annotation))
+    return [annotation]
 
-    model.model_validate(data, strict=True)
+
+def model_variants(annotation: object) -> list[type[BaseModel]]:
+    return [
+        arg
+        for arg in annotation_alternatives(annotation)
+        if inspect.isclass(arg) and issubclass(arg, BaseModel)
+    ]
+
+
+def container_args(annotation: object, container: type) -> tuple[object, ...]:
+    # The type arguments of `container[...]` within the annotation, so
+    # that `list[Foo] | None` yields `(Foo,)`.
+    for arg in annotation_alternatives(annotation):
+        if get_origin(arg) is container:
+            return get_args(arg)
+    return ()
+
+
+def check_extra_fields(
+    data: dict[str, object], validated: BaseModel, variants: list[type[BaseModel]]
+) -> None:
+    # Pydantic's default extra="ignore" silently drops undeclared keys,
+    # so model_validate alone would let a schema that is missing a field
+    # pass. Walk the validated instance alongside the raw data so that
+    # nested models are checked too.
+    #
+    # For a field typed as a union of models, pydantic settles on one
+    # variant, but a key declared by any variant is permitted at that
+    # position; the node fixtures exercise several variants' keys in a
+    # single event.
+    #
+    # TODO: Once no event model is constructed from a **dict[str, Any]
+    # spread (all sources are TypedDicts, explicit kwargs, or pydantic
+    # models), mypy guarantees no undeclared key can reach a constructor,
+    # and extra="forbid" on the models could replace this check.
+    allowed_fields = {name for variant in variants for name in variant.model_fields}
+    extra_fields = set(data.keys()) - allowed_fields
+    if extra_fields:  # nocoverage
+        raise ValueError(f"Extra fields not allowed on {type(validated).__name__}: {extra_fields}")
+    for field_name, field_info in type(validated).model_fields.items():
+        if field_name in data:
+            check_extra_fields_in_value(
+                data[field_name], getattr(validated, field_name), field_info.annotation
+            )
+
+
+def check_extra_fields_in_value(
+    raw_value: object, validated_value: object, annotation: object
+) -> None:
+    if isinstance(validated_value, BaseModel):
+        assert isinstance(raw_value, dict)
+        check_extra_fields(raw_value, validated_value, model_variants(annotation))
+    elif isinstance(validated_value, list):
+        assert isinstance(raw_value, list)
+        args = container_args(annotation, list)
+        item_annotation = args[0] if len(args) == 1 else object
+        for raw_item, validated_item in zip(raw_value, validated_value, strict=True):
+            check_extra_fields_in_value(raw_item, validated_item, item_annotation)
+    elif isinstance(validated_value, dict):
+        assert isinstance(raw_value, dict)
+        args = container_args(annotation, dict)
+        value_annotation = args[1] if len(args) == 2 else object
+        for key, validated_item in validated_value.items():
+            check_extra_fields_in_value(raw_value[key], validated_item, value_annotation)
+
+
+def validate_with_model(data: dict[str, object], model: type[BaseModel]) -> None:
+    validated = model.model_validate(data, strict=True)
+    check_extra_fields(data, validated, [model])
 
 
 def make_checker(base_model: type[BaseEvent]) -> Callable[[str, dict[str, object]], None]:

@@ -4,11 +4,10 @@ const {Role} = require("./example_user.cjs");
 
 //  These events are not guaranteed to be perfectly
 //  representative of what the server sends.  We
-//  have a tool called check-schemas that tries
-//  to validate this data against server side schemas,
-//  but there are certain edge cases that the tool now
-//  skips.  And even when the data matches the schema,
-//  it may not be completely representative.
+//  have a tool called check-schemas that validates
+//  this data against server side schemas, but even
+//  when the data matches the schema, it may not be
+//  completely representative.
 
 const test_user = {
     email: "test@example.com",
