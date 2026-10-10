@@ -243,13 +243,42 @@ export type Message = (
 
 export function update_message_cache(message_data: ProcessedMessage): void {
     // You should only call this from message_helper (or in tests).
-    stored_messages.set(message_data.message.id, message_data);
+    const message_id = message_data.message.id;
+
+    // Links to this message that were saved before it was cached are
+    // filed under the location in their URL, which is where the maps
+    // expect to find them for as long as the message is missing. So we
+    // clear them before caching it, and re-save them afterwards so they
+    // get filed under its current location.
+    const pending_linking_message_ids =
+        pending_message_link_targets.get(message_id) ?? new Set<number>();
+    pending_message_link_targets.delete(message_id);
+    for (const linking_message_id of pending_linking_message_ids) {
+        const linking_message = get(linking_message_id);
+        if (linking_message?.type === "stream") {
+            update_or_remove_links_from_message(
+                linking_message.stream_id,
+                linking_message.topic,
+                linking_message.id,
+                undefined,
+            );
+        }
+    }
+
+    stored_messages.set(message_id, message_data);
 
     // Recalculate the message's topic links data. Removing and re-adding them
     // is as much work as calculating them and comparing them to existing links
     // links, and is tidier.
-    remove_message_from_topic_links(message_data.message.id);
+    remove_message_from_topic_links(message_id);
     save_topic_links(message_data.message);
+
+    for (const linking_message_id of pending_linking_message_ids) {
+        const linking_message = get(linking_message_id);
+        if (linking_message !== undefined) {
+            save_topic_links(linking_message);
+        }
+    }
 }
 
 export function get_cached_message(message_id: number): ProcessedMessage | undefined {
@@ -521,9 +550,19 @@ export function topic_links_incoming_for_testing(): Map<
     return topic_links_incoming;
 }
 
+// to_message_id -> from_message_id[], for message links whose target
+// isn't cached yet. Such links are filed under the location in their
+// URL until the target arrives, since the target may have moved since
+// the link was written.
+const pending_message_link_targets = new Map<number, Set<number>>();
+export function pending_message_link_targets_for_testing(): Map<number, Set<number>> {
+    return pending_message_link_targets;
+}
+
 export function clear_topic_links_for_testing(): void {
     topic_links_outgoing.clear();
     topic_links_incoming.clear();
+    pending_message_link_targets.clear();
 }
 
 // Returns the cross-conversation links found in this narrow, resolved to
@@ -554,16 +593,20 @@ export function topic_links_from_narrow(stream_id: number, topic: string): Topic
         for (const link of narrow_map.get(message_id)!) {
             // A message link points to the linked message's current
             // location, which may differ from where it was when the link
-            // was created (e.g. if its topic was resolved since).
+            // was created (e.g. if its topic was resolved since). Until
+            // the linked message is cached, the location in the link's
+            // URL is the best we know.
             let target = link;
             if (link.message_id !== undefined) {
                 const message = get(link.message_id);
-                assert(message?.type === "stream");
-                target = {
-                    stream_id: message.stream_id,
-                    topic: message.topic,
-                    message_id: message.id,
-                };
+                if (message !== undefined) {
+                    assert(message.type === "stream");
+                    target = {
+                        stream_id: message.stream_id,
+                        topic: message.topic,
+                        message_id: message.id,
+                    };
+                }
             }
             // Hide links from this topic to the same topic, since those feel
             // unnecessary to reference.
@@ -751,6 +794,11 @@ function _remove_or_update_message_id_from_topic_links(
 
 function update_message_id_in_topic_links(old_message_id: number, new_message_id: number): void {
     _remove_or_update_message_id_from_topic_links(old_message_id, new_message_id);
+    for (const linking_message_ids of pending_message_link_targets.values()) {
+        if (linking_message_ids.delete(old_message_id)) {
+            linking_message_ids.add(new_message_id);
+        }
+    }
 }
 
 function remove_message_from_topic_links(message_id: number): void {
@@ -801,15 +849,24 @@ export function save_topic_links(message: Message): void {
         // or it's a message from a muted user, just ignore it.
         if (to_message_id !== undefined) {
             const to_message = get(to_message_id);
-            if (
-                to_message === undefined ||
+            if (to_message === undefined) {
+                // The link is filed under the location in its URL until
+                // the linked message is cached; see update_message_cache.
+                let linking_message_ids = pending_message_link_targets.get(to_message_id);
+                if (linking_message_ids === undefined) {
+                    linking_message_ids = new Set();
+                    pending_message_link_targets.set(to_message_id, linking_message_ids);
+                }
+                linking_message_ids.add(message.id);
+            } else if (
                 muted_users.is_user_muted(to_message.sender_id) ||
                 to_message.type !== "stream"
             ) {
                 continue;
+            } else {
+                to_stream_id = to_message.stream_id;
+                to_topic = to_message.topic;
             }
-            to_stream_id = to_message.stream_id;
-            to_topic = to_message.topic;
         }
         if (!stream_data.get_sub_by_id(to_stream_id)) {
             continue;
