@@ -34,7 +34,7 @@ kbd {
     color: var(--color-kbd-text);
     margin: 0.25em 0.1em;
     padding: 0.2em 0.4em;
-    text-shadow: 0 1px 0 hsl(0deg 0% 100%);
+    text-shadow: 0 1px 0 var(--color-kbd-text-shadow);
     /* Prevent selection */
     user-select: none;
     position: relative;

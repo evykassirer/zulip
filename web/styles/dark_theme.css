@@ -3,10 +3,6 @@
 %dark-theme {
     color-scheme: dark;
 
-    kbd {
-        text-shadow: none;
-    }
-
     /************************* MODAL DARK THEME *******************/
 
     #message-formatting,
