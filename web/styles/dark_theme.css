@@ -36,11 +36,6 @@
         }
     }
 
-    /* this one is because in the app we have blue and in dark-theme it should be white. */
-    .popover a {
-        color: inherit;
-    }
-
     /* these are converting grey things to "new grey".
        :disabled rules are exploded for CSS selector performance reasons. */
     button:disabled:not(.action-button, .icon-button, .info-density-button),
@@ -86,7 +81,6 @@
         }
     }
 
-    .popover hr,
     hr {
         opacity: 0.2;
     }
