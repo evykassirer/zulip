@@ -119,10 +119,6 @@
         color: inherit;
     }
 
-    .tip {
-        color: inherit;
-    }
-
     .alert.home-error-bar {
         color: hsl(236deg 33% 90%);
         background-color: hsl(35deg 84% 62% / 25%);
