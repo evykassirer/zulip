@@ -6,6 +6,7 @@ import render_stream_can_subscribe_group_label from "../templates/stream_setting
 import render_stream_privacy_icon from "../templates/stream_settings/stream_privacy_icon.hbs";
 import render_stream_settings_tip from "../templates/stream_settings/stream_settings_tip.hbs";
 
+import * as buttons from "./buttons.ts";
 import * as channel_folders from "./channel_folders.ts";
 import * as hash_parser from "./hash_parser.ts";
 import {$t} from "./i18n.ts";
@@ -237,6 +238,7 @@ export function update_settings_button_for_sub(sub: StreamSubscription): void {
         return;
     }
 
+    buttons.hide_button_loading_indicator($settings_button);
     if (sub.subscribed) {
         $settings_button.find(".action-button-label").text($t({defaultMessage: "Unsubscribe"}));
         $settings_button

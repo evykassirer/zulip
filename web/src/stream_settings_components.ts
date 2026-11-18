@@ -201,9 +201,8 @@ function hide_subscribe_toggle_spinner($stream_row: JQuery): void {
     loading.destroy_indicator($spinner);
 }
 
-export function ajaxSubscribe(
-    stream: string,
-    color: string,
+function ajaxSubscribe(
+    sub: StreamSubscription,
     $stream_row: JQuery | undefined,
     $button_elem: JQuery | undefined,
 ): void {
@@ -216,7 +215,7 @@ export function ajaxSubscribe(
     }
     void channel.post({
         url: "/json/users/me/subscriptions",
-        data: {subscriptions: JSON.stringify([{name: stream, color}])},
+        data: {subscriptions: JSON.stringify([{name: sub.name, color: sub.color}])},
         success(_resp, _statusText, xhr) {
             if (overlays.streams_open()) {
                 $("#create_stream_name").val("");
@@ -233,13 +232,16 @@ export function ajaxSubscribe(
                     $(".stream_change_property_info"),
                 );
             }
-            // The rest of the work is done via the subscribe event we will get
-
-            if ($stream_row !== undefined) {
-                hide_subscribe_toggle_spinner($stream_row);
-            }
-            if ($button_elem !== undefined) {
-                buttons.hide_button_loading_indicator($button_elem);
+            // The rest of the work is done via the subscribe event we
+            // will get, which also removes the loading indicators. We
+            // only remove them here if no event is still to come.
+            if (sub.subscribed) {
+                if ($stream_row !== undefined) {
+                    hide_subscribe_toggle_spinner($stream_row);
+                }
+                if ($button_elem !== undefined) {
+                    buttons.hide_button_loading_indicator($button_elem);
+                }
             }
         },
         error(xhr) {
@@ -275,13 +277,16 @@ function ajaxUnsubscribe(
         data: {subscriptions: JSON.stringify([sub.name])},
         success() {
             $(".stream_change_property_info").hide();
-            // The rest of the work is done via the unsubscribe event we will get
-
-            if ($stream_row !== undefined) {
-                hide_subscribe_toggle_spinner($stream_row);
-            }
-            if ($button_elem !== undefined) {
-                buttons.hide_button_loading_indicator($button_elem);
+            // The rest of the work is done via the unsubscribe event we
+            // will get, which also removes the loading indicators. We
+            // only remove them here if no event is still to come.
+            if (!sub.subscribed) {
+                if ($stream_row !== undefined) {
+                    hide_subscribe_toggle_spinner($stream_row);
+                }
+                if ($button_elem !== undefined) {
+                    buttons.hide_button_loading_indicator($button_elem);
+                }
             }
         },
         error(xhr) {
@@ -351,7 +356,7 @@ export function sub_or_unsub(
         }
         ajaxUnsubscribe(sub, $stream_row, $button_elem);
     } else {
-        ajaxSubscribe(sub.name, sub.color, $stream_row, $button_elem);
+        ajaxSubscribe(sub, $stream_row, $button_elem);
     }
 }
 
